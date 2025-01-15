@@ -5,6 +5,7 @@ import { LibBytesPointer } from "../utils/LibBytesPointer.sol";
 import { LibOptim } from "../utils/LibOptim.sol";
 import { Payload } from "./Payload.sol";
 import { IERC1271, IERC1271_MAGIC_VALUE } from "./interfaces/IERC1271.sol";
+import { ISapient, ISapientCompact } from "./interfaces/ISapient.sol";
 
 using LibBytesPointer for bytes;
 using LibOptim for bytes;
@@ -41,6 +42,14 @@ contract BaseSig {
     return keccak256(abi.encodePacked('Sequence nested config:\n', _node, _threshold, _weight));
   }
 
+  function _leafForSapient(
+    address _addr,
+    uint96 _weight,
+    bytes32 _imageHash
+  ) internal pure returns (bytes32) {
+    return keccak256(abi.encodePacked('Sequence sapient config:\n', _addr, _weight, _imageHash));
+  }
+
   function _leafForHardcodedSubdigest(
     bytes32 _subdigest
   ) internal pure returns (bytes32) {
@@ -57,6 +66,8 @@ contract BaseSig {
   ) {
     unchecked {
       uint256 rindex;
+
+      // TODO: Organise flag checks by expected usage frequency
 
       // Iterate until the image is completed
       while (rindex < _signature.length) {
@@ -125,7 +136,7 @@ contract BaseSig {
           continue;
         }
 
-
+        // Node (0x03)
         if (flag == FLAG_NODE) {
           // Read node hash
           bytes32 node;
@@ -134,6 +145,7 @@ contract BaseSig {
           continue;
         }
 
+        // Branch (0x04)
         if (flag == FLAG_BRANCH) {
           // Enter a branch of the signature merkle tree
           uint256 size;
@@ -150,6 +162,7 @@ contract BaseSig {
           continue;
         }
 
+        // Nested (0x05)
         if (flag == FLAG_NESTED) {
           // Enter a branch of the signature merkle tree
           // but with an internal threshold and an external fixed weight
@@ -177,6 +190,7 @@ contract BaseSig {
           continue;
         }
 
+        // Subdigest (0x06)
         if (flag == FLAG_SUBDIGEST) {
           // A hardcoded always accepted digest
           // it pushes the weight to the maximum
@@ -191,6 +205,7 @@ contract BaseSig {
           continue;
         }
 
+        // Signature ETH Sign (0x07)
         if (flag == FLAG_SIGNATURE_ETH_SIGN) {
           // Read weight
           uint8 addrWeight;
@@ -215,6 +230,57 @@ contract BaseSig {
           // Add the weight and compute the merkle root
           weight += addrWeight;
           bytes32 node = _leafForAddressAndWeight(addr, addrWeight);
+          root = root != bytes32(0) ? LibOptim.fkeccak256(root, node) : node;
+          continue;
+        }
+
+        // Signature EIP712 (0x08)
+        if (flag == FLAG_SIGNATURE_EIP712) {
+          // TODO: Implement EIP712 signature recovery
+        }
+
+        // Signature Sapient (0x09)
+        if (flag == FLAG_SIGNATURE_SAPIENT) {
+          // Read signer and weight
+          uint8 addrWeight; address addr;
+          (addrWeight, addr, rindex) = _signature.readUint8Address(rindex);
+
+          // Read signature size
+          uint256 size;
+          (size, rindex) = _signature.readUint24(rindex);
+
+          // Read dynamic size signature
+          uint256 nrindex = rindex + size;
+
+          // Call the ERC1271 contract to check if the signature is valid
+          bytes32 sapientImageHash = ISapient(addr).isValidSapientSignature(_payload, _signature[rindex:nrindex]);
+
+          // Add the weight and compute the merkle root
+          weight += addrWeight;
+          bytes32 node = _leafForSapient(addr, addrWeight, sapientImageHash);
+          root = root != bytes32(0) ? LibOptim.fkeccak256(root, node) : node;
+          continue;
+        }
+
+        // Signature Sapient Compact (0x0A)
+        if (flag == FLAG_SIGNATURE_SAPIENT_COMPACT) {
+          // Read signer and weight
+          uint8 addrWeight; address addr;
+          (addrWeight, addr, rindex) = _signature.readUint8Address(rindex);
+
+          // Read signature size
+          uint256 size;
+          (size, rindex) = _signature.readUint24(rindex);
+
+          // Read dynamic size signature
+          uint256 nrindex = rindex + size;
+
+          // Call the Sapient contract to check if the signature is valid
+          bytes32 sapientImageHash = ISapientCompact(addr).isValidSapientSignatureCompact(_subdigest, _signature[rindex:nrindex]);
+
+          // Add the weight and compute the merkle root
+          weight += addrWeight;
+          bytes32 node = _leafForSapient(addr, addrWeight, sapientImageHash);
           root = root != bytes32(0) ? LibOptim.fkeccak256(root, node) : node;
           continue;
         }
