@@ -40,7 +40,7 @@ contract TestStage1Module is AdvTest {
     bytes32 configHash = PrimitivesRPC.getImageHash(vm, config);
 
     // Deploy wallet for that config
-    address wallet = factory.deploy(address(stage1Module), configHash);
+    address payable wallet = payable(factory.deploy(address(stage1Module), configHash));
 
     // Should predict the address of the wallet using the SDK
     address predictedWallet = PrimitivesRPC.getAddress(vm, configHash, address(factory), address(stage1Module));
@@ -116,7 +116,7 @@ contract TestStage1Module is AdvTest {
     vars.ogConfigHash = PrimitivesRPC.getImageHash(vm, vars.ogConfig);
 
     // Deploy wallet for that config
-    address wallet = factory.deploy(address(stage1Module), vars.ogConfigHash);
+    address payable wallet = payable(factory.deploy(address(stage1Module), vars.ogConfigHash));
 
     vars.nextSigner = vm.addr(params.nextPk);
 
@@ -193,5 +193,98 @@ contract TestStage1Module is AdvTest {
     bytes4 result = Stage2Module(wallet).isValidSignature(params.digest, vars.useNewImageHashSignature);
     assertEq(result, bytes4(0x20c13b0b));
   }
+
+  function test_receiveETH_stage1() external {
+    address payable wallet = payable(factory.deploy(address(stage1Module), bytes32(0)));
+    vm.deal(address(this), 1 ether);
+    (bool success,) = wallet.call{ value: 1 ether }("");
+    assertTrue(success);
+    assertEq(address(wallet).balance, 1 ether);
+  }
+
+  struct test_receiveETH_stage2_params {
+    uint256 pk;
+    uint256 nextPk;
+    uint16 threshold;
+    uint16 nextThreshold;
+    uint56 checkpoint;
+  }
+
+  struct test_receiveETH_stage2_vars {
+    address signer;
+    address payable wallet;
+    bytes updateConfigSignature;
+    bytes updateConfigPackedPayload;
+    string ogCe;
+    string ogConfig;
+    string nextCe;
+    string nextConfig;
+    bytes32 ogConfigHash;
+    bytes32 nextConfigHash;
+  }
+
+  function test_receiveETH_stage2(
+    test_receiveETH_stage2_params memory params
+  ) external {
+    params.pk = boundPk(params.pk);
+
+    test_receiveETH_stage2_vars memory vars;
+    vars.signer = vm.addr(params.pk);
+
+    // Original config (stage1)
+    vars.ogCe = string(abi.encodePacked("signer:", vm.toString(vars.signer), ":1"));
+    vars.ogConfig = PrimitivesRPC.newConfig(vm, 1, 0, vars.ogCe);
+    vars.ogConfigHash = PrimitivesRPC.getImageHash(vm, vars.ogConfig);
+
+    // Deploy wallet in stage1
+    vars.wallet = payable(factory.deploy(address(stage1Module), vars.ogConfigHash));
+
+    // Next config (what we'll update to)
+    vars.nextCe = string(abi.encodePacked("signer:", vm.toString(vars.signer), ":1"));
+    vars.nextConfig = PrimitivesRPC.newConfig(vm, 1, 1, vars.nextCe);
+    vars.nextConfigHash = PrimitivesRPC.getImageHash(vm, vars.nextConfig);
+
+    // Construct the payload to update the imageHash (which transitions us to stage2)
+    Payload.Decoded memory updateConfigPayload;
+    updateConfigPayload.kind = Payload.KIND_TRANSACTIONS;
+    updateConfigPayload.calls = new Payload.Call[](1);
+    updateConfigPayload.calls[0] = Payload.Call({
+      to: address(vars.wallet),
+      value: 0,
+      data: abi.encodeWithSelector(BaseAuth.updateImageHash.selector, vars.nextConfigHash),
+      gasLimit: 100000,
+      delegateCall: false,
+      onlyFallback: false,
+      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+    });
+
+    // Sign the payload using the original config
+    (uint256 v, bytes32 r, bytes32 s) = vm.sign(params.pk, Payload.hashFor(updateConfigPayload, vars.wallet));
+    vars.updateConfigSignature = PrimitivesRPC.toEncodedSignature(
+      vm,
+      vars.ogConfig,
+      string(
+        abi.encodePacked(vm.toString(vars.signer), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))
+      ),
+      true
+    );
+
+    // Pack the payload and execute
+    vars.updateConfigPackedPayload = PrimitivesRPC.toPackedPayload(vm, updateConfigPayload);
+    Stage1Module(vars.wallet).execute(vars.updateConfigPackedPayload, vars.updateConfigSignature);
+
+    // Confirm that the wallet is now running stage2
+    assertEq(Stage1Module(vars.wallet).getImplementation(), stage1Module.STAGE_2_IMPLEMENTATION());
+
+    // Send 1 ether to the newly upgraded wallet
+    vm.deal(address(this), 1 ether);
+    (bool success,) = vars.wallet.call{ value: 1 ether }("");
+    assertTrue(success);
+
+    // Check that the wallet received the ether
+    assertEq(address(vars.wallet).balance, 1 ether);
+  }
+
+  receive() external payable { }
 
 }

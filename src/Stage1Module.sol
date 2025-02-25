@@ -3,10 +3,12 @@ pragma solidity ^0.8.27;
 
 import { Stage2Module } from "./Stage2Module.sol";
 import { Calls } from "./modules/Calls.sol";
+
+import { Hooks } from "./modules/Hooks.sol";
 import { Stage1Auth } from "./modules/auth/Stage1Auth.sol";
 import { IAuth } from "./modules/interfaces/IAuth.sol";
 
-contract Stage1Module is Calls, Stage1Auth {
+contract Stage1Module is Calls, Stage1Auth, Hooks {
 
   constructor(
     address _factory

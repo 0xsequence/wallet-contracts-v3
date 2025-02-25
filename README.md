@@ -34,3 +34,13 @@ Run tests
 ```sh
 forge test
 ```
+
+Deploy contracts
+
+```sh
+forge script Deploy --rpc-url <xxx> --broadcast
+```
+
+
+> [!NOTE]
+> Deployments use ERC-2470 for counter factual deployments.

@@ -36,19 +36,24 @@ library SessionSig {
   }
 
   /// @notice Recovers the decoded signature from the encodedSignature bytes.
-  /// The encoded layout is:
-  /// - session_configuration: [uint8 flags, <data>]
-  ///   - flags: [uint8]
-  ///     - 0: [uint8 permissions_count, <SessionPermissions encoded>]
-  ///     - 1: [bytes32 node]
-  ///     - 2: [uint256 size, nested encoding...]
-  ///     - 3: [uint24 blacklist_length, blacklist_addresses...]
-  ///     - 4: [address global_signer]
-  /// - call_signatures: [<CallSignature encoded>] - Size is payload.calls.length
-  ///   - call_signature: [uint8 call_flags, <data encoded>]
-  ///       - call_flags: [bool is_implicit, <see_below>]
-  ///     - if call_flags.is_implicit: implicit_signature: [<Attestation encoded>, <attestation_signature>, <session_signature>]
-  ///     - if !call_flags.is_implicit: explicit_signature: [uint (call_flag 7 bits) session_permission, <session_signature>]
+  /// The encoded layout is conceptually separated into three parts:
+  ///  1) Session Configuration
+  ///  2) A reusable list of Attestations + their global signatures (if any implicit calls exist)
+  ///  3) Call Signatures (one per call in the payload)
+  ///
+  /// High-level layout:
+  ///  - session_configuration: [uint24 size, <Session Configuration encoded>]
+  ///  - attestation_list: [uint8 attestationCount, (Attestation + globalSig) * attestationCount]
+  ///    (new section to allow reusing the same Attestation across multiple calls)
+  ///  - call_signatures: [<CallSignature encoded>] - Size is payload.calls.length
+  ///    - call_signature: [uint8 call_flags, <session_signature>]
+  ///      - call_flags: [bool is_implicit (MSB), 7 bits encoded]
+  ///      - if call_flags.is_implicit.MSB == 1:
+  ///         - attestation_index: [uint8 index into the attestation list (7 bits of the call_flags)]
+  ///         - session_signature: [r, s, v (compact)]
+  ///      - if call_flags.is_implicit.MSB == 0:
+  ///         - session_permission: [uint8 (7 bits of the call_flags)]
+  ///         - session_signature: [r, s, v (compact)]
   function recoverSignature(
     Payload.Decoded calldata payload,
     bytes calldata encodedSignature
@@ -61,66 +66,93 @@ library SessionSig {
       // First read the length of the session configuration bytes (uint24)
       uint256 dataSize;
       (dataSize, pointer) = encodedSignature.readUint24(pointer);
+
       // Recover the session configuration
       (sig, hasBlacklistInConfig) = recoverConfiguration(encodedSignature[pointer:pointer + dataSize]);
       pointer += dataSize;
 
       // Global signer must be set
       if (sig.globalSigner == address(0)) {
-        // Global signer was not set
         revert SessionErrors.InvalidGlobalSigner();
+      }
+    }
+
+    // ----- Attestations for implicit calls -----
+    Attestation[] memory attestationList;
+    {
+      uint8 attestationCount;
+      (attestationCount, pointer) = encodedSignature.readUint8(pointer);
+      attestationList = new Attestation[](attestationCount);
+      // Parse each attestation and its global signature, store in memory
+      for (uint256 i = 0; i < attestationCount; i++) {
+        Attestation memory att;
+        (att, pointer) = LibAttestation.fromPacked(encodedSignature, pointer);
+
+        // Read the global signature that approves this attestation
+        {
+          bytes32 r;
+          bytes32 s;
+          uint8 v;
+          (r, s, v, pointer) = encodedSignature.readRSVCompact(pointer);
+
+          // Recover the global signer from the attestation global signature
+          bytes32 attestationHash = att.toHash();
+          address recoveredGlobalSigner = ecrecover(attestationHash, v, r, s);
+          if (recoveredGlobalSigner != sig.globalSigner) {
+            revert SessionErrors.InvalidGlobalSigner();
+          }
+        }
+
+        attestationList[i] = att;
+      }
+
+      // If we have any implicit calls, we must have a blacklist in the configuration
+      if (attestationCount > 0 && !hasBlacklistInConfig) {
+        revert SessionErrors.InvalidBlacklist();
       }
     }
 
     // ----- Call Signatures -----
     {
-      uint256 dataSize = payload.calls.length;
-      sig.callSignatures = new CallSignature[](dataSize);
-      {
-        for (uint256 i = 0; i < dataSize; i++) {
-          CallSignature memory callSignature;
-          // Determine signature type
-          uint8 flag;
-          (flag, pointer) = encodedSignature.readUint8(pointer);
-          callSignature.isImplicit = flag & 0x80 != 0;
-          if (callSignature.isImplicit) {
-            if (!hasBlacklistInConfig) {
-              // Blacklist must be in configuration when using implicit signatures
-              revert SessionErrors.InvalidBlacklist();
-            }
-            //TODO Find a way to wrap up multiple uses of the same attestation and global signature
-            // Read attestation
-            (callSignature.attestation, pointer) = LibAttestation.fromPacked(encodedSignature, pointer);
-            // Read attestation global signature
-            {
-              bytes32 r;
-              bytes32 s;
-              uint8 v;
-              (r, s, v, pointer) = encodedSignature.readRSVCompact(pointer);
-              // Recover the global signer from the attestation global signature
-              bytes32 attestationHash = callSignature.attestation.toHash();
-              address recoveredGlobalSigner = ecrecover(attestationHash, v, r, s);
-              if (recoveredGlobalSigner != sig.globalSigner) {
-                // Global signer must match configuration
-                revert SessionErrors.InvalidGlobalSigner();
-              }
-            }
-          } else {
-            // Session permission idx is the flag (first bit 0)
-            callSignature.sessionPermission = flag;
-          }
-          // Read session signature and recover the signer
-          {
-            bytes32 r;
-            bytes32 s;
-            uint8 v;
-            (r, s, v, pointer) = encodedSignature.readRSVCompact(pointer);
-            bytes32 callHash = Payload.hashCall(payload.calls[i]);
-            callSignature.sessionSigner = ecrecover(callHash, v, r, s);
+      uint256 callsCount = payload.calls.length;
+      sig.callSignatures = new CallSignature[](callsCount);
+
+      for (uint256 i = 0; i < callsCount; i++) {
+        CallSignature memory callSignature;
+
+        // Determine signature type
+        uint8 flag;
+        (flag, pointer) = encodedSignature.readUint8(pointer);
+        callSignature.isImplicit = (flag & 0x80) != 0;
+
+        if (callSignature.isImplicit) {
+          // Read attestation index from the call_flags
+          uint8 attestationIndex = uint8(flag & 0x7f);
+
+          // Check if the attestation index is out of range
+          if (attestationIndex >= attestationList.length) {
+            revert SessionErrors.InvalidAttestation();
           }
 
-          sig.callSignatures[i] = callSignature;
+          // Set the attestation
+          callSignature.attestation = attestationList[attestationIndex];
+        } else {
+          // Session permission index is the entire byte, top bit is 0 => no conflict
+          callSignature.sessionPermission = flag;
         }
+
+        // Read session signature and recover the signer
+        {
+          bytes32 r;
+          bytes32 s;
+          uint8 v;
+          (r, s, v, pointer) = encodedSignature.readRSVCompact(pointer);
+
+          bytes32 callHash = Payload.hashCall(payload.calls[i]);
+          callSignature.sessionSigner = ecrecover(callHash, v, r, s);
+        }
+
+        sig.callSignatures[i] = callSignature;
       }
     }
 
@@ -147,7 +179,7 @@ library SessionSig {
 
     // Guess maximum permissions size by bytes length
     {
-      uint256 maxPermissionsSize = encoded.length / 50; // 50 is min bytes per permission
+      uint256 maxPermissionsSize = encoded.length / 50; //FIXME rough minimum estimate for memory
       sig.sessionPermissions = new SessionPermissions[](maxPermissionsSize);
     }
 
@@ -239,6 +271,7 @@ library SessionSig {
         // Update root
         sig.imageHash =
           sig.imageHash != bytes32(0) ? LibOptim.fkeccak256(sig.imageHash, branchSig.imageHash) : branchSig.imageHash;
+
         continue;
       }
 
@@ -250,13 +283,14 @@ library SessionSig {
         }
         hasBlacklist = true;
 
-        // Read the blacklist count from the first byte
+        // Read the blacklist count from the first byte's lower 4 bits
         uint256 blacklistCount = uint256(firstByte & 0x0f);
         if (blacklistCount == 0x0f) {
-          // Read the blacklist count from the next byte
+          // If it's max nibble, read the next byte for the actual size
           (blacklistCount, pointer) = encoded.readUint8(pointer);
         }
         uint256 pointerStart = pointer;
+
         // Read the blacklist addresses
         sig.implicitBlacklist = new address[](blacklistCount);
         for (uint256 i = 0; i < blacklistCount; i++) {
@@ -290,7 +324,7 @@ library SessionSig {
     }
 
     {
-      // Update the permissions array length
+      // Update the permissions array length to the actual count
       SessionPermissions[] memory permissions = sig.sessionPermissions;
       assembly {
         mstore(permissions, permissionsCount)

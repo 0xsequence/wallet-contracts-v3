@@ -2,10 +2,12 @@
 pragma solidity ^0.8.27;
 
 import { Calls } from "./modules/Calls.sol";
+
+import { Hooks } from "./modules/Hooks.sol";
 import { Stage2Auth } from "./modules/auth/Stage2Auth.sol";
 import { IAuth } from "./modules/interfaces/IAuth.sol";
 
-contract Stage2Module is Calls, Stage2Auth {
+contract Stage2Module is Calls, Stage2Auth, Hooks {
 
   function _isValidImage(
     bytes32 _imageHash

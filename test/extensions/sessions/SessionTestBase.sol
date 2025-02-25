@@ -122,14 +122,38 @@ abstract contract SessionTestBase is AdvTest {
     Vm.Wallet memory signer,
     Vm.Wallet memory globalSigner,
     Attestation memory attestation
-  ) internal returns (string memory) {
-    string memory globalSignature = _signAndEncodeRSV(LibAttestation.toHash(attestation), globalSigner);
+  ) internal pure returns (string memory) {
+    bytes32 attestationHash = attestation.toHash();
+    string memory globalSignature = _signAndEncodeRSV(attestationHash, globalSigner);
     string memory sessionSignature = _signAndEncodeRSV(Payload.hashCall(call), signer);
+    return _implicitCallSignatureToJSON(attestation, sessionSignature, globalSignature);
+  }
 
-    bytes memory callSignature = PrimitivesRPC.sessionImplicitEncodeCallSignature(
-      vm, sessionSignature, globalSignature, _attestationToJSON(attestation)
-    );
-    return vm.toString(callSignature);
+  function _implicitCallSignatureToJSON(
+    Attestation memory attestation,
+    string memory sessionSignature,
+    string memory globalSignature
+  ) internal pure returns (string memory) {
+    string memory json = '{"attestation":';
+    json = string.concat(json, _attestationToJSON(attestation));
+    json = string.concat(json, ',"sessionSignature":"');
+    json = string.concat(json, sessionSignature);
+    json = string.concat(json, '","globalSignature":"');
+    json = string.concat(json, globalSignature);
+    json = string.concat(json, '"}');
+    return json;
+  }
+
+  function _explicitCallSignatureToJSON(
+    uint8 permissionIndex,
+    string memory sessionSignature
+  ) internal pure returns (string memory) {
+    string memory json = '{"permissionIndex":"';
+    json = string.concat(json, vm.toString(permissionIndex));
+    json = string.concat(json, '","sessionSignature":"');
+    json = string.concat(json, sessionSignature);
+    json = string.concat(json, '"}');
+    return json;
   }
 
   function _createSessionPermissions(

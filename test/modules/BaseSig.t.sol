@@ -638,4 +638,94 @@ contract BaseSigTest is AdvTest {
     assertEq(opHash, Payload.hashFor(_finalPayload, address(baseSigImp)));
   }
 
+  struct test_recover_subdigest_params {
+    Payload.Decoded payload;
+    AddressWeightPair[] prefix;
+    AddressWeightPair[] suffix;
+    uint16 threshold;
+    uint56 checkpoint;
+  }
+
+  function test_recover_subdigest(
+    test_recover_subdigest_params memory params
+  ) public {
+    boundToLegalPayload(params.payload);
+
+    bytes32 opHash = Payload.hashFor(params.payload, address(baseSigImp));
+
+    string memory ce;
+
+    for (uint256 i = 0; i < params.prefix.length; i++) {
+      ce =
+        string.concat(ce, "signer:", vm.toString(params.prefix[i].addr), ":", vm.toString(params.prefix[i].weight), " ");
+    }
+
+    ce = string.concat(ce, "subdigest:", vm.toString(opHash));
+
+    for (uint256 i = 0; i < params.suffix.length; i++) {
+      ce =
+        string.concat(ce, " ", "signer:", vm.toString(params.suffix[i].addr), ":", vm.toString(params.suffix[i].weight));
+    }
+
+    string memory config = PrimitivesRPC.newConfig(vm, params.threshold, params.checkpoint, ce);
+
+    bytes memory encodedSig = PrimitivesRPC.toEncodedSignature(vm, config, "", !params.payload.noChainId);
+    bytes32 expectedImageHash = PrimitivesRPC.getImageHash(vm, config);
+
+    (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 recoveredOpHash) =
+      baseSigImp.recoverPub(params.payload, encodedSig, true, address(0));
+
+    assertEq(threshold, params.threshold);
+    assertEq(checkpoint, params.checkpoint);
+    assertEq(weight, type(uint256).max);
+    assertEq(recoveredOpHash, opHash);
+    assertEq(imageHash, expectedImageHash);
+  }
+
+  struct test_recover_anyAddressSubdigest_params {
+    Payload.Decoded payload;
+    AddressWeightPair[] prefix;
+    AddressWeightPair[] suffix;
+    uint16 threshold;
+    uint56 checkpoint;
+  }
+
+  function test_recover_anyAddressSubdigest(
+    test_recover_anyAddressSubdigest_params memory params
+  ) public {
+    vm.assume(params.payload.calls.length < 5);
+    boundToLegalPayload(params.payload);
+
+    bytes32 expectedAnyAddressDigest = Payload.hashFor(params.payload, address(0));
+    bytes32 opHash = Payload.hashFor(params.payload, address(baseSigImp));
+
+    string memory ce;
+
+    for (uint256 i = 0; i < params.prefix.length; i++) {
+      ce =
+        string.concat(ce, "signer:", vm.toString(params.prefix[i].addr), ":", vm.toString(params.prefix[i].weight), " ");
+    }
+
+    ce = string.concat(ce, "any-address-subdigest:", vm.toString(expectedAnyAddressDigest));
+
+    for (uint256 i = 0; i < params.suffix.length; i++) {
+      ce =
+        string.concat(ce, " ", "signer:", vm.toString(params.suffix[i].addr), ":", vm.toString(params.suffix[i].weight));
+    }
+
+    string memory config = PrimitivesRPC.newConfig(vm, params.threshold, params.checkpoint, ce);
+
+    bytes memory encodedSig = PrimitivesRPC.toEncodedSignature(vm, config, "", !params.payload.noChainId);
+    bytes32 expectedImageHash = PrimitivesRPC.getImageHash(vm, config);
+
+    (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 recoveredOpHash) =
+      baseSigImp.recoverPub(params.payload, encodedSig, true, address(0));
+
+    assertEq(threshold, params.threshold);
+    assertEq(checkpoint, params.checkpoint);
+    assertEq(weight, type(uint256).max);
+    assertEq(recoveredOpHash, opHash);
+    assertEq(imageHash, expectedImageHash);
+  }
+
 }

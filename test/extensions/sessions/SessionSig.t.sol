@@ -87,18 +87,18 @@ contract SessionSigTest is SessionTestBase {
     }
 
     // Sign the payload.
-    bytes memory callSignature;
+    string memory callSignature;
     {
       uint8 permissionIdx = 0;
       string memory sessionSignature = _signAndEncodeRSV(Payload.hashCall(payload.calls[0]), sessionWallet);
-      callSignature = PrimitivesRPC.sessionExplicitEncodeCallSignature(vm, sessionSignature, permissionIdx);
+      callSignature = _explicitCallSignatureToJSON(permissionIdx, sessionSignature);
     }
 
     // Construct the encoded signature.
     bytes memory encoded;
     {
       string[] memory callSignatures = new string[](1);
-      callSignatures[0] = vm.toString(callSignature);
+      callSignatures[0] = callSignature;
       address[] memory explicitSigners = new address[](1);
       explicitSigners[0] = sessionWallet.addr;
       address[] memory implicitSigners = new address[](0);
@@ -304,30 +304,26 @@ contract SessionSigTest is SessionTestBase {
     }
 
     // Sign the payloads and create call signatures with different signers
-    bytes[] memory callSignatures = new bytes[](2);
+    string[] memory callSignatures = new string[](2);
     {
       // First call signed by sessionWallet
       string memory sessionSignature1 = _signAndEncodeRSV(Payload.hashCall(payload.calls[0]), sessionWallet);
-      callSignatures[0] = PrimitivesRPC.sessionExplicitEncodeCallSignature(vm, sessionSignature1, 0);
+      callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature1);
 
       // Second call signed by sessionWallet2
       string memory sessionSignature2 = _signAndEncodeRSV(Payload.hashCall(payload.calls[1]), sessionWallet2);
-      callSignatures[1] = PrimitivesRPC.sessionExplicitEncodeCallSignature(vm, sessionSignature2, 1);
+      callSignatures[1] = _explicitCallSignatureToJSON(1, sessionSignature2);
     }
 
     // Construct the encoded signature
     bytes memory encoded;
     {
-      string[] memory callSignaturesStr = new string[](2);
-      for (uint256 i = 0; i < callSignatures.length; i++) {
-        callSignaturesStr[i] = vm.toString(callSignatures[i]);
-      }
       address[] memory explicitSigners = new address[](2);
       explicitSigners[0] = sessionWallet.addr;
       explicitSigners[1] = sessionWallet2.addr;
       address[] memory implicitSigners = new address[](0);
       encoded =
-        PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignaturesStr, explicitSigners, implicitSigners);
+        PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, explicitSigners, implicitSigners);
     }
 
     // Recover and validate
@@ -379,6 +375,14 @@ contract SessionSigTest is SessionTestBase {
         mstore(implicitBlacklist, 5)
       }
     }
+    // Ensure no duplicates for the implicit blacklist
+    for (uint256 i = 0; i < implicitBlacklist.length; i++) {
+      for (uint256 j = 0; j < implicitBlacklist.length; j++) {
+        if (i != j) {
+          vm.assume(implicitBlacklist[i] != implicitBlacklist[j]);
+        }
+      }
+    }
     signersIncludeCount = bound(signersIncludeCount, 0, explicitSigners.length);
 
     // Add session permissions and blacklist to the topology
@@ -404,10 +408,10 @@ contract SessionSigTest is SessionTestBase {
     // Call encodeCallSignatures with empty call signatures to encode the topology
     bytes memory encoded =
       PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, new string[](0), explicitSigners, implicitSigners);
-    assertGt(encoded.length, 3, "Encoded signature should not be empty");
+    assertGt(encoded.length, 4, "Encoded signature should not be empty");
 
-    // Strip the first 3 bytes (size)
-    bytes memory encodedWithoutSize = new bytes(encoded.length - 3);
+    // Strip the first 3 bytes (size), and last byte (attestation count)
+    bytes memory encodedWithoutSize = new bytes(encoded.length - 4);
     for (uint256 i = 0; i < encodedWithoutSize.length; i++) {
       encodedWithoutSize[i] = encoded[i + 3];
     }
@@ -440,6 +444,90 @@ contract SessionSigTest is SessionTestBase {
         assertTrue(found, "Implicit blacklist address not found");
       }
     }
+  }
+
+  function testAttestationOptimisation() public {
+    // Create a payload with 2 calls
+    Payload.Decoded memory payload = _buildPayload(2);
+    {
+      payload.calls[0] = Payload.Call({
+        to: address(0xBEEF),
+        value: 123,
+        data: "test1",
+        gasLimit: 0,
+        delegateCall: false,
+        onlyFallback: false,
+        behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+      });
+
+      payload.calls[1] = Payload.Call({
+        to: address(0xCAFE),
+        value: 456,
+        data: "test2",
+        gasLimit: 0,
+        delegateCall: false,
+        onlyFallback: false,
+        behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+      });
+    }
+
+    // Create a second session wallet
+    Vm.Wallet memory sessionWallet2 = vm.createWallet("session2");
+
+    // Create 2 attestations
+    Attestation memory attestation1 = Attestation({
+      approvedSigner: sessionWallet.addr,
+      identityType: bytes4(0),
+      issuerHash: bytes32(0),
+      audienceHash: bytes32(0),
+      authData: bytes(""),
+      applicationData: bytes("")
+    });
+    Attestation memory attestation2 = Attestation({
+      approvedSigner: sessionWallet2.addr,
+      identityType: bytes4(0),
+      issuerHash: bytes32(0),
+      audienceHash: bytes32(0),
+      authData: bytes(""),
+      applicationData: bytes("")
+    });
+
+    // Create 2 call signatures for the same session wallet and attestation
+    string memory callSignatureA =
+      _createImplicitCallSignature(payload.calls[0], sessionWallet, globalWallet, attestation1);
+    string memory callSignatureB =
+      _createImplicitCallSignature(payload.calls[1], sessionWallet, globalWallet, attestation1);
+
+    // Create the second call signature for the second session wallet and attestation
+    string memory callSignatureC =
+      _createImplicitCallSignature(payload.calls[1], sessionWallet2, globalWallet, attestation2);
+
+    // Create a topology
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+
+    // Encode the call signatures for single session wallet
+    address[] memory implicitSigners = new address[](1);
+    implicitSigners[0] = sessionWallet.addr;
+    string[] memory callSignatures = new string[](2);
+    callSignatures[0] = callSignatureA;
+    callSignatures[1] = callSignatureB;
+    bytes memory encoded =
+      PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, new address[](0), implicitSigners);
+
+    // Encode the call signatures for both session wallets
+    implicitSigners = new address[](2);
+    implicitSigners[0] = sessionWallet.addr;
+    implicitSigners[1] = sessionWallet2.addr;
+    callSignatures = new string[](2);
+    callSignatures[0] = callSignatureA;
+    callSignatures[1] = callSignatureC;
+    bytes memory encoded2 =
+      PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, new address[](0), implicitSigners);
+
+    // Ensure the length of the calldata has been optimised when reusing the same attestation
+    assertLt(
+      encoded.length, encoded2.length, "Encoded call signatures should be shorter when reusing the same attestation"
+    );
   }
 
 }

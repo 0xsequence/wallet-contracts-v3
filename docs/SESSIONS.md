@@ -1,6 +1,6 @@
 # Ecosystem Wallets Smart Sessions Documentation
 
-This document provides an in‐depth overview of the smart sessions system in Ecosystem wallets. It explains the encoding of signatures and configurations, details the permissions system, and distinguishes between explicit sessions and implicit sessions.
+This document provides an in-depth overview of the smart sessions system in Ecosystem wallets. It explains the encoding of signatures and configurations, details the permissions system, and distinguishes between explicit sessions and implicit sessions.
 
 ---
 
@@ -18,10 +18,11 @@ Ecosystem wallets smart sessions enable batched call authorization via signed pa
 
 ## Signature Encoding
 
-Signature encoding consists of two main parts:
+Signature encoding consists of **three** main parts:
 
 1. **Session Configuration Encoding**
-2. **Call Signatures Encoding**
+2. **Attestation List Encoding**
+3. **Call Signatures Encoding**
 
 Each part uses a specific layout and bit-level structure to efficiently encode the required data.
 
@@ -60,7 +61,7 @@ The following flags are defined:
 - **0x04: Global Signer**
 
 > [!IMPORTANT]
-> There must be exactly **one** Global Signer and **at most one** Blacklist node. Multiple entries will trigger a validation error.
+> There must be exactly **one** Global Signer and at most one Blacklist node. Multiple entries will trigger a validation error. If there are any implicit sessions (attestations), a blacklist is mandatory.
 
 #### Permissions Node (FLAG 0x00)
 
@@ -145,7 +146,7 @@ The **Size Indicator** specifies the total number of bytes that the branch occup
 - The branch data is parsed recursively, with each nested node being processed according to its own flag.
 - The leaf hashes of all nested nodes are computed.
 - These individual hashes are then combined (e.g., using `LibOptim.fkeccak256`) to produce a single cumulative hash representing the entire branch.
-- This branch hash is then integrated into the parent configuration’s image hash, ensuring that all the nested information contributes to the final cryptographic fingerprint.
+- This branch hash is then integrated into the parent configuration's image hash, ensuring that all the nested information contributes to the final cryptographic fingerprint.
 
 > [!TIP]
 > Branch nodes are especially useful for modularizing the configuration structure. They allow logically related nodes to be grouped together, which not only improves organization but also potentially reduces the overall size of the calldata by allowing unused leaves to be rolled up into a single node.
@@ -184,33 +185,27 @@ Global Signer Layout:
 
 ---
 
-### Image Hash Derivation
+### 2. Attestation List Encoding
 
-The **image hash** serves as a cryptographic fingerprint of the entire configuration tree. As each node is processed, its corresponding leaf hash is derived and combined into a cumulative hash using a function such as `LibOptim.fkeccak256`.
+After reading the session configuration, a single byte `attestationCount` indicates how many attestations follow:
 
-**Process Overview:**
+```
+┌─────────────────────────────────────────────────────┐
+│ uint8 attestationCount                              │
+│ ┌────────────────────────────────────────────────┐  │
+│ │ Attestation + global signature                 │  │
+│ │ ... repeated attestationCount times ...        │  │
+│ └────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────┘
+```
 
-1. **Leaf Hash Computation:**
+Each attestation is encoded as described in [Attestation (Implicit Sessions)](#attestation-implicit-sessions) below, then followed by a single global signature from the configured global signer (in EIP-2098 compact form).
 
-   - **Permissions Node:** Compute a leaf hash from the raw encoded permissions data.
-   - **Blacklist Node:** Compute a leaf hash by hashing the sorted blacklist addresses.
-   - **Global Signer:** Compute a leaf hash using the global signer’s address.
-   - **Node (Pre-hashed value):** Use the provided 32-byte node hash directly.
-
-> [!TIP]
-> The node is used as an optimization to hide unused or redundant permissions or branches, reducing the calldata size while still contributing to the complete image hash.
-
-2. **Hash Combination:**
-   - Start with an empty image hash.
-   - For each node encountered, if an image hash already exists, compute a new hash from the concatenation of the current image hash and the node’s leaf hash.
-   - If no image hash exists, the first leaf hash becomes the current image hash.
-
-> [!TIP]
-> The configuration tree can be sparse. Only the nodes that are present (even if not contiguous) are used in deriving the image hash. This design, including the node optimization, ensures that optional or omitted nodes do not affect the computed fingerprint.
+If `attestationCount > 0` but no blacklist node was present in the configuration, validation fails.
 
 ---
 
-### 2. Call Signatures Encoding
+### 3. Call Signatures Encoding
 
 Each call in the payload is accompanied by a call signature. The encoding differs slightly for explicit sessions and implicit sessions.
 
@@ -222,24 +217,22 @@ Call Signature Layout:
  │ Flag Byte                                                   │
  │   ┌────────────────────────────────────────────────────────┐│
  │   │ Bit 7 (0x80): isImplicit flag                          ││
- │   │ Bits 6..0 (0x7F): For explicit sessions, encodes       ││
- │   │               permission index; for implicit, reserved ││
- │   │               for additional flags                     ││
+ │   │ Bits 6..0 (0x7F): If implicit, this is the attestation ││
+ │   │               index; if explicit, this is the          ││
+ │   │               session permission index                 ││
  │   └────────────────────────────────────────────────────────┘│
- │ [If Implicit]                                               │
- │   ├─ Attestation (encoded as described below)               │
- │   ├─ Attestation Signature (EIP-2098 compact: see below)    │
- │ [Both Explicit & Implicit]                                  │
- │   └─ Session Signature (EIP-2098 compact: see below)        │
+ │ Session Signature (EIP-2098 compact: see below)            │
  └─────────────────────────────────────────────────────────────┘
 ```
 
 > [!IMPORTANT]
 > The flag byte is critical for distinguishing call types. For implicit sessions, the most significant bit (Bit 7) must be set. For explicit sessions, the lower 7 bits represent the permission index.
 
+No attestation data is embedded here for implicit calls; instead, each implicit call references an attestation by index from the Attestation List.
+
 #### EIP-2098 Compact Signature Encoding
 
-Both the attestation and session signatures follow the [EIP-2098](https://eip.tools/eip/2098) compact signature format. In this format, the signature is encoded as follows:
+The session signature follows the [EIP-2098](https://eip.tools/eip/2098) compact signature format. In this format, the signature is encoded as follows:
 
 ```
 EIP-2098 Compact Encoding:
@@ -385,7 +378,7 @@ function transfer(address to, uint256 amount) returns (bool);
   The ERC20 token contract address.
 
 - **Offset:**  
-  `36` bytes (4 bytes for the function selector + 32 bytes for the `to` address) – this is where the `amount` parameter begins.
+  `36` bytes (4 bytes for the function selector + 32 bytes for the `to` address) - this is where the `amount` parameter begins.
 
 - **Mask:**  
   A full mask (`0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF`) to extract the entire 32-byte value.
@@ -394,7 +387,7 @@ function transfer(address to, uint256 amount) returns (bool);
   `100 * 10^18` (expressed as a `bytes32` value) to represent a maximum transfer amount of 100 tokens (assuming 18 decimals).
 
 - **Operation:**  
-  `LESS_THAN_OR_EQUAL` – ensuring the transfer amount does not exceed the threshold.
+  `LESS_THAN_OR_EQUAL` - ensuring the transfer amount does not exceed the threshold.
 
 - **Cumulative Flag (optional):**  
   If you want to enforce a cumulative limit (e.g., a daily cap), set the cumulative flag. Each transfer's amount is then added to a cumulative total that must not exceed the threshold, with an `incrementUsageLimit` call required to update the stored value.

@@ -94,10 +94,10 @@ contract SessionManagerTest is SessionTestBase {
     string[] memory callSignatures = new string[](2);
     // Sign the explicit call (call 0) using the session key.
     string memory sessionSignature = _signAndEncodeRSV(Payload.hashCall(payload.calls[0]), sessionWallet);
-    callSignatures[0] = vm.toString(PrimitivesRPC.sessionExplicitEncodeCallSignature(vm, sessionSignature, 0));
+    callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature);
     // Sign the self call (call 1) using the session key.
     sessionSignature = _signAndEncodeRSV(Payload.hashCall(payload.calls[1]), sessionWallet);
-    callSignatures[1] = vm.toString(PrimitivesRPC.sessionExplicitEncodeCallSignature(vm, sessionSignature, 0));
+    callSignatures[1] = _explicitCallSignatureToJSON(0, sessionSignature);
 
     // Encode the full signature.
     address[] memory explicitSigners = new address[](1);
@@ -129,11 +129,19 @@ contract SessionManagerTest is SessionTestBase {
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
     });
 
+    Attestation memory attestation = Attestation({
+      approvedSigner: sessionWallet.addr,
+      identityType: bytes4(0),
+      issuerHash: bytes32(0),
+      audienceHash: bytes32(0),
+      authData: new bytes(0),
+      applicationData: new bytes(0)
+    });
+
     // Build topology (even though it won’t be used because the delegateCall check runs first).
     string memory topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
-    // Supply a valid (empty) hex string instead of "dummy" for the call signature.
     string[] memory callSignatures = new string[](1);
-    callSignatures[0] = "0x";
+    callSignatures[0] = _createImplicitCallSignature(payload.calls[0], sessionWallet, globalWallet, attestation);
     address[] memory explicitSigners = new address[](0);
     address[] memory implicitSigners = new address[](1);
     implicitSigners[0] = sessionWallet.addr;
@@ -198,13 +206,13 @@ contract SessionManagerTest is SessionTestBase {
     // --- Call Signatures ---
     // For call 0:
     string memory sessionSignature0 = _signAndEncodeRSV(Payload.hashCall(payload.calls[0]), sessionWallet);
-    bytes memory callSig0 = PrimitivesRPC.sessionExplicitEncodeCallSignature(vm, sessionSignature0, 0);
+    string memory callSig0 = _explicitCallSignatureToJSON(0, sessionSignature0);
     // For call 1 (self–call), we now sign it as well.
     string memory sessionSignature1 = _signAndEncodeRSV(Payload.hashCall(payload.calls[1]), sessionWallet);
-    bytes memory callSig1 = PrimitivesRPC.sessionExplicitEncodeCallSignature(vm, sessionSignature1, 0);
+    string memory callSig1 = _explicitCallSignatureToJSON(0, sessionSignature1);
     string[] memory callSignatures = new string[](2);
-    callSignatures[0] = vm.toString(callSig0);
-    callSignatures[1] = vm.toString(callSig1);
+    callSignatures[0] = callSig0;
+    callSignatures[1] = callSig1;
 
     address[] memory explicitSigners = new address[](1);
     explicitSigners[0] = sessionWallet.addr;

@@ -35,5 +35,7 @@ library SessionErrors {
   error InvalidGlobalSigner();
   /// @notice Invalid blacklist
   error InvalidBlacklist();
+  /// @notice Invalid attestation
+  error InvalidAttestation();
 
 }

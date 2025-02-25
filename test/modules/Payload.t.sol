@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import { Payload } from "../../src/modules/Payload.sol";
 import { PrimitivesRPC } from "../utils/PrimitivesRPC.sol";
 
+import { AdvTest } from "../utils/TestUtils.sol";
 import { Test, Vm } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 
@@ -17,7 +18,7 @@ contract PayloadImp {
 
 }
 
-contract PayloadTest is Test {
+contract PayloadTest is AdvTest {
 
   PayloadImp public payloadImp;
 
@@ -51,6 +52,100 @@ contract PayloadTest is Test {
 
     // Input should equal output
     assertEq(abi.encode(input), abi.encode(output));
+  }
+
+  function test_hashFor_kindDigest(
+    bytes32 _digest
+  ) external {
+    Payload.Decoded memory _payload;
+    _payload.kind = Payload.KIND_DIGEST;
+    _payload.digest = _digest;
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
+    assertEq(contractHash, payloadHash);
+  }
+
+  function test_hashFor_kindMessage(
+    bytes calldata _message
+  ) external {
+    Payload.Decoded memory _payload;
+    _payload.kind = Payload.KIND_MESSAGE;
+    _payload.message = _message;
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
+  }
+
+  function test_hashFor_kindConfigUpdate(
+    bytes32 _imageHash
+  ) external {
+    Payload.Decoded memory _payload;
+    _payload.kind = Payload.KIND_CONFIG_UPDATE;
+    _payload.imageHash = _imageHash;
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
+  }
+
+  function test_hashFor_kindTransactions(
+    address _to,
+    uint256 _value,
+    bytes memory _data,
+    uint256 _gasLimit,
+    bool _delegateCall,
+    bool _onlyFallback,
+    uint256 _behaviorOnError,
+    uint256 _space,
+    uint256 _nonce
+  ) external {
+    Payload.Decoded memory _payload;
+    _payload.kind = Payload.KIND_TRANSACTIONS;
+    _payload.calls = new Payload.Call[](2);
+    _payload.calls[0] = Payload.Call({
+      to: _to,
+      value: _value,
+      data: _data,
+      gasLimit: _gasLimit,
+      delegateCall: _delegateCall,
+      onlyFallback: _onlyFallback,
+      behaviorOnError: bound(_behaviorOnError, 0, 0x02)
+    });
+    _payload.calls[1] = Payload.Call({
+      to: address(this),
+      value: 0,
+      data: hex"001122",
+      gasLimit: 1000000,
+      delegateCall: false,
+      onlyFallback: false,
+      behaviorOnError: Payload.BEHAVIOR_IGNORE_ERROR
+    });
+
+    _payload.space = _space;
+    _payload.nonce = _nonce;
+
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
+  }
+
+  function test_hashFor_kindTransactions(Payload.Call[] memory _calls, uint256 _space, uint256 _nonce) external {
+    Payload.Decoded memory _payload;
+    _payload.kind = Payload.KIND_TRANSACTIONS;
+    _payload.calls = _calls;
+
+    _payload.space = _space;
+    _payload.nonce = _nonce;
+
+    boundToLegalPayload(_payload);
+
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
+  }
+
+  function test_hashFor_payload(
+    Payload.Decoded memory _payload
+  ) external {
+    boundToLegalPayload(_payload);
+
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
   }
 
 }
