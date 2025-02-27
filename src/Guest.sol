@@ -68,7 +68,7 @@ contract Guest {
         revert DelegateCallNotAllowed(i);
       }
 
-      bool success = LibOptim.call(call.to, call.value, gasLimit, call.data);
+      bool success = LibOptim.call(call.to, call.value, gasLimit == 0 ? gasleft() : gasLimit, call.data);
       if (!success) {
         if (call.behaviorOnError == Payload.BEHAVIOR_IGNORE_ERROR) {
           errorFlag = true;
