@@ -197,8 +197,7 @@ contract TestStage1Module is AdvTest {
   function test_receiveETH_stage1() external {
     address payable wallet = payable(factory.deploy(address(stage1Module), bytes32(0)));
     vm.deal(address(this), 1 ether);
-    (bool success,) = wallet.call{ value: 1 ether }("");
-    assertTrue(success);
+    wallet.transfer(1 ether);
     assertEq(address(wallet).balance, 1 ether);
   }
 
@@ -278,8 +277,7 @@ contract TestStage1Module is AdvTest {
 
     // Send 1 ether to the newly upgraded wallet
     vm.deal(address(this), 1 ether);
-    (bool success,) = vars.wallet.call{ value: 1 ether }("");
-    assertTrue(success);
+    vars.wallet.transfer(1 ether);
 
     // Check that the wallet received the ether
     assertEq(address(vars.wallet).balance, 1 ether);

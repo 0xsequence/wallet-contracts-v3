@@ -44,7 +44,7 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC721Receiver, IERC223Receiver {
     return _readHook(signature);
   }
 
-  function addHook(bytes4 signature, address implementation) external onlySelf {
+  function addHook(bytes4 signature, address implementation) external payable onlySelf {
     if (_readHook(signature) != address(0)) {
       revert HookAlreadyExists(signature);
     }
@@ -53,7 +53,7 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC721Receiver, IERC223Receiver {
 
   function removeHook(
     bytes4 signature
-  ) external onlySelf {
+  ) external payable onlySelf {
     if (_readHook(signature) == address(0)) {
       revert HookDoesNotExist(signature);
     }

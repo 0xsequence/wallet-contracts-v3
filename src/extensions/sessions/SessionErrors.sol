@@ -31,8 +31,8 @@ library SessionErrors {
   error BlacklistedAddress(address target);
   /// @notice Invalid implicit result
   error InvalidImplicitResult();
-  /// @notice Invalid global signer
-  error InvalidGlobalSigner();
+  /// @notice Invalid identity signer
+  error InvalidIdentitySigner();
   /// @notice Invalid blacklist
   error InvalidBlacklist();
   /// @notice Invalid attestation

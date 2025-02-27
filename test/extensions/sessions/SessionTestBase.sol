@@ -120,26 +120,26 @@ abstract contract SessionTestBase is AdvTest {
   function _createImplicitCallSignature(
     Payload.Call memory call,
     Vm.Wallet memory signer,
-    Vm.Wallet memory globalSigner,
+    Vm.Wallet memory identitySigner,
     Attestation memory attestation
   ) internal pure returns (string memory) {
     bytes32 attestationHash = attestation.toHash();
-    string memory globalSignature = _signAndEncodeRSV(attestationHash, globalSigner);
+    string memory identitySignature = _signAndEncodeRSV(attestationHash, identitySigner);
     string memory sessionSignature = _signAndEncodeRSV(Payload.hashCall(call), signer);
-    return _implicitCallSignatureToJSON(attestation, sessionSignature, globalSignature);
+    return _implicitCallSignatureToJSON(attestation, sessionSignature, identitySignature);
   }
 
   function _implicitCallSignatureToJSON(
     Attestation memory attestation,
     string memory sessionSignature,
-    string memory globalSignature
+    string memory identitySignature
   ) internal pure returns (string memory) {
     string memory json = '{"attestation":';
     json = string.concat(json, _attestationToJSON(attestation));
     json = string.concat(json, ',"sessionSignature":"');
     json = string.concat(json, sessionSignature);
-    json = string.concat(json, '","globalSignature":"');
-    json = string.concat(json, globalSignature);
+    json = string.concat(json, '","identitySignature":"');
+    json = string.concat(json, identitySignature);
     json = string.concat(json, '"}');
     return json;
   }

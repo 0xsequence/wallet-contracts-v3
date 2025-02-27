@@ -38,18 +38,18 @@ contract ImplicitSessionManagerTest is AdvTest, IImplicitSessionManagerSignals {
   MockImplicitContract public mockImplicit;
 
   uint256 public sessionSignerPk = 1;
-  uint256 public globalSignerPk = 2;
+  uint256 public identitySignerPk = 2;
   address public sessionSigner;
-  address public globalSigner;
+  address public identitySigner;
 
   function setUp() public {
     sessionManager = new ImplicitSessionManager();
     mockImplicit = new MockImplicitContract();
     sessionSigner = vm.addr(sessionSignerPk);
-    globalSigner = vm.addr(globalSignerPk);
+    identitySigner = vm.addr(identitySignerPk);
 
     vm.label(sessionSigner, "sessionSigner");
-    vm.label(globalSigner, "globalSigner");
+    vm.label(identitySigner, "identitySigner");
     vm.label(address(sessionManager), "sessionManager");
     vm.label(address(mockImplicit), "mockImplicit");
   }
@@ -158,7 +158,7 @@ contract ImplicitSessionManagerTest is AdvTest, IImplicitSessionManagerSignals {
     sessionJson = PrimitivesRPC.removeImplicitSessionBlacklist(vm, sessionJson, address(mockImplicit));
 
     string memory sessionSignature;
-    string memory globalSignature;
+    string memory identitySignature;
     string memory attestationJson;
     bytes32 attestationHash;
     {
@@ -181,15 +181,15 @@ contract ImplicitSessionManagerTest is AdvTest, IImplicitSessionManagerSignals {
         applicationData: applicationData
       });
       attestationJson = _attestationToJson(attestation);
-      // Sign the attestation using the global key.
+      // Sign the attestation using the identity key.
       attestationHash = attestation.toHash();
-      (uint8 v, bytes32 r, bytes32 s) = vm.sign(globalSignerPk, attestationHash);
-      globalSignature = string(abi.encodePacked(vm.toString(r), ":", vm.toString(s), ":", vm.toString(v)));
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(identitySignerPk, attestationHash);
+      identitySignature = string(abi.encodePacked(vm.toString(r), ":", vm.toString(s), ":", vm.toString(v)));
     }
 
     // Use the RPC helper to encode the implicit session signature.
     bytes memory sig =
-      PrimitivesRPC.useImplicitSession(vm, sessionSignature, globalSignature, attestationJson, sessionJson);
+      PrimitivesRPC.useImplicitSession(vm, sessionSignature, identitySignature, attestationJson, sessionJson);
     bytes32 imageHash = sessionManager.isValidSapientSignature(payload, sig);
 
     //TODO Validate imageHash

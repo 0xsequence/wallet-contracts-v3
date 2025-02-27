@@ -9,7 +9,7 @@ contract Implementation is SelfAuth {
 
   function updateImplementation(
     address _implementation
-  ) external virtual onlySelf {
+  ) external payable virtual onlySelf {
     _updateImplementation(_implementation);
   }
 

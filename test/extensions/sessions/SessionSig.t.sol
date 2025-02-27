@@ -35,12 +35,12 @@ contract SessionSigTest is SessionTestBase {
 
   SessionSigHarness internal harness;
   Vm.Wallet internal sessionWallet;
-  Vm.Wallet internal globalWallet;
+  Vm.Wallet internal identityWallet;
 
   function setUp() public {
     harness = new SessionSigHarness();
     sessionWallet = vm.createWallet("session");
-    globalWallet = vm.createWallet("global");
+    identityWallet = vm.createWallet("identity");
   }
 
   // -------------------------------------------------------------------------
@@ -81,7 +81,7 @@ contract SessionSigTest is SessionTestBase {
     // Create the topology from the CLI.
     string memory topology;
     {
-      topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+      topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
       string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms);
       topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
     }
@@ -151,12 +151,12 @@ contract SessionSigTest is SessionTestBase {
 
     // Sign the payload.
     string memory callSignature =
-      _createImplicitCallSignature(payload.calls[0], sessionWallet, globalWallet, attestation);
+      _createImplicitCallSignature(payload.calls[0], sessionWallet, identityWallet, attestation);
 
     // Create the topology from the CLI.
     string memory topology;
     {
-      topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+      topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
     }
 
     // Create the encoded signature.
@@ -222,12 +222,12 @@ contract SessionSigTest is SessionTestBase {
     // Create attestations and signatures for both calls
     string[] memory callSignatures = new string[](2);
     {
-      callSignatures[0] = _createImplicitCallSignature(payload.calls[0], sessionWallet, globalWallet, attestation);
-      callSignatures[1] = _createImplicitCallSignature(payload.calls[1], sessionWallet, globalWallet, attestation);
+      callSignatures[0] = _createImplicitCallSignature(payload.calls[0], sessionWallet, identityWallet, attestation);
+      callSignatures[1] = _createImplicitCallSignature(payload.calls[1], sessionWallet, identityWallet, attestation);
     }
 
     // Create the topology
-    string memory topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
 
     // Create the encoded signature
     bytes memory encoded;
@@ -296,7 +296,7 @@ contract SessionSigTest is SessionTestBase {
     // Create the topology from the CLI
     string memory topology;
     {
-      topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+      topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
       for (uint256 i = 0; i < sessionPermsArray.length; i++) {
         string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPermsArray[i]);
         topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
@@ -387,7 +387,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Add session permissions and blacklist to the topology
     SessionPermissions memory sessionPerms;
-    string memory topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
     for (uint256 i = 0; i < explicitSigners.length; i++) {
       sessionPerms.signer = explicitSigners[i];
       string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms);
@@ -418,7 +418,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the configuration
     (SessionSig.DecodedSignature memory sig, bool hasBlacklist) = harness.recoverConfiguration(encodedWithoutSize);
-    assertEq(sig.globalSigner, globalWallet.addr, "Global signer");
+    assertEq(sig.identitySigner, identityWallet.addr, "Identity signer");
     assertEq(sig.sessionPermissions.length, explicitSigners.length, "Session permissions length"); // Truncated list
     for (uint256 i = 0; i < explicitSigners.length; i++) {
       bool found = false;
@@ -494,16 +494,16 @@ contract SessionSigTest is SessionTestBase {
 
     // Create 2 call signatures for the same session wallet and attestation
     string memory callSignatureA =
-      _createImplicitCallSignature(payload.calls[0], sessionWallet, globalWallet, attestation1);
+      _createImplicitCallSignature(payload.calls[0], sessionWallet, identityWallet, attestation1);
     string memory callSignatureB =
-      _createImplicitCallSignature(payload.calls[1], sessionWallet, globalWallet, attestation1);
+      _createImplicitCallSignature(payload.calls[1], sessionWallet, identityWallet, attestation1);
 
     // Create the second call signature for the second session wallet and attestation
     string memory callSignatureC =
-      _createImplicitCallSignature(payload.calls[1], sessionWallet2, globalWallet, attestation2);
+      _createImplicitCallSignature(payload.calls[1], sessionWallet2, identityWallet, attestation2);
 
     // Create a topology
-    string memory topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
 
     // Encode the call signatures for single session wallet
     address[] memory implicitSigners = new address[](1);

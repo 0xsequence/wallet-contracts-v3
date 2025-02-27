@@ -23,13 +23,13 @@ contract SessionManagerTest is SessionTestBase {
   address public explicitTarget;
   address public implicitTarget;
   Vm.Wallet public sessionWallet;
-  Vm.Wallet public globalWallet;
+  Vm.Wallet public identityWallet;
   MockImplicitContract public mockImplicit;
 
   function setUp() public {
     sessionManager = new SessionManager();
     sessionWallet = vm.createWallet("session");
-    globalWallet = vm.createWallet("global");
+    identityWallet = vm.createWallet("identity");
     explicitTarget = address(0xBEEF);
     // Deploy a mock implicit contract so that implicit calls do not revert.
     mockImplicit = new MockImplicitContract();
@@ -86,7 +86,7 @@ contract SessionManagerTest is SessionTestBase {
     sessionPerms.permissions[0] = Permission({ target: explicitTarget, rules: new ParameterRule[](0) });
 
     // Build the session topology using PrimitiveRPC.
-    string memory topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
     string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms);
     topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
 
@@ -139,9 +139,9 @@ contract SessionManagerTest is SessionTestBase {
     });
 
     // Build topology (even though it won’t be used because the delegateCall check runs first).
-    string memory topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
     string[] memory callSignatures = new string[](1);
-    callSignatures[0] = _createImplicitCallSignature(payload.calls[0], sessionWallet, globalWallet, attestation);
+    callSignatures[0] = _createImplicitCallSignature(payload.calls[0], sessionWallet, identityWallet, attestation);
     address[] memory explicitSigners = new address[](0);
     address[] memory implicitSigners = new address[](1);
     implicitSigners[0] = sessionWallet.addr;
@@ -199,7 +199,7 @@ contract SessionManagerTest is SessionTestBase {
       mask: bytes32(uint256(uint32(0xffffffff)) << 224)
     });
 
-    string memory topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
     string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms);
     topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
 
@@ -250,10 +250,10 @@ contract SessionManagerTest is SessionTestBase {
     });
     // Create the implicit call signature.
     string memory callSignature =
-      _createImplicitCallSignature(payload.calls[0], sessionWallet, globalWallet, attestation);
+      _createImplicitCallSignature(payload.calls[0], sessionWallet, identityWallet, attestation);
 
     // Build the session topology for implicit sessions.
-    string memory topology = PrimitivesRPC.sessionEmpty(vm, globalWallet.addr);
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
     string[] memory callSignatures = new string[](1);
     callSignatures[0] = callSignature;
 

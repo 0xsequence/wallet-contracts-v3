@@ -217,8 +217,8 @@ library PrimitivesRPC {
   // session
   // ----------------------------------------------------------------
 
-  function sessionEmpty(Vm _vm, address globalSigner) internal returns (string memory) {
-    string memory params = string.concat('{"globalSigner":"', _vm.toString(globalSigner), '"}');
+  function sessionEmpty(Vm _vm, address identitySigner) internal returns (string memory) {
+    string memory params = string.concat('{"identitySigner":"', _vm.toString(identitySigner), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_empty", params);
     return string(rawResponse);
   }

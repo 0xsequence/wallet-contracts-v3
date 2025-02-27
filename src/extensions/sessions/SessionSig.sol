@@ -18,7 +18,7 @@ library SessionSig {
   uint256 internal constant FLAG_NODE = 1;
   uint256 internal constant FLAG_BRANCH = 2;
   uint256 internal constant FLAG_BLACKLIST = 3;
-  uint256 internal constant FLAG_GLOBAL_SIGNER = 4;
+  uint256 internal constant FLAG_IDENTITY_SIGNER = 4;
 
   struct CallSignature {
     bool isImplicit;
@@ -29,7 +29,7 @@ library SessionSig {
 
   struct DecodedSignature {
     bytes32 imageHash;
-    address globalSigner;
+    address identitySigner;
     address[] implicitBlacklist;
     SessionPermissions[] sessionPermissions;
     CallSignature[] callSignatures;
@@ -38,12 +38,12 @@ library SessionSig {
   /// @notice Recovers the decoded signature from the encodedSignature bytes.
   /// The encoded layout is conceptually separated into three parts:
   ///  1) Session Configuration
-  ///  2) A reusable list of Attestations + their global signatures (if any implicit calls exist)
+  ///  2) A reusable list of Attestations + their identity signatures (if any implicit calls exist)
   ///  3) Call Signatures (one per call in the payload)
   ///
   /// High-level layout:
   ///  - session_configuration: [uint24 size, <Session Configuration encoded>]
-  ///  - attestation_list: [uint8 attestationCount, (Attestation + globalSig) * attestationCount]
+  ///  - attestation_list: [uint8 attestationCount, (Attestation + identitySig) * attestationCount]
   ///    (new section to allow reusing the same Attestation across multiple calls)
   ///  - call_signatures: [<CallSignature encoded>] - Size is payload.calls.length
   ///    - call_signature: [uint8 call_flags, <session_signature>]
@@ -71,9 +71,9 @@ library SessionSig {
       (sig, hasBlacklistInConfig) = recoverConfiguration(encodedSignature[pointer:pointer + dataSize]);
       pointer += dataSize;
 
-      // Global signer must be set
-      if (sig.globalSigner == address(0)) {
-        revert SessionErrors.InvalidGlobalSigner();
+      // Identity signer must be set
+      if (sig.identitySigner == address(0)) {
+        revert SessionErrors.InvalidIdentitySigner();
       }
     }
 
@@ -83,23 +83,23 @@ library SessionSig {
       uint8 attestationCount;
       (attestationCount, pointer) = encodedSignature.readUint8(pointer);
       attestationList = new Attestation[](attestationCount);
-      // Parse each attestation and its global signature, store in memory
+      // Parse each attestation and its identity signature, store in memory
       for (uint256 i = 0; i < attestationCount; i++) {
         Attestation memory att;
         (att, pointer) = LibAttestation.fromPacked(encodedSignature, pointer);
 
-        // Read the global signature that approves this attestation
+        // Read the identity signature that approves this attestation
         {
           bytes32 r;
           bytes32 s;
           uint8 v;
           (r, s, v, pointer) = encodedSignature.readRSVCompact(pointer);
 
-          // Recover the global signer from the attestation global signature
+          // Recover the identity signer from the attestation identity signature
           bytes32 attestationHash = att.toHash();
-          address recoveredGlobalSigner = ecrecover(attestationHash, v, r, s);
-          if (recoveredGlobalSigner != sig.globalSigner) {
-            revert SessionErrors.InvalidGlobalSigner();
+          address recoveredIdentitySigner = ecrecover(attestationHash, v, r, s);
+          if (recoveredIdentitySigner != sig.identitySigner) {
+            revert SessionErrors.InvalidIdentitySigner();
           }
         }
 
@@ -169,8 +169,8 @@ library SessionSig {
   ///     - if flag == FLAG_NODE: [bytes32 node]
   ///     - if flag == FLAG_BRANCH: [uint256 size, nested encoding...]
   ///     - if flag == FLAG_BLACKLIST: [uint24 blacklist_count, blacklist_addresses...]
-  ///     - if flag == FLAG_GLOBAL_SIGNER: [address global_signer]
-  /// @dev A valid configuration must have exactly one global signer and at most one blacklist.
+  ///     - if flag == FLAG_IDENTITY_SIGNER: [address identity_signer]
+  /// @dev A valid configuration must have exactly one identity signer and at most one blacklist.
   function recoverConfiguration(
     bytes calldata encoded
   ) internal pure returns (DecodedSignature memory sig, bool hasBlacklist) {
@@ -254,13 +254,13 @@ library SessionSig {
           sig.implicitBlacklist = branchSig.implicitBlacklist;
         }
 
-        // Store the branch global signer
-        if (branchSig.globalSigner != address(0)) {
-          if (sig.globalSigner != address(0)) {
-            // Global signer already set
-            revert SessionErrors.InvalidGlobalSigner();
+        // Store the branch identity signer
+        if (branchSig.identitySigner != address(0)) {
+          if (sig.identitySigner != address(0)) {
+            // Identity signer already set
+            revert SessionErrors.InvalidIdentitySigner();
           }
-          sig.globalSigner = branchSig.globalSigner;
+          sig.identitySigner = branchSig.identitySigner;
         }
 
         // Push all branch permissions to the permissions array
@@ -304,18 +304,18 @@ library SessionSig {
         continue;
       }
 
-      // Global signer (0x04)
-      if (flag == FLAG_GLOBAL_SIGNER) {
-        if (sig.globalSigner != address(0)) {
-          // Global signer already set
-          revert SessionErrors.InvalidGlobalSigner();
+      // Identity signer (0x04)
+      if (flag == FLAG_IDENTITY_SIGNER) {
+        if (sig.identitySigner != address(0)) {
+          // Identity signer already set
+          revert SessionErrors.InvalidIdentitySigner();
         }
-        (sig.globalSigner, pointer) = encoded.readAddress(pointer);
+        (sig.identitySigner, pointer) = encoded.readAddress(pointer);
 
         // Update the root
-        bytes32 globalSignerHash = _leafHashForGlobalSigner(sig.globalSigner);
+        bytes32 identitySignerHash = _leafHashForIdentitySigner(sig.identitySigner);
         sig.imageHash =
-          sig.imageHash != bytes32(0) ? LibOptim.fkeccak256(sig.imageHash, globalSignerHash) : globalSignerHash;
+          sig.imageHash != bytes32(0) ? LibOptim.fkeccak256(sig.imageHash, identitySignerHash) : identitySignerHash;
 
         continue;
       }
@@ -363,11 +363,11 @@ library SessionSig {
     return keccak256(abi.encodePacked(uint8(FLAG_BLACKLIST), encodedBlacklist));
   }
 
-  /// @notice Hashes the global signer into a leaf node.
-  function _leafHashForGlobalSigner(
-    address globalSigner
+  /// @notice Hashes the identity signer into a leaf node.
+  function _leafHashForIdentitySigner(
+    address identitySigner
   ) internal pure returns (bytes32) {
-    return keccak256(abi.encodePacked(uint8(FLAG_GLOBAL_SIGNER), globalSigner));
+    return keccak256(abi.encodePacked(uint8(FLAG_IDENTITY_SIGNER), identitySigner));
   }
 
 }

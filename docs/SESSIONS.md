@@ -12,7 +12,7 @@ Ecosystem wallets smart sessions enable batched call authorization via signed pa
   Explicit sessions are part of the wallet's configuration. Their permissions are granted counter factually - derived from signature calldata. These permissions can be added or removed with a configuration update. As the configuration is tied to the wallet's image hash, any change to the wallet (and thus its image hash) immediately affects which explicit session permissions remain valid.
 
 - **Implicit Sessions:**  
-  Implicit sessions are automatically able to sign on behalf of the wallet when they present an attestation that is signed by the wallet's global signer. This mode leverages off-chain attestations and enforces additional constraints (e.g., blacklisting) to protect against misuse.
+  Implicit sessions are automatically able to sign on behalf of the wallet when they present an attestation that is signed by the wallet's identity signer. This mode leverages off-chain attestations and enforces additional constraints (e.g., blacklisting) to protect against misuse.
 
 ---
 
@@ -58,10 +58,10 @@ The following flags are defined:
 - **0x01: Node (Pre-hashed 32-byte value)**
 - **0x02: Branch (Nested encoding)**
 - **0x03: Blacklist**
-- **0x04: Global Signer**
+- **0x04: Identity Signer**
 
 > [!IMPORTANT]
-> There must be exactly **one** Global Signer and at most one Blacklist node. Multiple entries will trigger a validation error. If there are any implicit sessions (attestations), a blacklist is mandatory.
+> There must be exactly **one** Identity Signer and at most one Blacklist node. Multiple entries will trigger a validation error. If there are any implicit sessions (attestations), a blacklist is mandatory.
 
 #### Permissions Node (FLAG 0x00)
 
@@ -169,19 +169,19 @@ Blacklist Node Layout:
 > [!WARNING]
 > For implicit sessions, the blacklist is mandatory. Absence or incorrect formatting of the blacklist will result in a validation error.
 
-#### Global Signer (FLAG 0x04)
+#### Identity Signer (FLAG 0x04)
 
-Specifies the global signer used for attestation verification:
+Specifies the identity signer used for attestation verification:
 
 ```
-Global Signer Layout:
+Identity Signer Layout:
  ┌─────────────────────────────┐
- │ Global Signer (address)     │
+ │ Identity Signer (address)   │
  └─────────────────────────────┘
 ```
 
 > [!IMPORTANT]
-> The configuration must include exactly one global signer. Duplicate or missing entries trigger an error.
+> The configuration must include exactly one identity signer. Duplicate or missing entries trigger an error.
 
 ---
 
@@ -193,13 +193,13 @@ After reading the session configuration, a single byte `attestationCount` indica
 ┌─────────────────────────────────────────────────────┐
 │ uint8 attestationCount                              │
 │ ┌────────────────────────────────────────────────┐  │
-│ │ Attestation + global signature                 │  │
+│ │ Attestation + identity signature               │  │
 │ │ ... repeated attestationCount times ...        │  │
 │ └────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────┘
 ```
 
-Each attestation is encoded as described in [Attestation (Implicit Sessions)](#attestation-implicit-sessions) below, then followed by a single global signature from the configured global signer (in EIP-2098 compact form).
+Each attestation is encoded as described in [Attestation (Implicit Sessions)](#attestation-implicit-sessions) below, then followed by a single identity signature from the configured identity signer (in EIP-2098 compact form).
 
 If `attestationCount > 0` but no blacklist node was present in the configuration, validation fails.
 
@@ -426,7 +426,7 @@ The Attestation data obtained during authentication. The `Identity Type` is the 
 
 - The attestation's **approved signer** must match the session signer.
 - A magic value is generated using a combination of a prefix, the wallet address, the attestation's audience hash, and issuer hash.
-- The attestation signature is validated against the global signer from the configuration.
+- The attestation signature is validated against the identity signer from the configuration.
 - The target contract's `acceptImplicitRequest` function must return the expected magic value; otherwise, the call is rejected.
 
 > [!WARNING]
@@ -451,7 +451,7 @@ Several improvements can be made
 > Advanced Permission Rules: Extend the permission system to support more complex conditional checks or dynamic rule adjustments. Provide improved error messages and diagnostic tools for failed validations.
 
 > [!NOTE]
-> Implicit Session Revocation: Implement a mechanism to revoke implicit session signers independently from the global signer. This could be achieved by extending the implicit blacklist to include not only target addresses but also signer addresses, or by maintaining a separate blacklist array specifically for revoking implicit session signers. This feature would allow revocation of access for a compromised signer without necessitating an update to the global signer.
+> Implicit Session Revocation: Implement a mechanism to revoke implicit session signers independently from the identity signer. This could be achieved by extending the implicit blacklist to include not only target addresses but also signer addresses, or by maintaining a separate blacklist array specifically for revoking implicit session signers. This feature would allow revocation of access for a compromised signer without necessitating an update to the identity signer.
 
 ---
 

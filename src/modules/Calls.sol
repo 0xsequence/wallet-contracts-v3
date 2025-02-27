@@ -9,16 +9,16 @@ import { SelfAuth } from "./auth/SelfAuth.sol";
 
 abstract contract Calls is BaseAuth, Nonce {
 
-  event Success(bytes32 _opHash, uint256 _index);
-  event Failed(bytes32 _opHash, uint256 _index);
-  event Aborted(bytes32 _opHash, uint256 _index);
-  event Skipped(bytes32 _opHash, uint256 _index);
+  event CallSuccess(bytes32 _opHash, uint256 _index);
+  event CallFailed(bytes32 _opHash, uint256 _index);
+  event CallAborted(bytes32 _opHash, uint256 _index);
+  event CallSkipped(bytes32 _opHash, uint256 _index);
 
   error Reverted(Payload.Decoded _payload, uint256 _index, bytes _returnData);
   error InvalidSignature(Payload.Decoded _payload, bytes _signature);
   error NotEnoughGas(Payload.Decoded _payload, uint256 _index, uint256 _gasLeft);
 
-  function execute(bytes calldata _payload, bytes calldata _signature) external virtual {
+  function execute(bytes calldata _payload, bytes calldata _signature) external payable virtual {
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
 
     _consumeNonce(decoded.space, decoded.nonce);
@@ -33,7 +33,7 @@ abstract contract Calls is BaseAuth, Nonce {
 
   function selfExecute(
     bytes calldata _payload
-  ) external virtual onlySelf {
+  ) external payable virtual onlySelf {
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
     bytes32 opHash = Payload.hash(decoded);
     _execute(opHash, decoded);
@@ -50,7 +50,7 @@ abstract contract Calls is BaseAuth, Nonce {
       // then we can skip the call
       if (call.onlyFallback && !errorFlag) {
         errorFlag = false;
-        emit Skipped(_opHash, i);
+        emit CallSkipped(_opHash, i);
         continue;
       }
 
@@ -69,7 +69,7 @@ abstract contract Calls is BaseAuth, Nonce {
       if (!success) {
         if (call.behaviorOnError == Payload.BEHAVIOR_IGNORE_ERROR) {
           errorFlag = true;
-          emit Failed(_opHash, i);
+          emit CallFailed(_opHash, i);
           continue;
         }
 
@@ -78,12 +78,12 @@ abstract contract Calls is BaseAuth, Nonce {
         }
 
         if (call.behaviorOnError == Payload.BEHAVIOR_ABORT_ON_ERROR) {
-          emit Aborted(_opHash, i);
+          emit CallAborted(_opHash, i);
           break;
         }
       }
 
-      emit Success(_opHash, i);
+      emit CallSuccess(_opHash, i);
     }
   }
 
