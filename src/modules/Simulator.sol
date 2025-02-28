@@ -1,18 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.27;
 
 import { LibOptim } from "../utils/LibOptim.sol";
 import { Calls } from "./Calls.sol";
+import { Nonce } from "./Nonce.sol";
 import { Payload } from "./Payload.sol";
 import { BaseAuth } from "./auth/BaseAuth.sol";
 
-/**
- * @notice Contains an alternative implementation of the MainModules that skips validation of
- *   signatures, this implementation SHOULD NOT be used directly on a wallet.
- *
- *   Intended to be used only for gas estimation, using eth_call and overrides.
- */
-abstract contract Simulator is BaseAuth {
+abstract contract Simulator is BaseAuth, Nonce {
 
   enum Status {
     Skipped,
@@ -29,29 +24,22 @@ abstract contract Simulator is BaseAuth {
     uint256 gasUsed;
   }
 
-  /**
-   * @notice Simulates a payload, bypassing nonce, signature, or replay protection.
-   * @param _payload The payload to simulate
-   * @param _signature The signature of the payload
-   * @return results The results of the simulated calls.
-   */
   function simulate(
     bytes calldata _payload,
     bytes calldata _signature
   ) external payable virtual returns (Result[] memory results) {
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
 
-    bytes32 opHash = Payload.hash(decoded);
+    _consumeNonce(decoded.space, decoded.nonce);
+    (bool isValid, bytes32 opHash) = signatureValidation(decoded, _signature);
+
+    if (!isValid) {
+      revert Calls.InvalidSignature(decoded, _signature);
+    }
 
     return _simulate(opHash, decoded);
   }
 
-  /**
-   * @notice Simulate each transaction in a bundle for gas usage and execution result
-   * @param _opHash The hash of the operation
-   * @param _decoded The decoded payload
-   * @return results The results of the simulated calls.
-   */
   function _simulate(bytes32 _opHash, Payload.Decoded memory _decoded) private returns (Result[] memory results) {
     bool errorFlag = false;
 
@@ -115,13 +103,10 @@ abstract contract Simulator is BaseAuth {
     }
   }
 
-  /**
-   * @notice Validates any signature image, because the wallet is public and has no owner.
-   * @return true, all signatures are valid.
-   */
   function _isValidImage(
     bytes32 _imageHash
   ) internal view virtual override returns (bool) {
+    super._isValidImage(_imageHash);
     return true;
   }
 
