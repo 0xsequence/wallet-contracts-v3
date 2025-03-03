@@ -46,12 +46,15 @@ abstract contract Calls is BaseAuth, Nonce {
     for (uint256 i = 0; i < numCalls; i++) {
       Payload.Call memory call = _decoded.calls[i];
 
-      // If the call is of fallback kind, and errorFlag is set to false
-      // then we can skip the call
-      if (call.onlyFallback && !errorFlag) {
-        errorFlag = false;
-        emit CallSkipped(_opHash, i);
-        continue;
+      if (call.onlyFallback) {
+        if (errorFlag) {
+          // Clear the error flag so that the next onlyFallback call only executes on a new error
+          errorFlag = false;
+        } else {
+          // Skip onlyFallback calls if no error has occurred
+          emit CallSkipped(_opHash, i);
+          continue;
+        }
       }
 
       uint256 gasLimit = call.gasLimit;
