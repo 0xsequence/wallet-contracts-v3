@@ -38,8 +38,8 @@ contract AttestationTest is AdvTest {
     assertEq(attestation.identityType, unpacked.identityType, "identityType");
     assertEq(attestation.issuerHash, unpacked.issuerHash, "issuerHash");
     assertEq(attestation.audienceHash, unpacked.audienceHash, "audienceHash");
-    assertEq(attestation.authData, unpacked.authData, "authData");
     assertEq(attestation.applicationData, unpacked.applicationData, "applicationData");
+    assertEq(attestation.authData.redirectUrl, unpacked.authData.redirectUrl, "authData.redirectUrl");
   }
 
 }

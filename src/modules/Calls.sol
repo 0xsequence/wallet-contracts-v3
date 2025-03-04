@@ -10,8 +10,8 @@ import { SelfAuth } from "./auth/SelfAuth.sol";
 abstract contract Calls is BaseAuth, Nonce {
 
   event CallSuccess(bytes32 _opHash, uint256 _index);
-  event CallFailed(bytes32 _opHash, uint256 _index);
-  event CallAborted(bytes32 _opHash, uint256 _index);
+  event CallFailed(bytes32 _opHash, uint256 _index, bytes _returnData);
+  event CallAborted(bytes32 _opHash, uint256 _index, bytes _returnData);
   event CallSkipped(bytes32 _opHash, uint256 _index);
 
   error Reverted(Payload.Decoded _payload, uint256 _index, bytes _returnData);
@@ -69,7 +69,7 @@ abstract contract Calls is BaseAuth, Nonce {
       if (!success) {
         if (call.behaviorOnError == Payload.BEHAVIOR_IGNORE_ERROR) {
           errorFlag = true;
-          emit CallFailed(_opHash, i);
+          emit CallFailed(_opHash, i, LibOptim.returnData());
           continue;
         }
 
@@ -78,7 +78,7 @@ abstract contract Calls is BaseAuth, Nonce {
         }
 
         if (call.behaviorOnError == Payload.BEHAVIOR_ABORT_ON_ERROR) {
-          emit CallAborted(_opHash, i);
+          emit CallAborted(_opHash, i, LibOptim.returnData());
           break;
         }
       }

@@ -32,6 +32,10 @@ abstract contract ImplicitSessionManager {
     if (call.delegateCall) {
       revert SessionErrors.InvalidDelegateCall();
     }
+    // Check if the signer is blacklisted
+    if (_isAddressBlacklisted(sessionSigner, blacklist)) {
+      revert SessionErrors.BlacklistedAddress(sessionSigner);
+    }
     // Check if the target address is blacklisted
     if (_isAddressBlacklisted(call.to, blacklist)) {
       revert SessionErrors.BlacklistedAddress(call.to);
@@ -43,7 +47,7 @@ abstract contract ImplicitSessionManager {
 
     // Validate the implicit request
     bytes32 attestationMagic = attestation.generateImplicitRequestMagic(wallet);
-    bytes32 redirectUrlHash = keccak256(abi.encodePacked(attestation.authData));
+    bytes32 redirectUrlHash = keccak256(bytes(attestation.authData.redirectUrl));
 
     // Validate implicit mode
     bytes32 result = ISignalsImplicitMode(call.to).acceptImplicitRequest(wallet, attestation, redirectUrlHash, call);

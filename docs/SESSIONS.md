@@ -156,7 +156,7 @@ The **Size Indicator** specifies the total number of bytes that the branch occup
 
 #### Blacklist (FLAG 0x03)
 
-The blacklist node specifies addresses that are disallowed for implicit sessions.
+The blacklist node specifies addresses that are disallowed for implicit sessions. This includes both target addresses that cannot be called and session signers that are not allowed to make implicit calls.
 
 ```
 Blacklist Node Layout:
@@ -166,8 +166,18 @@ Blacklist Node Layout:
  └──────────────────────────────────────────────┘
 ```
 
-> [!WARNING]
+The blacklist serves two security purposes:
+
+1. Prevents implicit sessions from calling specific target addresses
+2. Blocks specific session signers from making any implicit calls
+
+When an implicit session call is made, both the session signer and the target address are checked against the blacklist. If either appears in the blacklist, the call will be rejected with a `BlacklistedAddress` error.
+
+> [!IMPORTANT]
 > For implicit sessions, the blacklist is mandatory. Absence or incorrect formatting of the blacklist will result in a validation error.
+
+> [!WARNING]
+> The blacklist doesn't not prevent explicit sessions from calling blacklisted addresses or prevent explicit signers. To block an explicit session or it's permissions, update the wallet configuration to remove the explicit session.
 
 #### Identity Signer (FLAG 0x04)
 
@@ -449,9 +459,6 @@ Several improvements can be made
 
 > [!NOTE]
 > Advanced Permission Rules: Extend the permission system to support more complex conditional checks or dynamic rule adjustments. Provide improved error messages and diagnostic tools for failed validations.
-
-> [!NOTE]
-> Implicit Session Revocation: Implement a mechanism to revoke implicit session signers independently from the identity signer. This could be achieved by extending the implicit blacklist to include not only target addresses but also signer addresses, or by maintaining a separate blacklist array specifically for revoking implicit session signers. This feature would allow revocation of access for a compromised signer without necessitating an update to the identity signer.
 
 ---
 

@@ -113,9 +113,10 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Test that a call using delegateCall reverts.
-  function testInvalidDelegateCallReverts(
-    bytes memory data
-  ) public {
+  function testInvalidDelegateCallReverts(Attestation memory attestation, bytes memory data) public {
+    attestation.approvedSigner = sessionWallet.addr;
+    attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+
     // Build a payload with one call that erroneously uses delegateCall.
     uint256 callCount = 1;
     Payload.Decoded memory payload = _buildPayload(callCount);
@@ -127,15 +128,6 @@ contract SessionManagerTest is SessionTestBase {
       delegateCall: true, // invalid
       onlyFallback: false,
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
-    });
-
-    Attestation memory attestation = Attestation({
-      approvedSigner: sessionWallet.addr,
-      identityType: bytes4(0),
-      issuerHash: bytes32(0),
-      audienceHash: bytes32(0),
-      authData: new bytes(0),
-      applicationData: new bytes(0)
     });
 
     // Build topology (even though it won’t be used because the delegateCall check runs first).
@@ -225,29 +217,23 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Valid implicit session test.
-  function testValidImplicitSessionSignature(bytes memory authData, bytes memory applicationData) public {
+  function testValidImplicitSessionSignature(Attestation memory attestation, bytes memory data) public {
+    attestation.approvedSigner = sessionWallet.addr;
+    attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+
     // Build a payload with one call for implicit session.
     uint256 callCount = 1;
     Payload.Decoded memory payload = _buildPayload(callCount);
     payload.calls[0] = Payload.Call({
       to: implicitTarget,
       value: 0,
-      data: "test", // arbitrary data
+      data: data,
       gasLimit: 0,
       delegateCall: false,
       onlyFallback: false,
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
     });
 
-    // --- Create an Attestation for the Implicit Session ---
-    Attestation memory attestation = Attestation({
-      approvedSigner: sessionWallet.addr,
-      identityType: bytes4(0),
-      issuerHash: bytes32(0),
-      audienceHash: bytes32(0),
-      authData: authData,
-      applicationData: applicationData
-    });
     // Create the implicit call signature.
     string memory callSignature =
       _createImplicitCallSignature(payload.calls[0], sessionWallet, identityWallet, attestation);

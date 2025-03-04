@@ -29,8 +29,8 @@ contract GuestTest is AdvTest {
   Guest public guest;
 
   event CallSuccess(bytes32 _opHash, uint256 _index);
-  event CallFailed(bytes32 _opHash, uint256 _index);
-  event CallAborted(bytes32 _opHash, uint256 _index);
+  event CallFailed(bytes32 _opHash, uint256 _index, bytes _returnData);
+  event CallAborted(bytes32 _opHash, uint256 _index, bytes _returnData);
   event CallSkipped(bytes32 _opHash, uint256 _index);
 
   function setUp() external {

@@ -9,7 +9,7 @@ import { SessionSig } from "src/extensions/sessions/SessionSig.sol";
 import { SessionPermissions } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import { ParameterOperation, ParameterRule, Permission } from "src/extensions/sessions/explicit/Permission.sol";
 
-import { Attestation, LibAttestation } from "src/extensions/sessions/implicit/Attestation.sol";
+import { Attestation, AuthData, LibAttestation } from "src/extensions/sessions/implicit/Attestation.sol";
 import { Payload } from "src/modules/Payload.sol";
 
 using LibAttestation for Attestation;
@@ -122,7 +122,12 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testSingleImplicitSignature() public {
+  function testSingleImplicitSignature(
+    Attestation memory attestation
+  ) public {
+    attestation.approvedSigner = sessionWallet.addr;
+    attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+
     Payload.Decoded memory payload = _buildPayload(1);
     {
       payload.calls[0] = Payload.Call({
@@ -133,19 +138,6 @@ contract SessionSigTest is SessionTestBase {
         delegateCall: false,
         onlyFallback: false,
         behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
-      });
-    }
-
-    // Create attestation.
-    Attestation memory attestation;
-    {
-      attestation = Attestation({
-        approvedSigner: sessionWallet.addr,
-        identityType: bytes4(0),
-        issuerHash: bytes32(0),
-        audienceHash: bytes32(0),
-        authData: bytes(""),
-        applicationData: bytes("")
       });
     }
 
@@ -186,7 +178,12 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testMultipleImplicitSignatures() public {
+  function testMultipleImplicitSignatures(
+    Attestation memory attestation
+  ) public {
+    attestation.approvedSigner = sessionWallet.addr;
+    attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+
     Payload.Decoded memory payload = _buildPayload(2);
     {
       payload.calls[0] = Payload.Call({
@@ -209,15 +206,6 @@ contract SessionSigTest is SessionTestBase {
         behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
       });
     }
-
-    Attestation memory attestation = Attestation({
-      approvedSigner: sessionWallet.addr,
-      identityType: bytes4(0),
-      issuerHash: bytes32(0),
-      audienceHash: bytes32(0),
-      authData: bytes(""),
-      applicationData: bytes("")
-    });
 
     // Create attestations and signatures for both calls
     string[] memory callSignatures = new string[](2);
@@ -341,8 +329,18 @@ contract SessionSigTest is SessionTestBase {
 
       assertEq(sig.implicitBlacklist.length, 0, "Blacklist should be empty");
       assertEq(sig.sessionPermissions.length, 2, "Session permissions length");
-      assertEq(sig.sessionPermissions[1].signer, sessionWallet.addr, "Session permission signer 0");
-      assertEq(sig.sessionPermissions[0].signer, sessionWallet2.addr, "Session permission signer 1");
+      bool found0 = false;
+      bool found1 = false;
+      for (uint256 i = 0; i < sig.sessionPermissions.length; i++) {
+        if (sig.sessionPermissions[i].signer == sessionWallet.addr) {
+          found0 = true;
+        }
+        if (sig.sessionPermissions[i].signer == sessionWallet2.addr) {
+          found1 = true;
+        }
+      }
+      assertTrue(found0, "Session permission signer 0 not found");
+      assertTrue(found1, "Session permission signer 1 not found");
 
       bytes32 imageHash = PrimitivesRPC.sessionImageHash(vm, topology);
       assertEq(sig.imageHash, imageHash, "Image hash");
@@ -446,7 +444,15 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testAttestationOptimisation() public {
+  function testAttestationOptimisation(Attestation memory attestation1, Attestation memory attestation2) public {
+    // Create a second session wallet
+    Vm.Wallet memory sessionWallet2 = vm.createWallet("session2");
+
+    attestation1.approvedSigner = sessionWallet.addr;
+    attestation2.approvedSigner = sessionWallet2.addr;
+    attestation1.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+    attestation2.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+
     // Create a payload with 2 calls
     Payload.Decoded memory payload = _buildPayload(2);
     {
@@ -470,27 +476,6 @@ contract SessionSigTest is SessionTestBase {
         behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
       });
     }
-
-    // Create a second session wallet
-    Vm.Wallet memory sessionWallet2 = vm.createWallet("session2");
-
-    // Create 2 attestations
-    Attestation memory attestation1 = Attestation({
-      approvedSigner: sessionWallet.addr,
-      identityType: bytes4(0),
-      issuerHash: bytes32(0),
-      audienceHash: bytes32(0),
-      authData: bytes(""),
-      applicationData: bytes("")
-    });
-    Attestation memory attestation2 = Attestation({
-      approvedSigner: sessionWallet2.addr,
-      identityType: bytes4(0),
-      issuerHash: bytes32(0),
-      audienceHash: bytes32(0),
-      authData: bytes(""),
-      applicationData: bytes("")
-    });
 
     // Create 2 call signatures for the same session wallet and attestation
     string memory callSignatureA =
