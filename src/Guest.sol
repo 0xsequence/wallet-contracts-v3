@@ -72,7 +72,7 @@ contract Guest {
       if (!success) {
         if (call.behaviorOnError == Payload.BEHAVIOR_IGNORE_ERROR) {
           errorFlag = true;
-          emit Calls.CallFailed(_opHash, i);
+          emit Calls.CallFailed(_opHash, i, LibOptim.returnData());
           continue;
         }
 
@@ -81,7 +81,7 @@ contract Guest {
         }
 
         if (call.behaviorOnError == Payload.BEHAVIOR_ABORT_ON_ERROR) {
-          emit Calls.CallAborted(_opHash, i);
+          emit Calls.CallAborted(_opHash, i, LibOptim.returnData());
           break;
         }
       }
