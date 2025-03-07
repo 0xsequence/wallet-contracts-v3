@@ -76,19 +76,11 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
       - name: Install Foundry Dependencies
         run: forge install
-      - name: Start the server
-        run: make start-go > server.log 2>&1 &
-      - name: Check server status
-        run: |
-          sleep 30
-          netstat -an | grep 9999 || echo "Port 9999 not found"
-      - name: Wait for server response
-        run: timeout 30s sh -c 'while ! curl -s -o /dev/null -w "%{http_code}" http://localhost:9999/rpc 2>&1 | tee -a curl_output.log | grep -q 404; do sleep 1; done'
-        continue-on-error: true
-      - name: Debug logs
-        run: |
-          cat server.log
-          cat curl_output.log
+      - name: Run Server
+        run: ${{ matrix.server_cmd }}
+        working-directory: sdk-repo
+      - name: Wait for Server
+        run: sleep 30
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
