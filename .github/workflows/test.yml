@@ -74,7 +74,7 @@ jobs:
       - name: Start RPC server
         run: |
           cd sdk-repo
-          ${{ matrix.server_cmd }}
+          nohup ${{ matrix.server_cmd }} > server.log 2>&1 &
           sleep 5
           cd ..
       - name: Install Dependencies
