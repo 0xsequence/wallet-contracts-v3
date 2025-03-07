@@ -109,6 +109,7 @@ jobs:
         run: exit 1
       - name: Update Status
         if: ${{ github.event_name == 'workflow_dispatch' }}
+        continue-on-error: true
         uses: actions/github-script@v6
         with:
           script: |
@@ -116,7 +117,7 @@ jobs:
             const publicOwner = '0xsequence';
             const publicRepo = ${{ matrix.repo_name }};
             const repoUrl = ${{ matrix.repo_url }}
-            const commitSha = '${{ github.event.client_payload.commit_sha }}';
+            const commitSha = '${{ github.event.inputs.commit_hash }}';
             const token = '${{ secrets.GITHUB_TOKEN }}';
             const octokit = new Octokit({ auth: token });
             const state = '${{ steps.run_tests.outcome == 'success' && 'success' || 'failure' }}';
