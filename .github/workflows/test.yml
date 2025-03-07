@@ -80,7 +80,7 @@ jobs:
         run: ${{ matrix.server_cmd }}
         working-directory: sdk-repo
       - name: Wait for Server
-        run: sleep 30
+        run: sleep 40
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
