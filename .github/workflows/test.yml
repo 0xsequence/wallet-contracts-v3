@@ -80,7 +80,7 @@ jobs:
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
-        run: forge test -vvv
+        run: forge test
         env:
           SEQ_SDK_RPC_URL_PREFIX: 'http://localhost:'
           SEQ_SDK_RPC_URL_SUFFIX: '/rpc'
