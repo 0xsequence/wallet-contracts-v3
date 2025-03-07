@@ -80,7 +80,7 @@ jobs:
         run: make start-go &
       - name: Wait for RPC server to be ready
         run: |
-          timeout 30s sh -c 'while ! curl -s -o /dev/null -w "%{http_code}" http://localhost:9999/rpc | tee curl_output.log | grep -q 404; do sleep 1; done'
+          timeout 30s sh -c 'while ! curl -s -o /dev/null -w "%{http_code}" http://localhost:9999/rpc 2>&1 | tee curl_output.log | grep -q 404; do sleep 1; done'
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
