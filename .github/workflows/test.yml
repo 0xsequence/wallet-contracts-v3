@@ -103,9 +103,9 @@ jobs:
       - name: Report Status
         if: ${{ github.event_name != 'workflow_dispatch' }}
         run: |
-          echo ${{ steps.run_tests.outcome == 'success' && 'success' || 'failure' }} >> $GITHUB_OUTPUT
+          echo "status=${{ steps.run_tests.outcome == 'success' && 'success' || 'failure' }}" >> $GITHUB_OUTPUT
       - name: Fail Job If Tests Fail
-        if: ${{ github.event_name != 'workflow_dispatch' }} && ${{ steps.fail_status.outputs.status == 'failure' }}
+        if: ${{ github.event_name != 'workflow_dispatch' }} && ${{ steps.run_tests.outcome == 'failure' }}
         run: exit 1
       - name: Update Status
         if: ${{ github.event_name == 'workflow_dispatch' }}
