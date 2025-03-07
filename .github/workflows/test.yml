@@ -1,4 +1,7 @@
 name: Test
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
 on:
   workflow_dispatch:
     inputs:
@@ -74,14 +77,8 @@ jobs:
       - name: Start RPC server
         run: |
           cd sdk-repo
-          nohup ${{ matrix.server_cmd }} > server.log 2>&1 &
-          until curl -s http://localhost:9999/rpc > /dev/null 2>&1; do
-            sleep 1
-          done
-          echo "Server is ready"
+          RUNNER_TRACKING_ID="" && (nohup ${{ matrix.server_cmd }})
           cd ..
-        env:
-          RUNNER_TRACKING_ID: ''
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
