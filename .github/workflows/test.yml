@@ -100,6 +100,9 @@ jobs:
           SEQ_SDK_RPC_URL_SUFFIX: '/rpc'
           SEQ_SDK_RPC_MIN_PORT: '9999'
           SEQ_SDK_RPC_MAX_PORT: '9999'
+      - name: Fail Status
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        run: echo 1
       - name: Update Status
         if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/github-script@v6
