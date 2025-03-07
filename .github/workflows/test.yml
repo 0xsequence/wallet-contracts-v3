@@ -23,8 +23,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        fail_fast: false
         include:
           - sdk_type: go
             repo_url: https://github.com/0xsequence/go-sequence.git
