@@ -1,0 +1,1187 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/Factory.sol": {
+      "lastModificationDate": 1737394917815,
+      "contentHash": "1a8ac75ab7100e6bcaef1be7d06d3949",
+      "sourceName": "src/Factory.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["./Wallet.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Factory"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/Wallet.sol": {
+      "lastModificationDate": 1740651082918,
+      "contentHash": "c592f698b49ee82e18d473d2829ff101",
+      "sourceName": "src/Wallet.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": ["^0.8.0"],
+      "artifacts": ["Wallet"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/auth/Stage2Auth.sol": {
+      "lastModificationDate": 1739977206900,
+      "contentHash": "2765e4050dec7533b7f6cacf0a6841b4",
+      "sourceName": "src/modules/auth/Stage2Auth.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../../Wallet.sol", "../Implementation.sol", "../Storage.sol", "./BaseAuth.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Stage2Auth"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/Implementation.sol": {
+      "lastModificationDate": 1740651082919,
+      "contentHash": "1c084ad3874ffe4b5e2e73020bdf4a2f",
+      "sourceName": "src/modules/Implementation.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["./auth/SelfAuth.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Implementation"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/Storage.sol": {
+      "lastModificationDate": 1739269424688,
+      "contentHash": "0f402e9e84739e5143eb8e9e23853653",
+      "sourceName": "src/modules/Storage.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Storage"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/auth/BaseAuth.sol": {
+      "lastModificationDate": 1739977206899,
+      "contentHash": "bc83e0b89c1a94dba126677b5a2f2755",
+      "sourceName": "src/modules/auth/BaseAuth.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../Payload.sol",
+        "../Storage.sol",
+        "../interfaces/IAuth.sol",
+        "../interfaces/IERC1271.sol",
+        "../interfaces/IPartialAuth.sol",
+        "../interfaces/ISapient.sol",
+        "./BaseSig.sol",
+        "./SelfAuth.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["BaseAuth"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/auth/SelfAuth.sol": {
+      "lastModificationDate": 1739269424689,
+      "contentHash": "0876e7eece29867672e94287bfec708a",
+      "sourceName": "src/modules/auth/SelfAuth.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["SelfAuth"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/Payload.sol": {
+      "lastModificationDate": 1739977206899,
+      "contentHash": "779ee47d380b9b1cb064641ccacd2d52",
+      "sourceName": "src/modules/Payload.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../utils/LibBytesPointer.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Payload"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/interfaces/IAuth.sol": {
+      "lastModificationDate": 1739269424689,
+      "contentHash": "5caf7b53697b0a5b671dad2664732a30",
+      "sourceName": "src/modules/interfaces/IAuth.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../Payload.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["IAuth"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/interfaces/IERC1271.sol": {
+      "lastModificationDate": 1739269424689,
+      "contentHash": "df32cc592edc227bfbd43ece461bf017",
+      "sourceName": "src/modules/interfaces/IERC1271.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": ["^0.8.18"],
+      "artifacts": ["IERC1271"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/interfaces/IPartialAuth.sol": {
+      "lastModificationDate": 1739977206900,
+      "contentHash": "124ff4d099d815ee2cd644d963af235a",
+      "sourceName": "src/modules/interfaces/IPartialAuth.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../Payload.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["IPartialAuth"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/interfaces/ISapient.sol": {
+      "lastModificationDate": 1739269424690,
+      "contentHash": "2b9dc547fadef683ea95b4ebcf829bf7",
+      "sourceName": "src/modules/interfaces/ISapient.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../Payload.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["ISapient", "ISapientCompact"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/auth/BaseSig.sol": {
+      "lastModificationDate": 1739989409256,
+      "contentHash": "f2a464b876d001297b0f85dec413c43d",
+      "sourceName": "src/modules/auth/BaseSig.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../utils/LibBytesPointer.sol",
+        "../../utils/LibOptim.sol",
+        "../Payload.sol",
+        "../interfaces/ICheckpointer.sol",
+        "../interfaces/IERC1271.sol",
+        "../interfaces/ISapient.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["BaseSig"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/utils/LibBytesPointer.sol": {
+      "lastModificationDate": 1739269424690,
+      "contentHash": "e3c2011e06ff4c066b5b50bb59c8d6f0",
+      "sourceName": "src/utils/LibBytesPointer.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": ["^0.8.18"],
+      "artifacts": ["LibBytesPointer"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/utils/LibOptim.sol": {
+      "lastModificationDate": 1739269424691,
+      "contentHash": "904874fed0fbcd8a91adfd40085ce3ab",
+      "sourceName": "src/utils/LibOptim.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": ["^0.8.18"],
+      "artifacts": ["LibOptim"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/interfaces/ICheckpointer.sol": {
+      "lastModificationDate": 1737394917817,
+      "contentHash": "cdd25fda1b3e0ddd072a614032cd8b2a",
+      "sourceName": "src/modules/interfaces/ICheckpointer.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../Payload.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["ICheckpointer"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/auth/Stage1Auth.sol": {
+      "lastModificationDate": 1739977206900,
+      "contentHash": "a895e0c3504f9d3ec850929b6995bcfc",
+      "sourceName": "src/modules/auth/Stage1Auth.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../../Wallet.sol", "../Implementation.sol", "../Storage.sol", "./BaseAuth.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Stage1Auth"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/Nonce.sol": {
+      "lastModificationDate": 1740730271979,
+      "contentHash": "046ba0c9739f7cc0db6115029378ed08",
+      "sourceName": "src/modules/Nonce.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["./Storage.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Nonce"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/Calls.sol": {
+      "lastModificationDate": 1740704911334,
+      "contentHash": "b1e8791ed98905f44ead9c52fb3332fe",
+      "sourceName": "src/modules/Calls.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/LibOptim.sol",
+        "./Nonce.sol",
+        "./Payload.sol",
+        "./auth/BaseAuth.sol",
+        "./auth/SelfAuth.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Calls"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/extensions/sessions/SessionSig.sol": {
+      "lastModificationDate": 1740651082918,
+      "contentHash": "42c88e88ad6dfaf718631075a7507302",
+      "sourceName": "src/extensions/sessions/SessionSig.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../modules/Payload.sol",
+        "../../utils/LibBytesPointer.sol",
+        "../../utils/LibOptim.sol",
+        "./SessionErrors.sol",
+        "./explicit/IExplicitSessionManager.sol",
+        "./explicit/Permission.sol",
+        "./implicit/Attestation.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["SessionSig"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/extensions/sessions/explicit/Permission.sol": {
+      "lastModificationDate": 1739977206897,
+      "contentHash": "b903f0965f90c715641fe487d1d0d002",
+      "sourceName": "src/extensions/sessions/explicit/Permission.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../../../utils/LibBytesPointer.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["LibPermission"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/extensions/sessions/implicit/Attestation.sol": {
+      "lastModificationDate": 1739977206898,
+      "contentHash": "f3c3ced0a085b7e313ff370bf3563006",
+      "sourceName": "src/extensions/sessions/implicit/Attestation.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../../../utils/LibBytesPointer.sol", "./ISignalsImplicitMode.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["LibAttestation"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/extensions/sessions/SessionErrors.sol": {
+      "lastModificationDate": 1740651082918,
+      "contentHash": "c1a8d78bdaf9a08599eb310e6824aedf",
+      "sourceName": "src/extensions/sessions/SessionErrors.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["SessionErrors"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/extensions/sessions/explicit/IExplicitSessionManager.sol": {
+      "lastModificationDate": 1739977206897,
+      "contentHash": "22137d3e0e183d873f25740528c9c93d",
+      "sourceName": "src/extensions/sessions/explicit/IExplicitSessionManager.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["./Permission.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["IExplicitSessionManager"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/extensions/sessions/implicit/ISignalsImplicitMode.sol": {
+      "lastModificationDate": 1739977206898,
+      "contentHash": "ae2a7bb8d4c337552ba922b62969b4ae",
+      "sourceName": "src/extensions/sessions/implicit/ISignalsImplicitMode.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../../../modules/Payload.sol", "./Attestation.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["ISignalsImplicitMode"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/extensions/sessions/explicit/PermissionValidator.sol": {
+      "lastModificationDate": 1739977206897,
+      "contentHash": "94ea61f2cc712a2ac74368ea018e57f7",
+      "sourceName": "src/extensions/sessions/explicit/PermissionValidator.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../../modules/interfaces/ISapient.sol",
+        "../../../utils/LibBytes.sol",
+        "./Permission.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["PermissionValidator"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/utils/LibBytes.sol": {
+      "lastModificationDate": 1739271934971,
+      "contentHash": "67cc36d30ae9402cced2d4c1bb555012",
+      "sourceName": "src/utils/LibBytes.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": ["^0.8.18"],
+      "artifacts": ["LibBytes"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/extensions/sessions/implicit/ImplicitSessionManager.sol": {
+      "lastModificationDate": 1739977206898,
+      "contentHash": "4cf91b5c843352fc60867714c49f42b0",
+      "sourceName": "src/extensions/sessions/implicit/ImplicitSessionManager.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../../modules/Payload.sol",
+        "../SessionErrors.sol",
+        "./Attestation.sol",
+        "./ISignalsImplicitMode.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["ImplicitSessionManager"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/extensions/sessions/SessionManager.sol": {
+      "lastModificationDate": 1739977206896,
+      "contentHash": "4430124dcaa3d3d778f3e7850fdb20fb",
+      "sourceName": "src/extensions/sessions/SessionManager.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../modules/Payload.sol",
+        "../../modules/interfaces/ISapient.sol",
+        "../../utils/LibBytesPointer.sol",
+        "./SessionErrors.sol",
+        "./SessionSig.sol",
+        "./explicit/ExplicitSessionManager.sol",
+        "./explicit/Permission.sol",
+        "./implicit/ImplicitSessionManager.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["SessionManager"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/Stage2Module.sol": {
+      "lastModificationDate": 1740730496146,
+      "contentHash": "9ed92b50364d27ca131dbb6a5b0d93ed",
+      "sourceName": "src/Stage2Module.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./modules/Calls.sol",
+        "./modules/Hooks.sol",
+        "./modules/auth/Stage2Auth.sol",
+        "./modules/interfaces/IAuth.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Stage2Module"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/Stage1Module.sol": {
+      "lastModificationDate": 1740729690359,
+      "contentHash": "3647a0640f193df98ffe13c4a9a20eed",
+      "sourceName": "src/Stage1Module.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./Stage2Module.sol",
+        "./modules/Calls.sol",
+        "./modules/Hooks.sol",
+        "./modules/auth/Stage1Auth.sol",
+        "./modules/interfaces/IAuth.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Stage1Module"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/Hooks.sol": {
+      "lastModificationDate": 1740651082919,
+      "contentHash": "a048d2e8aec2201bd56814fd56742a83",
+      "sourceName": "src/modules/Hooks.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["./Storage.sol", "./auth/SelfAuth.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Hooks", "IERC1155Receiver", "IERC223Receiver", "IERC721Receiver"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/Guest.sol": {
+      "lastModificationDate": 1740704911334,
+      "contentHash": "4fe823710bf3f10378e55415e5b75a97",
+      "sourceName": "src/Guest.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./modules/Calls.sol",
+        "./modules/Payload.sol",
+        "./modules/interfaces/IAuth.sol",
+        "./utils/LibBytesPointer.sol",
+        "./utils/LibOptim.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Guest"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/extensions/sessions/explicit/ExplicitSessionManager.sol": {
+      "lastModificationDate": 1739977206897,
+      "contentHash": "649aa19063e2bb8aaff9dfa9d620bf90",
+      "sourceName": "src/extensions/sessions/explicit/ExplicitSessionManager.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../../modules/interfaces/ISapient.sol",
+        "../../../utils/LibBytesPointer.sol",
+        "../SessionErrors.sol",
+        "./IExplicitSessionManager.sol",
+        "./Permission.sol",
+        "./PermissionValidator.sol"
+      ],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["ExplicitSessionManager"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/modules/Simulator.sol": {
+      "lastModificationDate": 1740730643693,
+      "contentHash": "08846e2f0d1294791287abad2aeac94f",
+      "sourceName": "src/modules/Simulator.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["../utils/LibOptim.sol", "./Calls.sol", "./Payload.sol"],
+      "versionPragmas": ["^0.8.18"],
+      "artifacts": ["Simulator"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/Stage2Simulator.sol": {
+      "lastModificationDate": 1740734648893,
+      "contentHash": "d7678b7966d6dae8459bbfaa918809f8",
+      "sourceName": "src/Stage2Simulator.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["./Stage2Module.sol", "./modules/Nonce.sol", "./modules/Simulator.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Stage2Simulator"]
+    },
+    "/Users/shunkakinoki/ghq/github.com/0xsequence/sequence-v3/src/Stage1Simulator.sol": {
+      "lastModificationDate": 1740734645450,
+      "contentHash": "e0b3a656ead4db27ca775255b96a743f",
+      "sourceName": "src/Stage1Simulator.sol",
+      "solcConfig": {
+        "version": "0.8.27",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 500000
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": ["ast"]
+            }
+          }
+        }
+      },
+      "imports": ["./Stage1Module.sol", "./modules/Nonce.sol", "./modules/Simulator.sol"],
+      "versionPragmas": ["^0.8.27"],
+      "artifacts": ["Stage1Simulator"]
+    }
+  }
+}
