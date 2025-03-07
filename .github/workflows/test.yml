@@ -100,6 +100,10 @@ jobs:
           SEQ_SDK_RPC_URL_SUFFIX: '/rpc'
           SEQ_SDK_RPC_MIN_PORT: '9999'
           SEQ_SDK_RPC_MAX_PORT: '9999'
+      - name: Debug Values
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Run tests outcome: ${{ steps.run_tests.outcome }}"
       - name: Report Status
         if: ${{ github.event_name != 'workflow_dispatch' }}
         run: |
