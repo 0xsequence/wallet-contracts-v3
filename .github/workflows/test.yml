@@ -80,7 +80,10 @@ jobs:
         run: |
           cd sdk-repo
           go run ./cmd/sequence/ server --debug --port 9999 &
+          RUNNER_TRACKING_ID="" && (nohup go run ./cmd/sequence/ server --debug --port 9999 &)
           cd ..
+      - name: Run Tests
+        run: |
           forge test
         env:
           SEQ_SDK_RPC_URL_PREFIX: 'http://localhost:'
