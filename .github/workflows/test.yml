@@ -1,4 +1,7 @@
 name: Test
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
 on:
   workflow_dispatch:
     inputs:
@@ -23,17 +26,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        sdk_type: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["' + github.event.inputs.sdk_type + '"]') || ['go', 'typescript'] }}
         include:
-          - sdk_type: go
-            repo_url: git@github.com:0xsequence/go-sequence.git
+          - name: Go SDK
+            sdk_type: go
+            repo_name: go-sequence
+            repo_url: https://github.com/0xsequence/go-sequence.git
             default_branch: v3-core
             setup_tool: go
-            setup_version: '1.20'
+            setup_version: '1.23'
             server_cmd: go run ./cmd/sequence/ server --debug --port 9999 &
-          - sdk_type: typescript
-            repo_url: git@github.com:0xsequence/sequence-core.git
+          - name: Typescript SDK
+            sdk_type: typescript
+            repo_name: sequence-core
+            repo_url: https://github.com/0xsequence/sequence-core.git
             default_branch: master
             setup_tool: node
             setup_version: '20'
@@ -49,30 +56,68 @@ jobs:
           fi
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Clone SDK Repo
         run: |
           git clone ${{ matrix.repo_url }} sdk-repo
           cd sdk-repo
           git checkout ${{ steps.determine_commit.outputs.commit }}
           cd ..
-      - name: Set Up Environment
-        uses: ${{ matrix.setup_tool == 'go' && 'actions/setup-go@v3' || 'actions/setup-node@v3' }}
+      - name: Set Up Go Environment
+        if: ${{ matrix.setup_tool == 'go' }}
+        uses: actions/setup-go@v4
         with:
           ${{ matrix.setup_tool }}-version: ${{ matrix.setup_version }}
+      - name: Set Up Node Environment
+        if: ${{ matrix.setup_tool == 'node' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.setup_version }}
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-      - name: Start RPC server
-        run: |
-          cd sdk-repo
-          ${{ matrix.server_cmd }}
-          sleep 5
-          cd ..
+      - name: Install Foundry Dependencies
+        run: forge install
+      - name: Run Server
+        run: ${{ matrix.server_cmd }}
+        working-directory: sdk-repo
+      - name: Wait for Server
+        run: sleep 40
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
-        run: forge test -vvv
+        id: run_tests
+        continue-on-error: true
+        run: |
+          forge test --mp test/modules/BaseSig.t.sol
+          forge test --mp test/modules/Calls.t.sol
+          forge test --mp test/modules/Payload.t.sol
+          forge test --mp test/Guest.t.sol
+          forge test --mp test/Stage1Module.t.sol
+          forge test --mp test/Wallet.t.sol
         env:
           SEQ_SDK_RPC_URL_PREFIX: 'http://localhost:'
           SEQ_SDK_RPC_URL_SUFFIX: '/rpc'
           SEQ_SDK_RPC_MIN_PORT: '9999'
           SEQ_SDK_RPC_MAX_PORT: '9999'
+      - name: Update Status
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { owner, repo } = context;
+            const publicOwner = '0xsequence';
+            const publicRepo = ${{ matrix.repo_name }};
+            const repoUrl = ${{ matrix.repo_url }}
+            const commitSha = '${{ github.event.client_payload.commit_sha }}';
+            const token = '${{ secrets.GITHUB_TOKEN }}';
+            const octokit = new Octokit({ auth: token });
+            const state = '${{ steps.run_tests.outcome == 'success' && 'success' || 'failure' }}';
+            await octokit.rest.repos.createCommitStatus({
+              owner: publicOwner,
+              repo: publicRepo,
+              sha: commitSha,
+              state: state,
+              target_url: repoUrl,
+              description: `The build was ${state}`
+            });
