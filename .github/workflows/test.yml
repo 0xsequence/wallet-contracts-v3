@@ -24,7 +24,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        sdk_type: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["' + github.event.inputs.sdk_type + '"]') || ['go', 'typescript'] }}
         include:
           - sdk_type: go
             repo_url: git@github.com:0xsequence/go-sequence.git
