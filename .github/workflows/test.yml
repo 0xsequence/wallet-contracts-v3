@@ -26,13 +26,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - sdk_type: go
+          - name: Go SDK
+            sdk_type: go
             repo_url: https://github.com/0xsequence/go-sequence.git
             default_branch: v3-core
             setup_tool: go
             setup_version: '1.20'
             server_cmd: go run ./cmd/sequence/ server --debug --port 9999 &
-          - sdk_type: typescript
+          - name: Typescript SDK
+            sdk_type: typescript
             repo_url: https://github.com/0xsequence/sequence-core.git
             default_branch: master
             setup_tool: node
@@ -49,6 +51,8 @@ jobs:
           fi
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Clone SDK Repo
         run: |
           git clone ${{ matrix.repo_url }} sdk-repo
