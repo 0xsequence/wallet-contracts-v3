@@ -86,6 +86,8 @@ jobs:
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
+        id: run_tests
+        continue-on-error: true
         run: |
           forge test --mp test/modules/BaseSig.t.sol
           forge test --mp test/modules/Calls.t.sol
@@ -110,7 +112,7 @@ jobs:
             const commitSha = '${{ github.event.client_payload.commit_sha }}';
             const token = '${{ secrets.GITHUB_TOKEN }}';
             const octokit = new Octokit({ auth: token });
-            const state = '${{ jobs.perform_actions.conclusion == 'success' && 'success' || 'failure' }}';
+            const state = '${{ steps.run_tests.outcome == 'success' && 'success' || 'failure' }}';
             await octokit.rest.repos.createCommitStatus({
               owner: publicOwner,
               repo: publicRepo,
