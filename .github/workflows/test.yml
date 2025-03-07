@@ -76,11 +76,15 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
       - name: Install Foundry Dependencies
         run: forge install
-      - name: Start RPC server
-        run: make start-go &
-      - name: Wait for RPC server to be ready
+      - name: Start the server
+        run: make start-go > server.log 2>&1 &
+      - name: Wait for server response
+        run: timeout 30s sh -c 'while ! curl -s -o /dev/null -w "%{http_code}" http://localhost:9999/rpc 2>&1 | tee -a curl_output.log | grep -q 404; do sleep 1; done'
+        continue-on-error: true
+      - name: Debug logs
         run: |
-          timeout 30s sh -c 'while ! curl -s -o /dev/null -w "%{http_code}" http://localhost:9999/rpc 2>&1 | tee curl_output.log | grep -q 404; do sleep 1; done'
+          cat server.log
+          cat curl_output.log
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
