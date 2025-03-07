@@ -75,10 +75,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
       - name: Start RPC server
-        run: |
-          cd sdk-repo
-          RUNNER_TRACKING_ID="" && (nohup ${{ matrix.server_cmd }})
-          cd ..
+        run: cd sdk-repo && RUNNER_TRACKING_ID="" && (nohup ${{ matrix.server_cmd }})
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
