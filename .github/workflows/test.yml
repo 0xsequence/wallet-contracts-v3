@@ -78,9 +78,8 @@ jobs:
         run: forge install
       - name: Start server in background
         run: |
-          npx serve -p 3000 &
+          RUNNER_TRACKING_ID="" && forever npx serve -p 3000 &
           sleep 5
-          # Optional: Verify server is running
           curl --retry 5 --retry-delay 2 http://localhost:3000 || exit 1
       - name: Start RPC server
         run: |
