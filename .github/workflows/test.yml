@@ -85,7 +85,12 @@ jobs:
         run: forge install
       - name: Run Tests
         run: |
-          forge test
+          forge test --mp test/modules/BaseSig.t.sol
+          forge test --mp test/modules/Calls.t.sol
+          forge test --mp test/modules/Payload.t.sol
+          forge test --mp test/Guest.t.sol
+          forge test --mp test/Stage1Module.t.sol
+          forge test --mp test/Wallet.t.sol
         env:
           SEQ_SDK_RPC_URL_PREFIX: 'http://localhost:'
           SEQ_SDK_RPC_URL_SUFFIX: '/rpc'
