@@ -75,7 +75,7 @@ jobs:
         run: |
           cd sdk-repo
           nohup ${{ matrix.server_cmd }} > server.log 2>&1 &
-          until curl -s http://localhost:9999/rpc > /dev/null 2>&1; do
+          until curl -s http://localhost:9999/rpc > /dev/stdout 2>&1; do
             sleep 1
           done
           echo "Server is ready"
