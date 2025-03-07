@@ -1,0 +1,78 @@
+name: Test
+on:
+  workflow_dispatch:
+    inputs:
+      sdk_type:
+        description: 'Type of test to run: go or typescript'
+        required: true
+        type: choice
+        options:
+          - go
+          - typescript
+      commit_hash:
+        description: 'Commit hash of the SDK to test against'
+        required: false
+        type: string
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        sdk_type: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["' + github.event.inputs.sdk_type + '"]') || ['go', 'typescript'] }}
+        include:
+          - sdk_type: go
+            repo_url: git@github.com:0xsequence/go-sequence.git
+            default_branch: v3-core
+            setup_tool: go
+            setup_version: '1.20'
+            server_cmd: go run ./cmd/sequence/ server --debug --port 9999 &
+          - sdk_type: typescript
+            repo_url: git@github.com:0xsequence/sequence-core.git
+            default_branch: master
+            setup_tool: node
+            setup_version: '20'
+            server_cmd: pnpm install && pnpm run build && cd packages/primitives-cli && pnpm run start server &
+    steps:
+      - name: Determine SDK Git Commit
+        id: determine_commit
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.commit_hash }}" ]; then
+            echo "commit=${{ github.event.inputs.commit_hash }}" >> $GITHUB_OUTPUT
+          else
+            echo "commit=${{ matrix.default_branch }}" >> $GITHUB_OUTPUT
+          fi
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Clone SDK Repo
+        run: |
+          git clone ${{ matrix.repo_url }} sdk-repo
+          cd sdk-repo
+          git checkout ${{ steps.determine_commit.outputs.commit }}
+          cd ..
+      - name: Set Up Environment
+        uses: ${{ matrix.setup_tool == 'go' && 'actions/setup-go@v3' || 'actions/setup-node@v3' }}
+        with:
+          ${{ matrix.setup_tool }}-version: ${{ matrix.setup_version }}
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Start RPC server
+        run: |
+          cd sdk-repo
+          ${{ matrix.server_cmd }}
+          sleep 5
+          cd ..
+      - name: Install Dependencies
+        run: forge install
+      - name: Run Tests
+        run: forge test -vvv
+        env:
+          SEQ_SDK_RPC_URL_PREFIX: 'http://localhost:'
+          SEQ_SDK_RPC_URL_SUFFIX: '/rpc'
+          SEQ_SDK_RPC_MIN_PORT: '9999'
+          SEQ_SDK_RPC_MAX_PORT: '9999'
