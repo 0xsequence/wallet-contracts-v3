@@ -75,9 +75,8 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
       - name: Start RPC server
-        run: cd sdk-repo && RUNNER_TRACKING_ID="" && (nohup go run ./cmd/sequence/ server --debug --port 9999 &)
-      - name: Wait for RPC server to be ready
-        run: timeout 30s sh -c 'while ! curl -s -o /dev/null -w "%{http_code}" http://localhost:9999/rpc | grep -q 200; do sleep 1; done'
+        run: RUNNER_TRACKING_ID="" && (nohup go run ./cmd/sequence/ server --debug --port 9999 &)
+        working-directory: sdk-repo
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
