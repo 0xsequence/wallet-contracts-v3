@@ -34,7 +34,7 @@ jobs:
             repo_url: https://github.com/0xsequence/go-sequence.git
             default_branch: v3-core
             setup_tool: go
-            setup_version: '1.20'
+            setup_version: '1.23'
             server_cmd: go run ./cmd/sequence/ server --debug --port 9999 &
           - name: Typescript SDK
             sdk_type: typescript
@@ -63,12 +63,12 @@ jobs:
           git checkout ${{ steps.determine_commit.outputs.commit }}
           cd ..
       - name: Set Up Go Environment
-        if: ${{ matrix.setup_tool == 'go' }}
+        if: ${{ matrix.setup_tool == "go" }}
         uses: actions/setup-go@v4
         with:
           ${{ matrix.setup_tool }}-version: ${{ matrix.setup_version }}
       - name: Set Up Node Environment
-        if: ${{ matrix.setup_tool == 'node' }}
+        if: ${{ matrix.setup_tool == "node" }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.setup_version }}
@@ -77,7 +77,11 @@ jobs:
       - name: Install Foundry Dependencies
         run: forge install
       - name: Start RPC server
-        run: ./go.sh
+        run: |
+          cd sdk-repo
+          go run ./cmd/sequence/ server --debug --port 9999 &
+          cd ..
+          forge test
         env:
           SEQ_SDK_RPC_URL_PREFIX: 'http://localhost:'
           SEQ_SDK_RPC_URL_SUFFIX: '/rpc'
