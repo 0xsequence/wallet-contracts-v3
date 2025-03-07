@@ -77,12 +77,7 @@ jobs:
       - name: Install Foundry Dependencies
         run: forge install
       - name: Start RPC server
-        run: |
-          cd sdk-repo
-          go run ./cmd/sequence/ server --debug --port 9999 &
-          timeout 30 bash -c 'while ! curl -s -o /dev/null http://localhost:9999/rpc; do sleep 1; done'
-          cd ..
-          forge test
+        run: ./go.sh
         env:
           SEQ_SDK_RPC_URL_PREFIX: 'http://localhost:'
           SEQ_SDK_RPC_URL_SUFFIX: '/rpc'
