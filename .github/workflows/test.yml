@@ -78,7 +78,7 @@ jobs:
         run: forge install
       - name: Start RPC server
         run: |
-          go run ./cmd/sequence/ server --debug --port 9999
+          go run ./cmd/sequence/ server --debug --port 9999 &
         working-directory: sdk-repo
       - name: Run RPC server
         run: |
