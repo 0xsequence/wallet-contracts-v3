@@ -55,10 +55,16 @@ jobs:
           cd sdk-repo
           git checkout ${{ steps.determine_commit.outputs.commit }}
           cd ..
-      - name: Set Up Environment
-        uses: ${{ matrix.setup_tool == 'go' && 'actions/setup-go@v3' || 'actions/setup-node@v3' }}
+      - name: Set Up Go Environment
+        if: ${{ matrix.setup_tool == 'go' }}
+        uses: actions/setup-go@v4
         with:
           ${{ matrix.setup_tool }}-version: ${{ matrix.setup_version }}
+      - name: Set Up Node Environment
+        if: ${{ matrix.setup_tool == 'node' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.setup_version }}
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
       - name: Start RPC server
