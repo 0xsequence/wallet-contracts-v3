@@ -63,12 +63,12 @@ jobs:
           git checkout ${{ steps.determine_commit.outputs.commit }}
           cd ..
       - name: Set Up Go Environment
-        if: ${{ matrix.setup_tool == "go" }}
+        if: ${{ matrix.setup_tool == 'go' }}
         uses: actions/setup-go@v4
         with:
           ${{ matrix.setup_tool }}-version: ${{ matrix.setup_version }}
       - name: Set Up Node Environment
-        if: ${{ matrix.setup_tool == "node" }}
+        if: ${{ matrix.setup_tool == 'node' }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.setup_version }}
