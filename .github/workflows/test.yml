@@ -85,6 +85,7 @@ jobs:
       - name: Start RPC server
         run: |
           go run ./cmd/sequence/ server --debug --port 9999 &
+          curl --retry 5 --retry-delay 2 http://localhost:9999/rpc || exit 1
         working-directory: sdk-repo
       - name: Run RPC server
         run: |
