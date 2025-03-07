@@ -75,7 +75,10 @@ jobs:
         run: |
           cd sdk-repo
           nohup ${{ matrix.server_cmd }} > server.log 2>&1 &
-          sleep 5
+          until curl -s http://localhost:9999/rpc > /dev/null 2>&1; do
+            sleep 1
+          done
+          echo "Server is ready"
           cd ..
       - name: Install Dependencies
         run: forge install
