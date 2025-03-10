@@ -75,7 +75,7 @@ jobs:
           else
             echo "commit=${{ matrix.default_branch }}" >> $GITHUB_OUTPUT
           fi
-      - name: Checkout SDK Repo
+      - name: Checkout SDK Repo Commit
         run: git checkout ${{ steps.determine_commit.outputs.commit }}
         working-directory: sdk-repo
       - name: Set Up Go Environment
