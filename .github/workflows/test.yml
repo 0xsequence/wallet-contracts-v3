@@ -46,6 +46,7 @@ jobs:
             setup_version: '20'
             server_cmd: pnpm install && pnpm run build && cd packages/primitives-cli && pnpm run start server &
     steps:
+      - uses: actions/checkout@v4
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
       - name: Install Foundry Dependencies
