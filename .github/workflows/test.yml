@@ -56,17 +56,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Checkout SDK Repo
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ matrix.repo_url }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: sdk-repo
-          ref: ${{ matrix.default_branch }}
       - name: Start SSH Agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
+      - name: Checkout SDK Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.clone_url }}
+          path: sdk-repo
+          ref: ${{ matrix.default_branch }}
       - name: Determine SDK Git Commit
         id: determine_commit
         run: |
