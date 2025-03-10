@@ -90,7 +90,10 @@ jobs:
         run: ${{ matrix.server_cmd }}
         working-directory: sdk-repo
       - name: Wait for Server
-        run: sleep 60
+        run: |
+          sleep 60
+          curl -s http://localhost:9999/rpc -H "Content-type: application/json" -X POST -d '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}' || (echo "Server not ready"; exit 1)
+          echo "Server is ready"
       - name: Install Dependencies
         run: forge install
       - name: Run Tests
