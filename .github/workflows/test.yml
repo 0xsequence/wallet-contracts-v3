@@ -32,19 +32,25 @@ jobs:
           - name: Go SDK
             sdk_type: go
             repo_name: go-sequence
-            repo_url: 0xsequence/go-sequence
+            clone_url: https://github.com/0xsequence/go-sequence.git
+            repo_url: https://github.com/0xsequence/go-sequence.git
+            ssh_url: git@github.com:0xsequence/go-sequence.git
             default_branch: v3-core
             setup_tool: go
             setup_version: '1.23'
-            server_cmd: go run ./cmd/sequence/ server --debug --port 9999 &
+            build_cmd: go mod tidy && go build -o sequence-server ./cmd/sequence
+            server_cmd: ./sequence-server server &
           - name: Typescript SDK
             sdk_type: typescript
             repo_name: sequence-core
-            repo_url: 0xsequence/sequence-core
+            clone_url: git@github.com:0xsequence/sequence-core.git
+            repo_url: https://github.com/0xsequence/sequence-core.git
+            ssh_url: git@github.com:0xsequence/sequence-core.git
             default_branch: main
             setup_tool: node
             setup_version: '20'
-            server_cmd: pnpm install && pnpm run build && cd packages/primitives-cli && pnpm run start server &
+            build_cmd: npm install -g pnpm && pnpm install && pnpm run build
+            server_cmd: cd packages/primitives-cli && pnpm run start server &
     steps:
       - uses: actions/checkout@v4
       - name: Checkout SDK Repo
@@ -54,6 +60,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           path: sdk-repo
           ref: ${{ matrix.default_branch }}
+      - name: Start SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
+      - name: Checkout SDK Repo
+        run: git checkout ${{ steps.determine_commit.outputs.commit }}
+        working-directory: sdk-repo
       - name: Set Up Go Environment
         if: ${{ matrix.setup_tool == 'go' }}
         uses: actions/setup-go@v4
@@ -64,18 +77,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.setup_version }}
-      - name: cd to SDK
-        run: cd sdk-repo && pwd
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Install Foundry Dependencies
+        run: forge install
+      - name: Run Build Server
+        run: ${{ matrix.build_cmd }}
+        working-directory: sdk-repo
       - name: Run Server
         run: ${{ matrix.server_cmd }}
         working-directory: sdk-repo
       - name: Wait for Server
-        run: sleep 60
-      - name: cd to v3 repo
-        run: cd .. && pwd
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      - name: Install Foundry Dependencies
+        run: |
+          sleep 60
+          curl -s http://localhost:9999/rpc -H "Content-type: application/json" -X POST -d '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}' || (echo "Server not ready"; exit 1)
+          echo "Server is ready"
+      - name: Install Dependencies
         run: forge install
       - name: Run Tests
         id: run_tests
