@@ -89,6 +89,14 @@ jobs:
       - name: Run Server
         run: ${{ matrix.server_cmd }}
         working-directory: sdk-repo
+      - name: Set up Server
+        if: ${{ matrix.setup_tool == 'node' }}
+        run: |
+          npm install -g pnpm
+          pnpm install
+          pnpm run build
+          cd packages/primitives-cli
+          pnpm run start server
       - name: Wait for Server
         run: |
           sleep 60
