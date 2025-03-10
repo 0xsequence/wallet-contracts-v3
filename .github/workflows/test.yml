@@ -32,6 +32,7 @@ jobs:
           - name: Go SDK
             sdk_type: go
             repo_name: go-sequence
+            clone_url: https://github.com/0xsequence/go-sequence.git
             repo_url: https://github.com/0xsequence/go-sequence.git
             ssh_url: git@github.com:0xsequence/go-sequence.git
             default_branch: v3-core
@@ -41,6 +42,7 @@ jobs:
           - name: Typescript SDK
             sdk_type: typescript
             repo_name: sequence-core
+            clone_url: git@github.com:0xsequence/sequence-core.git
             repo_url: https://github.com/0xsequence/sequence-core.git
             ssh_url: git@github.com:0xsequence/sequence-core.git
             default_branch: master
@@ -60,6 +62,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ssh-key: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Clone SDK Repo
         run: |
           git clone ${{ matrix.ssh_url }} sdk-repo
