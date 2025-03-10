@@ -32,7 +32,7 @@ jobs:
           - name: Go SDK
             sdk_type: go
             repo_name: go-sequence
-            repo_url: https://github.com/0xsequence/go-sequence.git
+            repo_url: 0xsequence/go-sequence
             default_branch: v3-core
             setup_tool: go
             setup_version: '1.23'
@@ -40,7 +40,7 @@ jobs:
           - name: Typescript SDK
             sdk_type: typescript
             repo_name: sequence-core
-            repo_url: https://github.com/0xsequence/sequence-core.git
+            repo_url: 0xsequence/sequence-core
             default_branch: master
             setup_tool: node
             setup_version: '20'
@@ -54,13 +54,14 @@ jobs:
           else
             echo "commit=${{ matrix.default_branch }}" >> $GITHUB_OUTPUT
           fi
-      - name: Checkout
+      - name: Checkout SDK Repo
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
-      - name: Clone SDK Repo
+          repository: ${{ matrix.repo_url }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: sdk-repo
+      - name: Checkout commit on SDK Repo
         run: |
-          git clone ${{ matrix.repo_url }} sdk-repo
           cd sdk-repo
           git checkout ${{ steps.determine_commit.outputs.commit }}
           cd ..
