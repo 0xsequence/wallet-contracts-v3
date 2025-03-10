@@ -61,7 +61,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ssh-key: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
+          # ssh-key: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Start SSH Agent
         uses: webfactory/ssh-agent@v0.9.0
