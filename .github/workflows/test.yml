@@ -46,14 +46,10 @@ jobs:
             setup_version: '20'
             server_cmd: pnpm install && pnpm run build && cd packages/primitives-cli && pnpm run start server &
     steps:
-      - name: Determine SDK Git Commit
-        id: determine_commit
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.commit_hash }}" ]; then
-            echo "commit=${{ github.event.inputs.commit_hash }}" >> $GITHUB_OUTPUT
-          else
-            echo "commit=${{ matrix.default_branch }}" >> $GITHUB_OUTPUT
-          fi
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Install Foundry Dependencies
+        run: forge install
       - name: Checkout SDK Repo
         uses: actions/checkout@v4
         with:
@@ -71,17 +67,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.setup_version }}
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      - name: Install Foundry Dependencies
-        run: forge install
+      - name: cd to SDK
+        run: cd sdk-repo && pwd
       - name: Run Server
         run: ${{ matrix.server_cmd }}
         working-directory: sdk-repo
       - name: Wait for Server
         run: sleep 60
-      - name: Install Dependencies
-        run: forge install
+      - name: cd to v3 repo
+        run: cd .. && pwd
       - name: Run Tests
         id: run_tests
         continue-on-error: true
