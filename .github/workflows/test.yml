@@ -63,9 +63,13 @@ jobs:
         with:
           ssh-key: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
       - name: Clone SDK Repo
         run: |
-          git clone ${{ matrix.ssh_url }} sdk-repo
+          git clone ${{ matrix.clone_url }} sdk-repo
           cd sdk-repo
           git checkout ${{ steps.determine_commit.outputs.commit }}
           cd ..
