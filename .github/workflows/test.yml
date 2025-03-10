@@ -41,7 +41,7 @@ jobs:
             sdk_type: typescript
             repo_name: sequence-core
             repo_url: 0xsequence/sequence-core
-            default_branch: master
+            default_branch: main
             setup_tool: node
             setup_version: '20'
             server_cmd: pnpm install && pnpm run build && cd packages/primitives-cli && pnpm run start server &
@@ -60,11 +60,7 @@ jobs:
           repository: ${{ matrix.repo_url }}
           token: ${{ secrets.GITHUB_TOKEN }}
           path: sdk-repo
-      - name: Checkout commit on SDK Repo
-        run: |
-          cd sdk-repo
-          git checkout ${{ steps.determine_commit.outputs.commit }}
-          cd ..
+          ref: ${{ matrix.default_branch }}
       - name: Set Up Go Environment
         if: ${{ matrix.setup_tool == 'go' }}
         uses: actions/setup-go@v4
