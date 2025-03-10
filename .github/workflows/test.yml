@@ -38,7 +38,8 @@ jobs:
             default_branch: v3-core
             setup_tool: go
             setup_version: '1.23'
-            server_cmd: go run ./cmd/sequence/ server --debug --port 9999 &
+            build_cmd: go mod tidy && go build -o sequence-server ./cmd/sequence
+            server_cmd: ./sequence-server server &
           - name: Typescript SDK
             sdk_type: typescript
             repo_name: sequence-core
@@ -48,7 +49,8 @@ jobs:
             default_branch: main
             setup_tool: node
             setup_version: '20'
-            server_cmd: npm install -g pnpm && pnpm install && pnpm run build && cd packages/primitives-cli && pnpm run start server &
+            build_cmd: npm install -g pnpm && pnpm install && pnpm run build
+            server_cmd: cd packages/primitives-cli && pnpm run start server &
     steps:
       - name: Determine SDK Git Commit
         id: determine_commit
@@ -86,6 +88,9 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
       - name: Install Foundry Dependencies
         run: forge install
+      - name: Run Build Server
+        run: ${{ matrix.build_cmd }}
+        working-directory: sdk-repo
       - name: Run Server
         run: ${{ matrix.server_cmd }}
         working-directory: sdk-repo
