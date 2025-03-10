@@ -47,10 +47,6 @@ jobs:
             server_cmd: pnpm install && pnpm run build && cd packages/primitives-cli && pnpm run start server &
     steps:
       - uses: actions/checkout@v4
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      - name: Install Foundry Dependencies
-        run: forge install
       - name: Checkout SDK Repo
         uses: actions/checkout@v4
         with:
@@ -77,6 +73,10 @@ jobs:
         run: sleep 60
       - name: cd to v3 repo
         run: cd .. && pwd
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Install Foundry Dependencies
+        run: forge install
       - name: Run Tests
         id: run_tests
         continue-on-error: true
