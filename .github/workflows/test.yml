@@ -52,7 +52,10 @@ jobs:
             build_cmd: npm install -g pnpm && pnpm install && pnpm run build
             server_cmd: cd packages/primitives-cli && pnpm run start server &
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Current Repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Checkout SDK Repo
         uses: actions/checkout@v4
         with:
@@ -64,6 +67,14 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
+      - name: Determine SDK Git Commit
+        id: determine_commit
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.commit_hash }}" ]; then
+            echo "commit=${{ github.event.inputs.commit_hash }}" >> $GITHUB_OUTPUT
+          else
+            echo "commit=${{ matrix.default_branch }}" >> $GITHUB_OUTPUT
+          fi
       - name: Checkout SDK Repo
         run: git checkout ${{ steps.determine_commit.outputs.commit }}
         working-directory: sdk-repo
