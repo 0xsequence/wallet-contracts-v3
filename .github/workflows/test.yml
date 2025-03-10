@@ -48,7 +48,7 @@ jobs:
             default_branch: main
             setup_tool: node
             setup_version: '20'
-            server_cmd: npm install -g pnpm && pnpm install && cd packages/primitives-cli && pnpm run build && pnpm run start server &
+            server_cmd: npm install -g pnpm && pnpm install && pnpm run build && cd packages/primitives-cli && pnpm run start server &
     steps:
       - name: Determine SDK Git Commit
         id: determine_commit
@@ -94,9 +94,10 @@ jobs:
         run: |
           npm install -g pnpm
           pnpm install
-          cd packages/primitives-cli
           pnpm run build
+          cd packages/primitives-cli
           pnpm run start server
+        working-directory: sdk-repo
       - name: Wait for Server
         run: |
           sleep 60
