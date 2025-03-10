@@ -57,7 +57,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
+          ssh-key: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
       - name: Clone SDK Repo
         run: |
           git clone ${{ matrix.repo_url }} sdk-repo
