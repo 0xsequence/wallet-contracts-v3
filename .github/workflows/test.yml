@@ -45,7 +45,7 @@ jobs:
             clone_url: git@github.com:0xsequence/sequence-core.git
             repo_url: https://github.com/0xsequence/sequence-core.git
             ssh_url: git@github.com:0xsequence/sequence-core.git
-            default_branch: master
+            default_branch: main
             setup_tool: node
             setup_version: '20'
             server_cmd: pnpm install && pnpm run build && cd packages/primitives-cli && pnpm run start server &
