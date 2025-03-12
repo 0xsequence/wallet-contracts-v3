@@ -58,6 +58,13 @@ library Payload {
     uint256 behaviorOnError;
   }
 
+  struct Fee {
+    uint256 baseGas;
+    uint256 feePerGas;
+    address gasToken;
+    address refundReceiver;
+  }
+
   struct Decoded {
     uint8 kind;
     bool noChainId;
@@ -65,6 +72,7 @@ library Payload {
     Call[] calls;
     uint256 space;
     uint256 nonce;
+    Fee fee;
     // Message kind
     // TODO: Maybe native 721 ?
     bytes message;
@@ -131,6 +139,39 @@ library Payload {
         (numCalls, pointer) = packed.readUint16(pointer);
       } else {
         (numCalls, pointer) = packed.readUint8(pointer);
+      }
+    }
+
+    // Bit 7 determines if we pay fee or not
+    if (globalFlag & 0x40 == 0x40) {
+      // Read flags for fee
+      uint8 feeFlags;
+      (feeFlags, pointer) = packed.readUint8(pointer);
+
+      // First bit determines if the fee is paid in tokens or not
+      if (feeFlags & 0x01 == 0x01) {
+        // Read the gas token
+        (_decoded.fee.gasToken, pointer) = packed.readAddress(pointer);
+      }
+
+      // Second bit determines if there is a refund receiver or not
+      // (it should default to tx.origin if not present)
+      if (feeFlags & 0x02 == 0x02) {
+        (_decoded.fee.refundReceiver, pointer) = packed.readAddress(pointer);
+      }
+
+      // Third bit determines if we use uint24 for the baseGas or uint256
+      if (feeFlags & 0x04 == 0x04) {
+        (_decoded.fee.baseGas, pointer) = packed.readUint24(pointer);
+      } else {
+        (_decoded.fee.baseGas, pointer) = packed.readUint256(pointer);
+      }
+
+      // Fourth bit determines if we use uint48 for the feePerGas or uint256
+      if (feeFlags & 0x08 == 0x08) {
+        (_decoded.fee.feePerGas, pointer) = packed.readUint48(pointer);
+      } else {
+        (_decoded.fee.feePerGas, pointer) = packed.readUint256(pointer);
       }
     }
 
