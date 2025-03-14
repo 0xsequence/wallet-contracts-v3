@@ -74,26 +74,30 @@ library BaseSig {
 
     Snapshot memory snapshot;
 
-    // Recover the imageHash checkpointer if any
-    // but checkpointer passed as argument takes precedence
-    // since it can be defined by the chained signatures
-    if (signatureFlag & 0x40 == 0x40 && _checkpointer == address(0)) {
-      // Override the checkpointer
-      // not ideal, but we don't have much room in the stack
-      (_checkpointer, rindex) = _signature.readAddress(rindex);
+    if (signatureFlag & 0x40 == 0x40) {
+      address checkpointer;
+      (checkpointer, rindex) = _signature.readAddress(rindex);
 
-      if (!_ignoreCheckpointer) {
-        // Next 3 bytes determine the checkpointer data size
-        uint256 checkpointerDataSize;
-        (checkpointerDataSize, rindex) = _signature.readUint24(rindex);
+      // Recover the imageHash checkpointer if any
+      // but checkpointer passed as argument takes precedence
+      // since it can be defined by the chained signatures
+      if (_checkpointer == address(0)) {
+        // Override the checkpointer
+        _checkpointer = checkpointer;
 
-        // Read the checkpointer data
-        bytes memory checkpointerData = _signature[rindex:rindex + checkpointerDataSize];
+        if (!_ignoreCheckpointer) {
+          // Next 3 bytes determine the checkpointer data size
+          uint256 checkpointerDataSize;
+          (checkpointerDataSize, rindex) = _signature.readUint24(rindex);
 
-        // Call the middleware
-        snapshot = ICheckpointer(_checkpointer).snapshotFor(address(this), checkpointerData);
+          // Read the checkpointer data
+          bytes memory checkpointerData = _signature[rindex:rindex + checkpointerDataSize];
 
-        rindex += checkpointerDataSize;
+          // Call the middleware
+          snapshot = ICheckpointer(_checkpointer).snapshotFor(address(this), checkpointerData);
+
+          rindex += checkpointerDataSize;
+        }
       }
     }
 
