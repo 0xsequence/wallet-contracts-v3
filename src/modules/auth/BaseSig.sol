@@ -9,6 +9,8 @@ import { ICheckpointer, Snapshot } from "../interfaces/ICheckpointer.sol";
 import { IERC1271, IERC1271_MAGIC_VALUE } from "../interfaces/IERC1271.sol";
 import { ISapient, ISapientCompact } from "../interfaces/ISapient.sol";
 
+import { console2 } from "forge-std/console2.sol";
+
 using LibBytesPointer for bytes;
 using Payload for Payload.Decoded;
 
@@ -65,6 +67,12 @@ library BaseSig {
     // First byte is the signature flag
     (uint256 signatureFlag, uint256 rindex) = _signature.readFirstUint8();
 
+    console2.log("signatureFlag", signatureFlag);
+
+    // Recover the tree
+    opHash = _payload.hash();
+    console2.logBytes32(opHash);
+
     // The possible flags are:
     // - 0000 00XX (bits [1..0]): signature type (00 = normal, 01 = chained, 10 = no chain id)
     // - 000X XX00 (bits [4..2]): checkpoint size (00 = 0 bytes, 001 = 1 byte, 010 = 2 bytes...)
@@ -119,6 +127,7 @@ library BaseSig {
 
     // Recover the tree
     opHash = _payload.hash();
+    console2.logBytes32(opHash);
     (weight, imageHash) = recoverBranch(_payload, opHash, _signature[rindex:]);
 
     imageHash = LibOptim.fkeccak256(imageHash, bytes32(threshold));
