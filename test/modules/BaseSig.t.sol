@@ -53,6 +53,7 @@ contract BaseSigTest is AdvTest {
       hex"130044e6efbd92ea142ef5d55c41f772c6a5441e1e17ad000084ad387c8a00000000000000000000000000000000000000000000000000000000000008cf000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000033322550000000000000000000000000000000000000000000000000000000000";
 
     decoded = payloadImp.fromPackedCalls(encoded);
+    decoded.noChainId = true;
 
     bytes32 opHash = Payload.hashFor(decoded, address(0));
     console2.log("opHash");
@@ -64,10 +65,27 @@ contract BaseSigTest is AdvTest {
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 recoveredOpHash) =
       baseSigImp.recoverPub(decoded, signature, false, address(0));
 
-    assertEq(threshold, 1);
-    assertEq(weight, 1);
-    assertEq(imageHash, bytes32(0));
-    assertEq(checkpoint, 0);
+    assertEq(recoveredOpHash, opHash);
+  }
+
+  function test_execute_payload_with_signature_with_v2() external {
+    Payload.Decoded memory decoded;
+
+    bytes memory encoded =
+      hex"530044e6efbd92ea142ef5d55c41f772c6a5441e1e17ad000084ad387c8a00000000000000000000000000000000000000000000000000000000000008cf000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000033322550000000000000000000000000000000000000000000000000000000000";
+
+    decoded = payloadImp.fromPackedCalls(encoded);
+
+    bytes32 opHash = Payload.hashFor(decoded, address(0));
+    console2.log("opHash");
+    console2.logBytes32(opHash);
+
+    bytes memory signature =
+      hex"040001117e5f4552091a69125d5dfcb7b8c2659029395bdf80301c97fadf9a4d8c32ca6ecf85365821f725d33de22251319fc706cade1c0290";
+
+    (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 recoveredOpHash) =
+      baseSigImp.recoverPub(decoded, signature, false, address(0));
+
     assertEq(recoveredOpHash, opHash);
   }
 

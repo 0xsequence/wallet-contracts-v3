@@ -105,13 +105,19 @@ library BaseSig {
       }
     }
 
+    console2.log("rindex", rindex);
+    console2.log("signatureFlag", signatureFlag);
+
     // If signature type is 01 we do a chained signature
     if (signatureFlag & 0x01 == 0x01) {
+      console2.log("recoverChained");
       return recoverChained(_payload, _checkpointer, snapshot, _signature[rindex:]);
     }
 
     // If the signature type is 10 we do a no chain id signature
     _payload.noChainId = signatureFlag & 0x02 == 0x02;
+
+    console2.log("noChainId", _payload.noChainId);
 
     {
       // Recover the checkpoint using the size defined by the flag
