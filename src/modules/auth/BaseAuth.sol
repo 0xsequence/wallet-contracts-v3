@@ -23,6 +23,7 @@ abstract contract BaseAuth is IAuth, ISapient, IERC1271, SelfAuth {
 
   error InvalidSapientSignature(Payload.Decoded _payload, bytes _signature);
   error InvalidStaticSignature(bytes32 _opHash, uint256 _expires);
+  error InvalidSignatureWeight(uint256 _threshold, uint256 _weight);
 
   event StaticSignatureSet(bytes32 _hash, address _address, uint96 _timestamp);
 
@@ -78,10 +79,15 @@ abstract contract BaseAuth is IAuth, ISapient, IERC1271, SelfAuth {
 
     (threshold, weight, imageHash,, opHash) = BaseSig.recover(_payload, _signature, false, address(0));
 
+    // Validate the weight
+    if (weight < threshold) {
+      revert InvalidSignatureWeight(threshold, weight);
+    }
+
     isValid = _isValidImage(imageHash);
   }
 
-  function isValidSapientSignature(
+  function recoverSapientSignature(
     Payload.Decoded memory _payload,
     bytes calldata _signature
   ) external view returns (bytes32) {

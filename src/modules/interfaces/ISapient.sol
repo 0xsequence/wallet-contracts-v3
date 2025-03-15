@@ -11,8 +11,8 @@ import { Payload } from "../Payload.sol";
  */
 interface ISapient {
 
-  /// @notice Validates the signature of the payload
-  function isValidSapientSignature(
+  /// @notice Recovers the root hash of a given signature
+  function recoverSapientSignature(
     Payload.Decoded calldata _payload,
     bytes calldata _signature
   ) external view returns (bytes32);
@@ -27,7 +27,7 @@ interface ISapient {
  */
 interface ISapientCompact {
 
-  /// @notice Validates the signature of the compacted payload
-  function isValidSapientSignatureCompact(bytes32 _digest, bytes calldata _signature) external view returns (bytes32);
+  /// @notice Recovers the root hash of a given signature, using a hashed payload
+  function recoverSapientSignatureCompact(bytes32 _digest, bytes calldata _signature) external view returns (bytes32);
 
 }

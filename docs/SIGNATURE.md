@@ -281,14 +281,14 @@ ecrecover( keccak256("\x19Ethereum Signed Message:\n32" + _opHash), v, r, s )
 ### 5.10 **Signature Sapient** (`flag = 9`)
 
 - The free nibble is structured like `ERC1271`: some bits define how many bytes to read for the signature, some bits define the weight.
-- Then it calls `ISapient(addr).isValidSapientSignature(_payload, data)`, which must return a “sapientImageHash” used in `_leafForSapient`.
+- Then it calls `ISapient(addr).recoverSapientSignature(_payload, data)`, which must return a “sapientImageHash” used in `_leafForSapient`.
 - Weight is added if valid.
 
 ---
 
 ### 5.11 **Signature Sapient Compact** (`flag = 10`)
 
-- Same approach as `FLAG_SIGNATURE_SAPIENT`, except the contract uses `ISapientCompact.isValidSapientSignatureCompact(_opHash, data)` instead, passing only `_opHash`.
+- Same approach as `FLAG_SIGNATURE_SAPIENT`, except the contract uses `ISapientCompact.recoverSapientSignatureCompact(_opHash, data)` instead, passing only `_opHash`.
 
 ---
 

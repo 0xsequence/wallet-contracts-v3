@@ -25,7 +25,7 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
   error InvalidCallsLength();
 
   /// @inheritdoc ISapient
-  function isValidSapientSignature(
+  function recoverSapientSignature(
     Payload.Decoded calldata payload,
     bytes calldata encodedSignature
   ) external view returns (bytes32) {
@@ -36,7 +36,6 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
     if (payload.calls.length == 0) {
       revert InvalidCallsLength();
     }
-    //FIXME Valdate noChainId, space, nonce, message, imageHash, digest, parentWallets...
 
     // Decode signature
     SessionSig.DecodedSignature memory sig = SessionSig.recoverSignature(payload, encodedSignature);
@@ -57,8 +56,6 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
       if (call.delegateCall) {
         revert SessionErrors.InvalidDelegateCall();
       }
-
-      //FIXME Validate onlyFallback, behaviorOnError...
 
       // Validate call signature
       SessionSig.CallSignature memory callSignature = sig.callSignatures[i];
@@ -98,20 +95,24 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
       }
     }
 
-    // Reduce the size of the sessionUsageLimits array
-    uint256 actualSize;
-    for (actualSize = 0; actualSize < sessionUsageLimits.length; actualSize++) {
-      if (sessionUsageLimits[actualSize].signer == address(0)) {
-        break;
+    {
+      // Reduce the size of the sessionUsageLimits array
+      SessionUsageLimits[] memory actualSessionUsageLimits = new SessionUsageLimits[](sessionUsageLimits.length);
+      uint256 actualSize;
+      for (uint256 i = 0; i < sessionUsageLimits.length; i++) {
+        if (sessionUsageLimits[i].limits.length > 0 || sessionUsageLimits[i].totalValueUsed > 0) {
+          actualSessionUsageLimits[actualSize] = sessionUsageLimits[i];
+          actualSize++;
+        }
       }
-    }
-    assembly {
-      mstore(sessionUsageLimits, actualSize)
-    }
+      assembly {
+        mstore(actualSessionUsageLimits, actualSize)
+      }
 
-    // Bulk validate the updated usage limits
-    Payload.Call calldata lastCall = payload.calls[payload.calls.length - 1];
-    _validateLimitUsageIncrement(lastCall, sessionUsageLimits, wallet);
+      // Bulk validate the updated usage limits
+      Payload.Call calldata lastCall = payload.calls[payload.calls.length - 1];
+      _validateLimitUsageIncrement(lastCall, actualSessionUsageLimits, wallet);
+    }
 
     // Return the image hash
     return sig.imageHash;

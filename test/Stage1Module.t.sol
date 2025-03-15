@@ -16,6 +16,46 @@ contract TestStage1Module is AdvTest {
   Factory public factory = new Factory();
   Stage1Module public stage1Module = new Stage1Module(address(factory));
 
+  function test_fails_on_low_weight(
+    uint16 _threshold,
+    uint56 _checkpoint,
+    uint8 _weight,
+    uint256 _pk,
+    bytes32 _digest,
+    bool _noChainId
+  ) external {
+    _weight = uint8(bound(_weight, 1, type(uint8).max));
+    _threshold = uint16(bound(_threshold, 1, _weight));
+    _pk = boundPk(_pk);
+
+    address signer = vm.addr(_pk);
+
+    string memory config;
+
+    {
+      string memory ce;
+      ce = string(abi.encodePacked(ce, "signer:", vm.toString(signer), ":", vm.toString(_weight)));
+      config = PrimitivesRPC.newConfig(vm, _threshold, _checkpoint, ce);
+    }
+
+    bytes32 configHash = PrimitivesRPC.getImageHash(vm, config);
+
+    // Deploy wallet for that config
+    address payable wallet = payable(factory.deploy(address(stage1Module), configHash));
+
+    Payload.Decoded memory payload;
+    payload.kind = Payload.KIND_DIGEST;
+    payload.digest = _digest;
+    payload.noChainId = _noChainId;
+
+    // Create a signature with only nodes
+    bytes memory signature = PrimitivesRPC.toEncodedSignature(vm, config, "", !_noChainId);
+
+    // Call isValidSignature and expect it to fail
+    vm.expectRevert(abi.encodeWithSelector(BaseAuth.InvalidSignatureWeight.selector, _threshold, 0));
+    Stage1Module(wallet).isValidSignature(_digest, signature);
+  }
+
   function test_1271_single_signer(
     uint16 _threshold,
     uint56 _checkpoint,

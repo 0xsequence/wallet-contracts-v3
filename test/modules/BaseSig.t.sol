@@ -302,25 +302,25 @@ contract BaseSigTest is AdvTest {
 
         vm.mockCall(
           address(params.signer),
-          abi.encodeWithSelector(ISapientCompact.isValidSapientSignatureCompact.selector, payloadHash, params.signature),
+          abi.encodeWithSelector(ISapientCompact.recoverSapientSignatureCompact.selector, payloadHash, params.signature),
           abi.encode(params.sapientImageHash)
         );
 
         vm.expectCall(
           address(params.signer),
-          abi.encodeWithSelector(ISapientCompact.isValidSapientSignatureCompact.selector, payloadHash, params.signature)
+          abi.encodeWithSelector(ISapientCompact.recoverSapientSignatureCompact.selector, payloadHash, params.signature)
         );
       } else {
         st = ":sapient:";
         vm.mockCall(
           address(params.signer),
-          abi.encodeWithSelector(ISapient.isValidSapientSignature.selector, params.payload, params.signature),
+          abi.encodeWithSelector(ISapient.recoverSapientSignature.selector, params.payload, params.signature),
           abi.encode(params.sapientImageHash)
         );
 
         vm.expectCall(
           address(params.signer),
-          abi.encodeWithSelector(ISapient.isValidSapientSignature.selector, params.payload, params.signature)
+          abi.encodeWithSelector(ISapient.recoverSapientSignature.selector, params.payload, params.signature)
         );
       }
 

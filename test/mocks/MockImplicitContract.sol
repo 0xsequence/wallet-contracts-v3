@@ -13,7 +13,6 @@ contract MockImplicitContract is ISignalsImplicitMode {
   function acceptImplicitRequest(
     address wallet,
     Attestation calldata attestation,
-    bytes32,
     Payload.Call calldata
   ) external pure returns (bytes32) {
     return attestation.generateImplicitRequestMagic(wallet);
@@ -23,12 +22,7 @@ contract MockImplicitContract is ISignalsImplicitMode {
 
 contract MockInvalidImplicitContract is ISignalsImplicitMode {
 
-  function acceptImplicitRequest(
-    address,
-    Attestation calldata,
-    bytes32,
-    Payload.Call calldata
-  ) external pure returns (bytes32) {
+  function acceptImplicitRequest(address, Attestation calldata, Payload.Call calldata) external pure returns (bytes32) {
     return bytes32(0);
   }
 

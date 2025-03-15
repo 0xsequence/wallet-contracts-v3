@@ -1,0 +1,147 @@
+name: Test
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+on:
+  workflow_dispatch:
+    inputs:
+      sdk_type:
+        description: 'Type of test to run: go or typescript'
+        required: true
+        type: choice
+        options:
+          - go
+          - typescript
+      commit_hash:
+        description: 'Commit hash of the SDK to test against'
+        required: false
+        type: string
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Go SDK
+            sdk_type: go
+            repo_name: go-sequence
+            clone_url: https://github.com/0xsequence/go-sequence.git
+            repo_url: https://github.com/0xsequence/go-sequence.git
+            ssh_url: git@github.com:0xsequence/go-sequence.git
+            default_branch: v3-core
+            setup_tool: go
+            setup_version: '1.23'
+            build_cmd: go mod tidy && go build -o sequence-server ./cmd/sequence
+            server_cmd: ./sequence-server server &
+          - name: Typescript SDK
+            sdk_type: typescript
+            repo_name: sequence-core
+            clone_url: git@github.com:0xsequence/sequence-core.git
+            repo_url: https://github.com/0xsequence/sequence-core.git
+            ssh_url: git@github.com:0xsequence/sequence-core.git
+            default_branch: main
+            setup_tool: node
+            setup_version: '20'
+            build_cmd: npm install -g pnpm && pnpm install && pnpm run build
+            server_cmd: cd packages/primitives-cli && pnpm run start server &
+    steps:
+      - name: Determine SDK Git Commit
+        id: determine_commit
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.commit_hash }}" ]; then
+            echo "commit=${{ github.event.inputs.commit_hash }}" >> $GITHUB_OUTPUT
+          else
+            echo "commit=${{ matrix.default_branch }}" >> $GITHUB_OUTPUT
+          fi
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SEQUENCE_CORE_CHECKOUT_TOKEN }}
+      - name: Clone SDK Repo
+        run: |
+          git clone ${{ matrix.clone_url }} sdk-repo
+          cd sdk-repo
+          git checkout ${{ steps.determine_commit.outputs.commit }}
+          cd ..
+      - name: Set Up Go Environment
+        if: ${{ matrix.setup_tool == 'go' }}
+        uses: actions/setup-go@v4
+        with:
+          ${{ matrix.setup_tool }}-version: ${{ matrix.setup_version }}
+      - name: Set Up Node Environment
+        if: ${{ matrix.setup_tool == 'node' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.setup_version }}
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Install Foundry Dependencies
+        run: forge install
+      - name: Run Build Server
+        run: ${{ matrix.build_cmd }}
+        working-directory: sdk-repo
+      - name: Run Server
+        run: ${{ matrix.server_cmd }}
+        working-directory: sdk-repo
+      - name: Wait for Server
+        run: |
+          sleep 60
+          curl -s http://localhost:9999/rpc -H "Content-type: application/json" -X POST -d '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}' || (echo "Server not ready"; exit 1)
+          echo "Server is ready"
+      - name: Install Dependencies
+        run: forge install
+      - name: Run Tests
+        id: run_tests
+        continue-on-error: true
+        run: |
+          forge test --mp test/modules/BaseSig.t.sol
+          forge test --mp test/modules/Calls.t.sol
+          forge test --mp test/modules/Payload.t.sol
+          forge test --mp test/Guest.t.sol
+          forge test --mp test/Stage1Module.t.sol
+          forge test --mp test/Wallet.t.sol
+        env:
+          SEQ_SDK_RPC_URL_PREFIX: 'http://localhost:'
+          SEQ_SDK_RPC_URL_SUFFIX: '/rpc'
+          SEQ_SDK_RPC_MIN_PORT: '9999'
+          SEQ_SDK_RPC_MAX_PORT: '9999'
+      - name: Report Status
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        run: |
+          echo "status=${{ steps.run_tests.outcome == 'success' && 'success' || 'failure' }}" >> $GITHUB_OUTPUT
+      - name: Fail Job If Tests Fail
+        if: ${{ github.event_name != 'workflow_dispatch' && steps.run_tests.outcome == 'failure' }}
+        run: exit 1
+      - name: Update Status
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        continue-on-error: true
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { owner, repo } = context;
+            const publicOwner = '0xsequence';
+            const publicRepo = ${{ matrix.repo_name }};
+            const repoUrl = ${{ matrix.repo_url }}
+            const commitSha = '${{ github.event.inputs.commit_hash }}';
+            const token = '${{ secrets.GITHUB_TOKEN }}';
+            const octokit = new Octokit({ auth: token });
+            const state = '${{ steps.run_tests.outcome == 'success' && 'success' || 'failure' }}';
+            await octokit.rest.repos.createCommitStatus({
+              owner: publicOwner,
+              repo: publicRepo,
+              sha: commitSha,
+              state: state,
+              target_url: repoUrl,
+              description: `The build was ${state}`
+            });

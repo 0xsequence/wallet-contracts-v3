@@ -11,14 +11,12 @@ interface ISignalsImplicitMode {
   /// @notice Accepts an implicit request
   /// @param wallet The wallet's address
   /// @param attestation The attestation data
-  /// @param redirectUrlHash The redirect URL hash
   /// @param call The call to validate
   /// @return The hash of the implicit request if valid
   function acceptImplicitRequest(
     address wallet,
     // Attestation data
     Attestation calldata attestation,
-    bytes32 redirectUrlHash, // Decoded from _attestation._authData as common usage expected
     // Transaction data
     Payload.Call calldata call
   ) external view returns (bytes32);

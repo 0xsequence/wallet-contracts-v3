@@ -57,7 +57,7 @@ library SessionSig {
   function recoverSignature(
     Payload.Decoded calldata payload,
     bytes calldata encodedSignature
-  ) internal pure returns (DecodedSignature memory sig) {
+  ) internal view returns (DecodedSignature memory sig) {
     uint256 pointer = 0;
     bool hasBlacklistInConfig;
 
@@ -121,24 +121,26 @@ library SessionSig {
         CallSignature memory callSignature;
 
         // Determine signature type
-        uint8 flag;
-        (flag, pointer) = encodedSignature.readUint8(pointer);
-        callSignature.isImplicit = (flag & 0x80) != 0;
+        {
+          uint8 flag;
+          (flag, pointer) = encodedSignature.readUint8(pointer);
+          callSignature.isImplicit = (flag & 0x80) != 0;
 
-        if (callSignature.isImplicit) {
-          // Read attestation index from the call_flags
-          uint8 attestationIndex = uint8(flag & 0x7f);
+          if (callSignature.isImplicit) {
+            // Read attestation index from the call_flags
+            uint8 attestationIndex = uint8(flag & 0x7f);
 
-          // Check if the attestation index is out of range
-          if (attestationIndex >= attestationList.length) {
-            revert SessionErrors.InvalidAttestation();
+            // Check if the attestation index is out of range
+            if (attestationIndex >= attestationList.length) {
+              revert SessionErrors.InvalidAttestation();
+            }
+
+            // Set the attestation
+            callSignature.attestation = attestationList[attestationIndex];
+          } else {
+            // Session permission index is the entire byte, top bit is 0 => no conflict
+            callSignature.sessionPermission = flag;
           }
-
-          // Set the attestation
-          callSignature.attestation = attestationList[attestationIndex];
-        } else {
-          // Session permission index is the entire byte, top bit is 0 => no conflict
-          callSignature.sessionPermission = flag;
         }
 
         // Read session signature and recover the signer
@@ -148,7 +150,7 @@ library SessionSig {
           uint8 v;
           (r, s, v, pointer) = encodedSignature.readRSVCompact(pointer);
 
-          bytes32 callHash = Payload.hashCall(payload.calls[i]);
+          bytes32 callHash = hashCallWithReplayProtection(payload.calls[i], payload);
           callSignature.sessionSigner = ecrecover(callHash, v, r, s);
         }
 
@@ -368,6 +370,17 @@ library SessionSig {
     address identitySigner
   ) internal pure returns (bytes32) {
     return keccak256(abi.encodePacked(uint8(FLAG_IDENTITY_SIGNER), identitySigner));
+  }
+
+  /// @notice Hashes a call with replay protection.
+  /// @dev The replay protection is based on the chainId, space, and nonce in the payload.
+  function hashCallWithReplayProtection(
+    Payload.Call calldata call,
+    Payload.Decoded calldata payload
+  ) public view returns (bytes32) {
+    return keccak256(
+      abi.encodePacked(payload.noChainId ? 0 : block.chainid, payload.space, payload.nonce, Payload.hashCall(call))
+    );
   }
 
 }

@@ -6,6 +6,7 @@ import { Nonce } from "./Nonce.sol";
 import { Payload } from "./Payload.sol";
 import { BaseAuth } from "./auth/BaseAuth.sol";
 import { SelfAuth } from "./auth/SelfAuth.sol";
+import { IDelegatedExtension } from "./interfaces/IDelegatedExtension.sol";
 
 abstract contract Calls is BaseAuth, Nonce {
 
@@ -19,6 +20,7 @@ abstract contract Calls is BaseAuth, Nonce {
   error NotEnoughGas(Payload.Decoded _payload, uint256 _index, uint256 _gasLeft);
 
   function execute(bytes calldata _payload, bytes calldata _signature) external payable virtual {
+    uint256 startingGas = gasleft();
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
 
     _consumeNonce(decoded.space, decoded.nonce);
@@ -28,28 +30,32 @@ abstract contract Calls is BaseAuth, Nonce {
       revert InvalidSignature(decoded, _signature);
     }
 
-    _execute(opHash, decoded);
+    _execute(startingGas, opHash, decoded);
   }
 
   function selfExecute(
     bytes calldata _payload
   ) external payable virtual onlySelf {
+    uint256 startingGas = gasleft();
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
     bytes32 opHash = Payload.hash(decoded);
-    _execute(opHash, decoded);
+    _execute(startingGas, opHash, decoded);
   }
 
-  function _execute(bytes32 _opHash, Payload.Decoded memory _decoded) private {
+  function _execute(uint256 _startingGas, bytes32 _opHash, Payload.Decoded memory _decoded) private {
     bool errorFlag = false;
 
     uint256 numCalls = _decoded.calls.length;
     for (uint256 i = 0; i < numCalls; i++) {
       Payload.Call memory call = _decoded.calls[i];
 
-      // If the call is of fallback kind, and errorFlag is set to false
-      // then we can skip the call
-      if (call.onlyFallback && !errorFlag) {
+      if (errorFlag) {
+        // Always reset the error flag so that
+        // onlyFallback calls only apply when the immediately preceding transaction fails
         errorFlag = false;
+      } else if (call.onlyFallback) {
+        // If the call is of fallback kind and errorFlag is set to false,
+        // then we can skip the call
         emit CallSkipped(_opHash, i);
         continue;
       }
@@ -61,7 +67,19 @@ abstract contract Calls is BaseAuth, Nonce {
 
       bool success;
       if (call.delegateCall) {
-        (success) = LibOptim.delegatecall(call.to, gasLimit == 0 ? gasleft() : gasLimit, call.data);
+        (success) = LibOptim.delegatecall(
+          call.to,
+          gasLimit == 0 ? gasleft() : gasLimit,
+          abi.encodeWithSelector(
+            IDelegatedExtension.handleSequenceDelegateCall.selector,
+            _opHash,
+            _startingGas,
+            i,
+            numCalls,
+            _decoded.space,
+            call.data
+          )
+        );
       } else {
         (success) = LibOptim.call(call.to, call.value, gasLimit == 0 ? gasleft() : gasLimit, call.data);
       }

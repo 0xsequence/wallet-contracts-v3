@@ -198,22 +198,6 @@ library PrimitivesRPC {
   }
 
   // ----------------------------------------------------------------
-  // permission
-  // ----------------------------------------------------------------
-
-  function toPackedPermission(Vm _vm, string memory permissionJson) internal returns (bytes memory) {
-    string memory params = string.concat('{"permission":', permissionJson, "}");
-    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "permission_toPacked", params);
-    return (rawResponse);
-  }
-
-  function toPackedSessionPermission(Vm _vm, string memory sessionJson) internal returns (bytes memory) {
-    string memory params = string.concat('{"sessionPermission":', sessionJson, "}");
-    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "permission_toPackedSession", params);
-    return (rawResponse);
-  }
-
-  // ----------------------------------------------------------------
   // session
   // ----------------------------------------------------------------
 

@@ -451,7 +451,7 @@ library BaseSig {
           uint256 nrindex = rindex + size;
 
           // Call the ERC1271 contract to check if the signature is valid
-          bytes32 sapientImageHash = ISapient(addr).isValidSapientSignature(_payload, _signature[rindex:nrindex]);
+          bytes32 sapientImageHash = ISapient(addr).recoverSapientSignature(_payload, _signature[rindex:nrindex]);
           rindex = nrindex;
 
           // Add the weight and compute the merkle root
@@ -487,7 +487,7 @@ library BaseSig {
 
           // Call the Sapient contract to check if the signature is valid
           bytes32 sapientImageHash =
-            ISapientCompact(addr).isValidSapientSignatureCompact(_opHash, _signature[rindex:nrindex]);
+            ISapientCompact(addr).recoverSapientSignatureCompact(_opHash, _signature[rindex:nrindex]);
           rindex = nrindex;
           // Add the weight and compute the merkle root
           weight += addrWeight;

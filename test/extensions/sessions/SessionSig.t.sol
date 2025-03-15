@@ -19,7 +19,7 @@ contract SessionSigHarness {
   function recover(
     Payload.Decoded calldata payload,
     bytes calldata signature
-  ) external pure returns (SessionSig.DecodedSignature memory) {
+  ) external view returns (SessionSig.DecodedSignature memory) {
     return SessionSig.recoverSignature(payload, signature);
   }
 
@@ -90,7 +90,8 @@ contract SessionSigTest is SessionTestBase {
     string memory callSignature;
     {
       uint8 permissionIdx = 0;
-      string memory sessionSignature = _signAndEncodeRSV(Payload.hashCall(payload.calls[0]), sessionWallet);
+      bytes32 callHash = SessionSig.hashCallWithReplayProtection(payload.calls[0], payload);
+      string memory sessionSignature = _signAndEncodeRSV(callHash, sessionWallet);
       callSignature = _explicitCallSignatureToJSON(permissionIdx, sessionSignature);
     }
 
@@ -142,8 +143,7 @@ contract SessionSigTest is SessionTestBase {
     }
 
     // Sign the payload.
-    string memory callSignature =
-      _createImplicitCallSignature(payload.calls[0], sessionWallet, identityWallet, attestation);
+    string memory callSignature = _createImplicitCallSignature(payload, 0, sessionWallet, identityWallet, attestation);
 
     // Create the topology from the CLI.
     string memory topology;
@@ -210,8 +210,8 @@ contract SessionSigTest is SessionTestBase {
     // Create attestations and signatures for both calls
     string[] memory callSignatures = new string[](2);
     {
-      callSignatures[0] = _createImplicitCallSignature(payload.calls[0], sessionWallet, identityWallet, attestation);
-      callSignatures[1] = _createImplicitCallSignature(payload.calls[1], sessionWallet, identityWallet, attestation);
+      callSignatures[0] = _createImplicitCallSignature(payload, 0, sessionWallet, identityWallet, attestation);
+      callSignatures[1] = _createImplicitCallSignature(payload, 1, sessionWallet, identityWallet, attestation);
     }
 
     // Create the topology
@@ -295,11 +295,13 @@ contract SessionSigTest is SessionTestBase {
     string[] memory callSignatures = new string[](2);
     {
       // First call signed by sessionWallet
-      string memory sessionSignature1 = _signAndEncodeRSV(Payload.hashCall(payload.calls[0]), sessionWallet);
+      bytes32 callHash = SessionSig.hashCallWithReplayProtection(payload.calls[0], payload);
+      string memory sessionSignature1 = _signAndEncodeRSV(callHash, sessionWallet);
       callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature1);
 
       // Second call signed by sessionWallet2
-      string memory sessionSignature2 = _signAndEncodeRSV(Payload.hashCall(payload.calls[1]), sessionWallet2);
+      callHash = SessionSig.hashCallWithReplayProtection(payload.calls[1], payload);
+      string memory sessionSignature2 = _signAndEncodeRSV(callHash, sessionWallet2);
       callSignatures[1] = _explicitCallSignatureToJSON(1, sessionSignature2);
     }
 
@@ -478,14 +480,12 @@ contract SessionSigTest is SessionTestBase {
     }
 
     // Create 2 call signatures for the same session wallet and attestation
-    string memory callSignatureA =
-      _createImplicitCallSignature(payload.calls[0], sessionWallet, identityWallet, attestation1);
-    string memory callSignatureB =
-      _createImplicitCallSignature(payload.calls[1], sessionWallet, identityWallet, attestation1);
+    string memory callSignatureA = _createImplicitCallSignature(payload, 0, sessionWallet, identityWallet, attestation1);
+    string memory callSignatureB = _createImplicitCallSignature(payload, 1, sessionWallet, identityWallet, attestation1);
 
     // Create the second call signature for the second session wallet and attestation
     string memory callSignatureC =
-      _createImplicitCallSignature(payload.calls[1], sessionWallet2, identityWallet, attestation2);
+      _createImplicitCallSignature(payload, 1, sessionWallet2, identityWallet, attestation2);
 
     // Create a topology
     string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);

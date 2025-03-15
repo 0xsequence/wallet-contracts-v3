@@ -14,15 +14,21 @@ contract Passkeys is ISapientCompact {
     WebAuthn.WebAuthnAuth _webAuthnAuth, bool _requireUserVerification, bytes32 _x, bytes32 _y
   );
 
-  function _rootForPasskey(bool _requireUserVerification, bytes32 _x, bytes32 _y) internal pure returns (bytes32) {
+  function _rootForPasskey(
+    bool _requireUserVerification,
+    bytes32 _x,
+    bytes32 _y,
+    bytes32 _metadata
+  ) internal pure returns (bytes32) {
     bytes32 a = LibOptim.fkeccak256(_x, _y);
 
-    bytes32 b;
+    bytes32 ruv;
     assembly {
-      b := _requireUserVerification
+      ruv := _requireUserVerification
     }
 
-    return LibOptim.fkeccak256(b, a);
+    bytes32 b = LibOptim.fkeccak256(ruv, _metadata);
+    return LibOptim.fkeccak256(a, b);
   }
 
   function _decodeSignature(
@@ -30,7 +36,13 @@ contract Passkeys is ISapientCompact {
   )
     internal
     pure
-    returns (WebAuthn.WebAuthnAuth memory _webAuthnAuth, bool _requireUserVerification, bytes32 _x, bytes32 _y)
+    returns (
+      WebAuthn.WebAuthnAuth memory _webAuthnAuth,
+      bool _requireUserVerification,
+      bytes32 _x,
+      bytes32 _y,
+      bytes32 _metadata
+    )
   {
     unchecked {
       // Global flag encoding:
@@ -40,7 +52,8 @@ contract Passkeys is ISapientCompact {
       // 0000 X000 : 1 if 16 bits for challengeIndex, 0 if 8 bits
       // 000X 0000 : 1 if 16 bits for typeIndex, 0 if 8 bits
       // 00X0 0000 : 1 if fallback to abi decode data
-      // XX00 0000 : unused
+      // 0X00 0000 : 1 if signature has metadata node
+      // X000 0000 : unused
 
       bytes1 flags = _signature[0];
       if ((flags & 0x20) == 0) {
@@ -51,6 +64,10 @@ contract Passkeys is ISapientCompact {
         uint256 bytesTypeIndex = ((uint8(flags & 0x10)) >> 4) + 1;
 
         uint256 pointer = 1;
+
+        if ((flags & 0x40) != 0) {
+          (_metadata, pointer) = LibBytesPointer.readBytes32(_signature, pointer);
+        }
 
         {
           uint256 authDataSize;
@@ -77,21 +94,26 @@ contract Passkeys is ISapientCompact {
         (_x, pointer) = LibBytesPointer.readBytes32(_signature, pointer);
         _y = LibBytes.readBytes32(_signature, pointer);
       } else {
-        (_webAuthnAuth, _requireUserVerification, _x, _y) =
-          abi.decode(_signature[1:], (WebAuthn.WebAuthnAuth, bool, bytes32, bytes32));
+        (_webAuthnAuth, _requireUserVerification, _x, _y, _metadata) =
+          abi.decode(_signature[1:], (WebAuthn.WebAuthnAuth, bool, bytes32, bytes32, bytes32));
       }
     }
   }
 
-  function isValidSapientSignatureCompact(bytes32 _digest, bytes calldata _signature) external view returns (bytes32) {
-    (WebAuthn.WebAuthnAuth memory _webAuthnAuth, bool _requireUserVerification, bytes32 _x, bytes32 _y) =
-      _decodeSignature(_signature);
+  function recoverSapientSignatureCompact(bytes32 _digest, bytes calldata _signature) external view returns (bytes32) {
+    (
+      WebAuthn.WebAuthnAuth memory _webAuthnAuth,
+      bool _requireUserVerification,
+      bytes32 _x,
+      bytes32 _y,
+      bytes32 _metadata
+    ) = _decodeSignature(_signature);
 
     if (!WebAuthn.verify(abi.encodePacked(_digest), _requireUserVerification, _webAuthnAuth, _x, _y)) {
       revert InvalidPasskeySignature(_webAuthnAuth, _requireUserVerification, _x, _y);
     }
 
-    return _rootForPasskey(_requireUserVerification, _x, _y);
+    return _rootForPasskey(_requireUserVerification, _x, _y, _metadata);
   }
 
 }
