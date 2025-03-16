@@ -133,6 +133,7 @@ library BaseSig {
 
     // Recover the tree
     opHash = _payload.hash();
+    console2.log("base recover opHash");
     console2.logBytes32(opHash);
     (weight, imageHash) = recoverBranch(_payload, opHash, _signature[rindex:]);
 
@@ -430,7 +431,12 @@ library BaseSig {
           // it pushes the weight to the maximum
           bytes32 hardcoded;
           (hardcoded, rindex) = _signature.readBytes32(rindex);
+
+          console2.log("hardcoded");
+          console2.logBytes32(hardcoded);
           bytes32 anyAddressOpHash = _payload.hashFor(address(0));
+          console2.log("anyAddressOpHash");
+          console2.logBytes32(anyAddressOpHash);
           if (hardcoded == anyAddressOpHash) {
             weight = type(uint256).max;
           }

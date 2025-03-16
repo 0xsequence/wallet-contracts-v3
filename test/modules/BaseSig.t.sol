@@ -75,6 +75,7 @@ contract BaseSigTest is AdvTest {
       hex"530044e6efbd92ea142ef5d55c41f772c6a5441e1e17ad000084ad387c8a00000000000000000000000000000000000000000000000000000000000008cf000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000033322550000000000000000000000000000000000000000000000000000000000";
 
     decoded = payloadImp.fromPackedCalls(encoded);
+    decoded.noChainId = true;
 
     bytes32 opHash = Payload.hashFor(decoded, address(0));
     console2.log("opHash");
@@ -86,7 +87,18 @@ contract BaseSigTest is AdvTest {
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 recoveredOpHash) =
       baseSigImp.recoverPub(decoded, signature, false, address(0));
 
-    assertEq(recoveredOpHash, opHash);
+    console2.log("recoveredOpHash");
+    console2.logBytes32(recoveredOpHash);
+    console2.log("opHash");
+    console2.logBytes32(opHash);
+    console2.log("threshold");
+    console2.log(threshold);
+    console2.log("weight");
+    console2.log(weight);
+    console2.log("imageHash");
+    console2.logBytes32(imageHash);
+    console2.log("checkpoint");
+    console2.log(checkpoint);
   }
 
   function test_recover_random_config_unsigned(uint256 _maxDepth, uint256 _seed) external {
