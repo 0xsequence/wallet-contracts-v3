@@ -148,4 +148,16 @@ contract PayloadTest is AdvTest {
     bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
   }
 
+  function test_hashFor_empty_calls(uint256 _space, uint256 _nonce) external {
+    Payload.Decoded memory _payload;
+    _payload.kind = Payload.KIND_TRANSACTIONS;
+    _payload.calls = new Payload.Call[](0);
+    _payload.space = bound(_space, 0, type(uint160).max);
+    _payload.nonce = bound(_nonce, 0, type(uint56).max);
+
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
+    assertEq(contractHash, payloadHash);
+  }
+
 }
