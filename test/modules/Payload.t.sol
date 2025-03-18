@@ -160,4 +160,115 @@ contract PayloadTest is AdvTest {
     assertEq(contractHash, payloadHash);
   }
 
+  function test_hashFor_single_call_zero_gas(address _to, bytes memory _data, uint256 _space, uint256 _nonce) external {
+    Payload.Decoded memory _payload;
+    _payload.kind = Payload.KIND_TRANSACTIONS;
+    _payload.calls = new Payload.Call[](1);
+    _payload.calls[0] = Payload.Call({
+      to: _to,
+      value: 0,
+      data: _data,
+      gasLimit: 0,
+      delegateCall: false,
+      onlyFallback: false,
+      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+    });
+    _payload.space = bound(_space, 0, type(uint160).max);
+    _payload.nonce = bound(_nonce, 0, type(uint56).max);
+
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
+    assertEq(contractHash, payloadHash);
+  }
+
+  function test_hashFor_varying_data_length(
+    uint256 _dataLength,
+    address _to,
+    uint256 _space,
+    uint256 _nonce,
+    uint256 _behaviorOnError
+  ) external {
+    _dataLength = bound(_dataLength, 0, 1024);
+    bytes memory data = new bytes(_dataLength);
+
+    Payload.Decoded memory _payload;
+    _payload.kind = Payload.KIND_TRANSACTIONS;
+    _payload.calls = new Payload.Call[](1);
+    _payload.calls[0] = Payload.Call({
+      to: _to,
+      value: 0,
+      data: data,
+      gasLimit: 100000,
+      delegateCall: false,
+      onlyFallback: false,
+      behaviorOnError: bound(_behaviorOnError, 0, 2)
+    });
+    _payload.space = bound(_space, 0, type(uint160).max);
+    _payload.nonce = bound(_nonce, 0, type(uint56).max);
+
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
+    assertEq(contractHash, payloadHash);
+  }
+
+  function test_hashFor_multiple_calls_with_varying_flags(
+    bool _delegateCall1,
+    bool _onlyFallback1,
+    uint8 _behavior1,
+    bool _delegateCall2,
+    bool _onlyFallback2,
+    uint8 _behavior2,
+    uint256 _space,
+    uint256 _nonce
+  ) external {
+    Payload.Decoded memory _payload;
+    _payload.kind = Payload.KIND_TRANSACTIONS;
+    _payload.calls = new Payload.Call[](2);
+    _payload.calls[0] = Payload.Call({
+      to: address(0x123),
+      value: 0,
+      data: "",
+      gasLimit: 100000,
+      delegateCall: _delegateCall1,
+      onlyFallback: _onlyFallback1,
+      behaviorOnError: bound(_behavior1, 0, 2)
+    });
+    _payload.calls[1] = Payload.Call({
+      to: address(0x456),
+      value: 1 ether,
+      data: hex"1234",
+      gasLimit: 200000,
+      delegateCall: _delegateCall2,
+      onlyFallback: _onlyFallback2,
+      behaviorOnError: bound(_behavior2, 0, 2)
+    });
+    _payload.space = bound(_space, 0, type(uint160).max);
+    _payload.nonce = bound(_nonce, 0, type(uint56).max);
+
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
+    assertEq(contractHash, payloadHash);
+  }
+
+  function test_hashFor_hardcoded_values() external {
+    Payload.Decoded memory _payload;
+    _payload.kind = Payload.KIND_TRANSACTIONS;
+    _payload.calls = new Payload.Call[](1);
+    _payload.calls[0] = Payload.Call({
+      to: 0xE6efBD92Ea142eF5D55C41f772C6A5441E1e17ad,
+      value: 0,
+      data: hex"ad387c8a00000000000000000000000000000000000000000000000000000000000008cf000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000033322550000000000000000000000000000000000000000000000000000000000",
+      gasLimit: 0,
+      delegateCall: false,
+      onlyFallback: false,
+      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+    });
+    _payload.nonce = 0;
+    _payload.space = 0;
+
+    bytes32 contractHash = Payload.hashFor(_payload, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
+    assertEq(contractHash, payloadHash);
+  }
+
 }
