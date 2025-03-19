@@ -27,34 +27,46 @@ contract Deploy is SingletonDeployer {
     uint256 pk = vm.envUint("PRIVATE_KEY");
     address deployer = vm.envAddress("ADDRESS");
 
-    vm.deal(deployer, 1000000 ether);
+    if (block.chainid == 1337) {
+      vm.deal(deployer, 1000000 ether);
+    }
 
     bytes32 salt = bytes32(0);
 
     bytes memory initCode = abi.encodePacked(type(Factory).creationCode);
     address factoryDeploymentAddress = _deployIfNotAlready("Factory", initCode, salt, pk);
-    vm.etch(factoryAddress, address(factoryDeploymentAddress).code);
-    factory = Factory(payable(factoryAddress));
+    if (block.chainid == 1337) {
+      vm.etch(factoryAddress, address(factoryDeploymentAddress).code);
+      factory = Factory(payable(factoryAddress));
+    }
 
     initCode = abi.encodePacked(type(Stage1Module).creationCode, abi.encode(factory));
     address stage1ModuleDeploymentAddress = _deployIfNotAlready("Stage1Module", initCode, salt, pk);
-    vm.etch(stage1ModuleAddress, address(stage1ModuleDeploymentAddress).code);
-    stage1Module = Stage1Module(payable(stage1ModuleAddress));
+    if (block.chainid == 1337) {
+      vm.etch(stage1ModuleAddress, address(stage1ModuleDeploymentAddress).code);
+      stage1Module = Stage1Module(payable(stage1ModuleAddress));
+    }
 
     initCode = abi.encodePacked(type(Stage2Module).creationCode, abi.encode(factory));
     address stage2ModuleDeploymentAddress = _deployIfNotAlready("Stage2Module", initCode, salt, pk);
-    vm.etch(stage2ModuleAddress, address(stage2ModuleDeploymentAddress).code);
-    stage2Module = Stage2Module(payable(stage2ModuleAddress));
+    if (block.chainid == 1337) {
+      vm.etch(stage2ModuleAddress, address(stage2ModuleDeploymentAddress).code);
+      stage2Module = Stage2Module(payable(stage2ModuleAddress));
+    }
 
     initCode = abi.encodePacked(type(Guest).creationCode);
     address guestDeploymentAddress = _deployIfNotAlready("Guest", initCode, salt, pk);
-    vm.etch(guestModuleAddress, address(guestDeploymentAddress).code);
-    guest = Guest(payable(guestModuleAddress));
+    if (block.chainid == 1337) {
+      vm.etch(guestModuleAddress, address(guestDeploymentAddress).code);
+      guest = Guest(payable(guestModuleAddress));
+    }
 
     initCode = abi.encodePacked(type(SessionManager).creationCode);
     address sessionManagerDeploymentAddress = _deployIfNotAlready("SessionManager", initCode, salt, pk);
-    vm.etch(sessionManagerAddress, address(sessionManagerDeploymentAddress).code);
-    sessionManager = SessionManager(payable(sessionManagerAddress));
+    if (block.chainid == 1337) {
+      vm.etch(sessionManagerAddress, address(sessionManagerDeploymentAddress).code);
+      sessionManager = SessionManager(payable(sessionManagerAddress));
+    }
   }
 
 }
