@@ -9,6 +9,8 @@ import { ICheckpointer, Snapshot } from "../interfaces/ICheckpointer.sol";
 import { IERC1271, IERC1271_MAGIC_VALUE } from "../interfaces/IERC1271.sol";
 import { ISapient, ISapientCompact } from "../interfaces/ISapient.sol";
 
+import { console2 } from "forge-std/console2.sol";
+
 using LibBytesPointer for bytes;
 using Payload for Payload.Decoded;
 
@@ -65,6 +67,12 @@ library BaseSig {
     // First byte is the signature flag
     (uint256 signatureFlag, uint256 rindex) = _signature.readFirstUint8();
 
+    console2.log("signatureFlag", signatureFlag);
+
+    // Recover the tree
+    opHash = _payload.hash();
+    console2.logBytes32(opHash);
+
     // The possible flags are:
     // - 0000 00XX (bits [1..0]): signature type (00 = normal, 01 = chained, 10 = no chain id)
     // - 000X XX00 (bits [4..2]): checkpoint size (00 = 0 bytes, 001 = 1 byte, 010 = 2 bytes...)
@@ -97,13 +105,22 @@ library BaseSig {
       }
     }
 
+    console2.log("rindex");
+    console2.log(rindex);
+    console2.log("signatureFlag");
+    console2.log(signatureFlag);
+
     // If signature type is 01 we do a chained signature
     if (signatureFlag & 0x01 == 0x01) {
+      console2.log("recoverChained");
       return recoverChained(_payload, _checkpointer, snapshot, _signature[rindex:]);
     }
 
     // If the signature type is 10 we do a no chain id signature
     _payload.noChainId = signatureFlag & 0x02 == 0x02;
+
+    console2.log("noChainId");
+    console2.log(_payload.noChainId);
 
     {
       // Recover the checkpoint using the size defined by the flag
@@ -119,6 +136,8 @@ library BaseSig {
 
     // Recover the tree
     opHash = _payload.hash();
+    console2.log("opHash");
+    console2.logBytes32(opHash);
     (weight, imageHash) = recoverBranch(_payload, opHash, _signature[rindex:]);
 
     imageHash = LibOptim.fkeccak256(imageHash, bytes32(threshold));
@@ -415,7 +434,12 @@ library BaseSig {
           // it pushes the weight to the maximum
           bytes32 hardcoded;
           (hardcoded, rindex) = _signature.readBytes32(rindex);
+
+          console2.log("hardcoded");
+          console2.logBytes32(hardcoded);
           bytes32 anyAddressOpHash = _payload.hashFor(address(0));
+          console2.log("anyAddressOpHash");
+          console2.logBytes32(anyAddressOpHash);
           if (hardcoded == anyAddressOpHash) {
             weight = type(uint256).max;
           }

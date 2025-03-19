@@ -7,6 +7,7 @@ import { Payload } from "./Payload.sol";
 import { BaseAuth } from "./auth/BaseAuth.sol";
 import { SelfAuth } from "./auth/SelfAuth.sol";
 import { IDelegatedExtension } from "./interfaces/IDelegatedExtension.sol";
+import { console } from "forge-std/console.sol";
 
 abstract contract Calls is BaseAuth, Nonce {
 
@@ -20,7 +21,9 @@ abstract contract Calls is BaseAuth, Nonce {
   error NotEnoughGas(Payload.Decoded _payload, uint256 _index, uint256 _gasLeft);
 
   function execute(bytes calldata _payload, bytes calldata _signature) external payable virtual {
+    console.log("Executing payload...");
     uint256 startingGas = gasleft();
+    console.log("Starting gas:", startingGas);
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
 
     _consumeNonce(decoded.space, decoded.nonce);

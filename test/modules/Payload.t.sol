@@ -2,11 +2,25 @@
 pragma solidity ^0.8.27;
 
 import { Payload } from "../../src/modules/Payload.sol";
+import { BaseSig } from "../../src/modules/auth/BaseSig.sol";
 import { PrimitivesRPC } from "../utils/PrimitivesRPC.sol";
 
 import { AdvTest } from "../utils/TestUtils.sol";
 import { Test, Vm } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
+
+contract BaseSigImp {
+
+  function recoverPub(
+    Payload.Decoded memory _payload,
+    bytes calldata _signature,
+    bool _ignoreCheckpointer,
+    address _checkpointer
+  ) external view returns (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) {
+    return BaseSig.recover(_payload, _signature, _ignoreCheckpointer, _checkpointer);
+  }
+
+}
 
 contract PayloadImp {
 
@@ -21,9 +35,11 @@ contract PayloadImp {
 contract PayloadTest is AdvTest {
 
   PayloadImp public payloadImp;
+  BaseSigImp public baseSigImp;
 
   function setUp() public {
     payloadImp = new PayloadImp();
+    baseSigImp = new BaseSigImp();
   }
 
   function test_fromPackedCalls(Payload.Call[] memory _calls, uint256 _space, uint256 _nonce) external {
@@ -269,6 +285,44 @@ contract PayloadTest is AdvTest {
     bytes32 contractHash = Payload.hashFor(_payload, address(this));
     bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), _payload);
     assertEq(contractHash, payloadHash);
+  }
+
+  function test_hashFor_hardcoded_values_2() external {
+    vm.chainId(1337);
+    console.log("Blockchain ID");
+    console.log(block.chainid);
+
+    bytes memory packedData =
+      hex"130044e6efbd92ea142ef5d55c41f772c6a5441e1e17ad000084ad387c8a00000000000000000000000000000000000000000000000000000000000008cf000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000033322550000000000000000000000000000000000000000000000000000000000";
+    Payload.Decoded memory decoded = payloadImp.fromPackedCalls(packedData);
+    bytes32 contractHash = Payload.hashFor(decoded, address(this));
+    bytes32 payloadHash = PrimitivesRPC.hashForPayload(vm, address(this), uint64(block.chainid), decoded);
+    bytes32 contractHash2 = Payload.hashFor(decoded, address(0));
+    bytes32 payloadHash2 = PrimitivesRPC.hashForPayload(vm, address(0), uint64(block.chainid), decoded);
+    console.logBytes32(contractHash);
+    console.logBytes32(payloadHash);
+    console.logBytes32(contractHash2);
+    console.logBytes32(payloadHash2);
+    assertEq(contractHash, payloadHash);
+    assertEq(contractHash2, payloadHash2);
+
+    bytes memory signature =
+      hex"040001117e5f4552091a69125d5dfcb7b8c2659029395bdf80f06f38ffd885b3be0e9aac1aabfd2c6897f54ebe49c7745203871ad8f38b2bfc";
+
+    (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 recoveredOpHash) =
+      baseSigImp.recoverPub(decoded, signature, false, address(0));
+    console.log("threshold");
+    console.log(threshold);
+    console.log("weight");
+    console.log(weight);
+    console.log("maxWeight");
+    console.log(weight == type(uint256).max);
+    console.log("imageHash");
+    console.logBytes32(imageHash);
+    console.log("checkpoint");
+    console.log(checkpoint);
+    console.log("recoveredOpHash");
+    console.logBytes32(recoveredOpHash);
   }
 
 }
