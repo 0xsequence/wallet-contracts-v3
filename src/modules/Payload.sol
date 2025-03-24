@@ -37,8 +37,6 @@ library Payload {
 
   bytes32 private constant CONFIG_UPDATE_TYPEHASH = keccak256("ConfigUpdate(bytes32 imageHash,address[] wallets)");
 
-  bytes32 private constant DIGEST_TYPEHASH = keccak256("Digest(bytes32 digest,address[] wallets)");
-
   uint8 public constant KIND_TRANSACTIONS = 0x00;
   uint8 public constant KIND_MESSAGE = 0x01;
   uint8 public constant KIND_CONFIG_UPDATE = 0x02;
@@ -225,17 +223,17 @@ library Payload {
     if (_decoded.kind == KIND_TRANSACTIONS) {
       bytes32 callsHash = hashCalls(_decoded.calls);
       // The top-level struct for Calls might be something like:
-      // Calls(bytes32 callsHash,uint256 space,uint256 nonce,bytes32 walletsHash)
+      // Calls(Call[] calls,uint256 space,uint256 nonce,address[] wallets)
       return keccak256(abi.encode(CALLS_TYPEHASH, callsHash, _decoded.space, _decoded.nonce, walletsHash));
     } else if (_decoded.kind == KIND_MESSAGE) {
-      // If you define your top-level as: Message(bytes32 messageHash,bytes32 walletsHash)
+      // If you define your top-level as: Message(bytes message,address[] wallets)
       return keccak256(abi.encode(MESSAGE_TYPEHASH, keccak256(_decoded.message), walletsHash));
     } else if (_decoded.kind == KIND_CONFIG_UPDATE) {
-      // Top-level: ConfigUpdate(bytes32 imageHash,bytes32 walletsHash)
+      // Top-level: ConfigUpdate(bytes32 imageHash,address[] wallets)
       return keccak256(abi.encode(CONFIG_UPDATE_TYPEHASH, _decoded.imageHash, walletsHash));
     } else if (_decoded.kind == KIND_DIGEST) {
-      // Top-level: Digest(bytes32 digest,bytes32 walletsHash)
-      return keccak256(abi.encode(DIGEST_TYPEHASH, _decoded.digest, walletsHash));
+      // Top-level: Message(bytes message,address[] wallets)
+      return keccak256(abi.encode(MESSAGE_TYPEHASH, _decoded.digest, walletsHash));
     } else {
       // Unknown kind
       revert("Unsupported kind");
