@@ -10,7 +10,7 @@ import { IDelegatedExtension } from "./interfaces/IDelegatedExtension.sol";
 
 abstract contract Calls is BaseAuth, Nonce {
 
-  event CallSuccess(bytes32 _opHash, uint256 _index);
+  event CallSucceeded(bytes32 _opHash, uint256 _index);
   event CallFailed(bytes32 _opHash, uint256 _index, bytes _returnData);
   event CallAborted(bytes32 _opHash, uint256 _index, bytes _returnData);
   event CallSkipped(bytes32 _opHash, uint256 _index);
@@ -101,7 +101,7 @@ abstract contract Calls is BaseAuth, Nonce {
         }
       }
 
-      emit CallSuccess(_opHash, i);
+      emit CallSucceeded(_opHash, i);
     }
   }
 

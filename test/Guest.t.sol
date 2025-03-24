@@ -28,7 +28,7 @@ contract GuestTest is AdvTest {
 
   Guest public guest;
 
-  event CallSuccess(bytes32 _opHash, uint256 _index);
+  event CallSucceeded(bytes32 _opHash, uint256 _index);
   event CallFailed(bytes32 _opHash, uint256 _index, bytes _returnData);
   event CallAborted(bytes32 _opHash, uint256 _index, bytes _returnData);
   event CallSkipped(bytes32 _opHash, uint256 _index);
@@ -60,7 +60,7 @@ contract GuestTest is AdvTest {
       } else {
         vm.expectCall(decoded.calls[i].to, decoded.calls[i].data);
         vm.expectEmit(true, true, true, true);
-        emit CallSuccess(opHash, i);
+        emit CallSucceeded(opHash, i);
       }
     }
     (bool ok,) = address(guest).call(packed);
@@ -88,7 +88,7 @@ contract GuestTest is AdvTest {
       } else {
         vm.expectCall(decoded.calls[i].to, decoded.calls[i].data);
         vm.expectEmit(true, true, true, true);
-        emit CallSuccess(opHash, i);
+        emit CallSucceeded(opHash, i);
       }
     }
 

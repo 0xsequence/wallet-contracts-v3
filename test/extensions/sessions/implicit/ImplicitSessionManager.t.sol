@@ -50,8 +50,7 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     });
   }
 
-  /// @notice Test for a valid implicit session.
-  function test_validImplicitSession(Attestation memory attestation, address[] memory blacklist) public view {
+  function test_validImplicitCall(Attestation memory attestation, address[] memory blacklist) public view {
     // Ensure the blacklist doesn't contain the signer or call target
     for (uint256 i = 0; i < blacklist.length; i++) {
       vm.assume(blacklist[i] != sessionWallet.addr);
@@ -65,7 +64,18 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     sessionManager.validateImplicitCall(call, wallet, sessionWallet.addr, attestation, blacklist);
   }
 
-  /// @notice Test for blacklisted session signer.
+  function test_validImplicitCall_invalidSessionSigner(
+    Attestation memory attestation
+  ) public {
+    vm.assume(attestation.approvedSigner != sessionWallet.addr);
+    address[] memory blacklist = new address[](0);
+    Payload.Call memory call = _createCall(address(mockImplicit), false, 0, "");
+
+    // Validate the call
+    vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidSessionSigner.selector, sessionWallet.addr));
+    sessionManager.validateImplicitCall(call, wallet, sessionWallet.addr, attestation, blacklist);
+  }
+
   function test_blacklistedSessionSignerNotAllowed(
     uint256 randomIdx,
     Attestation memory attestation,
@@ -102,7 +112,6 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     sessionManager.validateImplicitCall(call, wallet, sessionWallet.addr, attestation, emptyBlacklist);
   }
 
-  /// @notice Test for non-zero value not allowed.
   function test_nonZeroValueNotAllowed(Attestation memory attestation, uint256 nonZeroValue) public {
     vm.assume(nonZeroValue > 0);
     attestation.approvedSigner = sessionWallet.addr;
@@ -113,7 +122,6 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     sessionManager.validateImplicitCall(call, wallet, sessionWallet.addr, attestation, emptyBlacklist);
   }
 
-  /// @notice Test for blacklisted address.
   function test_blacklistedAddressNotAllowed(
     uint256 randomIdx,
     Attestation memory attestation,
@@ -137,7 +145,6 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     sessionManager.validateImplicitCall(call, wallet, sessionWallet.addr, attestation, blacklist);
   }
 
-  /// @notice Test for invalid implicit result.
   function test_invalidImplicitResult(
     Attestation memory attestation
   ) public {

@@ -33,7 +33,7 @@ contract PermissionValidatorTest is Test {
     validator = new PermissionValidatorHarness();
   }
 
-  function testValidatePermission_Equal(
+  function test_validatePermission_Equal(
     bytes4 selector
   ) public view {
     Permission memory permission = Permission({ target: TARGET, rules: new ParameterRule[](1) });
@@ -67,7 +67,7 @@ contract PermissionValidatorTest is Test {
     assertFalse(success, "Permission validation should fail with non-matching selector");
   }
 
-  function testValidatePermission_Cumulative(uint256 value, uint256 limit) public {
+  function test_validatePermission_Cumulative(uint256 value, uint256 limit) public {
     limit = bound(limit, 0, type(uint256).max - 1);
     value = bound(value, 0, limit);
 
@@ -111,7 +111,7 @@ contract PermissionValidatorTest is Test {
     assertFalse(success, "Second call should fail as it would exceed limit");
   }
 
-  function testValidatePermission_GreaterThanOrEqual(uint256 threshold, uint256 testValue) public view {
+  function test_validatePermission_GreaterThanOrEqual(uint256 threshold, uint256 testValue) public view {
     Permission memory permission = Permission({ target: TARGET, rules: new ParameterRule[](1) });
     permission.rules[0] = ParameterRule({
       cumulative: false,
@@ -141,7 +141,9 @@ contract PermissionValidatorTest is Test {
     }
   }
 
-  function testValidatePermission_NotEqual(uint256 testValue, uint256 compareValue) public view {
+  function test_validatePermission_NotEqual(uint256 testValue, uint256 compareValue) public view {
+    vm.assume(testValue != compareValue);
+
     Permission memory permission = Permission({ target: TARGET, rules: new ParameterRule[](1) });
     permission.rules[0] = ParameterRule({
       cumulative: false,
@@ -164,14 +166,38 @@ contract PermissionValidatorTest is Test {
     UsageLimit[] memory emptyLimits = new UsageLimit[](0);
     (bool success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
 
-    if (testValue != compareValue) {
-      assertTrue(success, "Should succeed when values are different");
-    } else {
-      assertFalse(success, "Should fail when values are equal");
-    }
+    assertTrue(success, "Should pass when values are not equal");
   }
 
-  function testValidatePermission_WithMaskAndOffset(
+  function test_validatePermission_NotEqual_fail(
+    uint256 testValue
+  ) public view {
+    Permission memory permission = Permission({ target: TARGET, rules: new ParameterRule[](1) });
+    permission.rules[0] = ParameterRule({
+      cumulative: false,
+      operation: ParameterOperation.NOT_EQUAL,
+      value: bytes32(testValue),
+      offset: 0,
+      mask: bytes32(type(uint256).max)
+    });
+
+    Payload.Call memory call = Payload.Call({
+      to: TARGET,
+      value: 0,
+      data: abi.encode(testValue),
+      gasLimit: 0,
+      delegateCall: false,
+      onlyFallback: false,
+      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+    });
+
+    UsageLimit[] memory emptyLimits = new UsageLimit[](0);
+    (bool success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+
+    assertFalse(success, "Should fail when values are equal");
+  }
+
+  function test_validatePermission_WithMaskAndOffset(
     bytes calldata callData,
     bytes32 mask,
     uint256 offset,
@@ -225,6 +251,33 @@ contract PermissionValidatorTest is Test {
       // Expect failure when values do not match
       assertFalse(success, "Should fail when masked value does not match with offset");
     }
+  }
+
+  function test_validatePermission_WrongTarget(
+    address wrongTarget
+  ) public view {
+    Permission memory permission = Permission({ target: TARGET, rules: new ParameterRule[](1) });
+    permission.rules[0] = ParameterRule({
+      cumulative: false,
+      operation: ParameterOperation.EQUAL,
+      value: bytes32(uint256(uint160(TARGET))),
+      offset: 0,
+      mask: bytes32(type(uint256).max)
+    });
+
+    Payload.Call memory call = Payload.Call({
+      to: wrongTarget,
+      value: 0,
+      data: abi.encodeWithSelector(DUMMY_SELECTOR, 0),
+      gasLimit: 0,
+      delegateCall: false,
+      onlyFallback: false,
+      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+    });
+
+    UsageLimit[] memory emptyLimits = new UsageLimit[](0);
+    (bool success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+    assertFalse(success, "Should fail when target does not match");
   }
 
 }

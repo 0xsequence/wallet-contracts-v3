@@ -207,6 +207,12 @@ library PrimitivesRPC {
     return string(rawResponse);
   }
 
+  function sessionEncodeTopology(Vm _vm, string memory topologyInput) internal returns (bytes memory) {
+    string memory params = string.concat('{"sessionTopology":', topologyInput, "}");
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_encodeTopology", params);
+    return rawResponse;
+  }
+
   function sessionEncodeCallSignatures(
     Vm _vm,
     string memory topologyInput,
@@ -270,24 +276,22 @@ library PrimitivesRPC {
 
   function sessionImplicitAddBlacklistAddress(
     Vm _vm,
-    string memory implicitSessionJson,
+    string memory topologyInput,
     address addressToAdd
   ) internal returns (string memory) {
-    string memory params = string.concat(
-      '{"sessionConfiguration":', implicitSessionJson, ',"blacklistAddress":"', _vm.toString(addressToAdd), '"}'
-    );
+    string memory params =
+      string.concat('{"sessionTopology":', topologyInput, ',"blacklistAddress":"', _vm.toString(addressToAdd), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_implicit_addBlacklistAddress", params);
     return string(rawResponse);
   }
 
   function sessionImplicitRemoveBlacklistAddress(
     Vm _vm,
-    string memory implicitSessionJson,
+    string memory topologyInput,
     address addressToRemove
   ) internal returns (string memory) {
-    string memory params = string.concat(
-      '{"sessionConfiguration":', implicitSessionJson, ',"blacklistAddress":"', _vm.toString(addressToRemove), '"}'
-    );
+    string memory params =
+      string.concat('{"sessionTopology":', topologyInput, ',"blacklistAddress":"', _vm.toString(addressToRemove), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_implicit_removeBlacklistAddress", params);
     return string(rawResponse);
   }

@@ -102,7 +102,7 @@ contract CallsTest is AdvTest {
 
   CallsImp public calls = new CallsImp();
 
-  event CallSuccess(bytes32 _opHash, uint256 _index);
+  event CallSucceeded(bytes32 _opHash, uint256 _index);
   event CallSkipped(bytes32 _opHash, uint256 _index);
 
   function test_execute(bytes32 _opHash, CallsPayload memory _payload, bytes calldata _signature) external {
@@ -162,7 +162,7 @@ contract CallsTest is AdvTest {
           vm.expectCall(decoded.calls[i].to, decoded.calls[i].data);
         }
 
-        emit CallSuccess(_opHash, i);
+        emit CallSucceeded(_opHash, i);
       }
     }
 
@@ -247,7 +247,7 @@ contract CallsTest is AdvTest {
           vm.expectCall(decoded.calls[i].to, decoded.calls[i].data);
         }
         vm.expectEmit(true, true, true, true, address(calls));
-        emit CallSuccess(opHash, i);
+        emit CallSucceeded(opHash, i);
       }
     }
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import { Payload } from "../../src/modules/Payload.sol";
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 contract AdvTest is Test {
 
@@ -63,6 +64,14 @@ contract AdvTest is Test {
     }
 
     return candidate;
+  }
+
+  // ERC-2098 Compact Signature
+  function signRSVCompact(bytes32 hash, Vm.Wallet memory wallet) internal pure returns (bytes memory) {
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(wallet.privateKey, hash);
+    uint256 yParity = v == 28 ? 1 << 255 : 0;
+    bytes32 yParityAndS = bytes32(uint256(s) | yParity);
+    return abi.encodePacked(r, yParityAndS);
   }
 
 }

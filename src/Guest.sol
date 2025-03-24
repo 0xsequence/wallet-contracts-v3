@@ -86,7 +86,7 @@ contract Guest {
         }
       }
 
-      emit Calls.CallSuccess(_opHash, i);
+      emit Calls.CallSucceeded(_opHash, i);
     }
   }
 

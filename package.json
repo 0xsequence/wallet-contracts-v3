@@ -3,7 +3,9 @@
     "build": "hardhat compile",
     "postinstall": "lefthook install",
     "format:prettier": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,yml,yaml}\"",
-    "format:forge": "forge fmt"
+    "format:forge": "forge fmt",
+    "test": "forge test",
+    "coverage": "forge coverage --no-match-coverage \"(script|test)\""
   },
   "dependencies": {
     "hardhat": "^2.22.18"

@@ -32,14 +32,7 @@ using LibBytesPointer for bytes;
 
 library LibPermission {
 
-  /// @notice Hashes a permission
-  /// @param permission The permission to hash
-  /// @return The hash of the permission
-  function toHash(
-    Permission memory permission
-  ) internal pure returns (bytes32) {
-    return keccak256(abi.encode(permission));
-  }
+  error RulesLengthExceedsMax();
 
   /// @notice Reads a permission from a packed bytes array
   /// @param encoded The packed bytes array
@@ -77,11 +70,13 @@ library LibPermission {
   function toPacked(
     Permission calldata permission
   ) internal pure returns (bytes memory packed) {
-    packed = abi.encodePacked(permission.target, uint24(permission.rules.length));
+    if (permission.rules.length > type(uint8).max) {
+      revert RulesLengthExceedsMax();
+    }
+    packed = abi.encodePacked(permission.target, uint8(permission.rules.length));
     for (uint256 i = 0; i < permission.rules.length; i++) {
       packed = abi.encodePacked(packed, ruleToPacked(permission.rules[i]));
     }
-    return packed;
   }
 
   /// @notice Encodes a rule into a packed bytes array

@@ -288,8 +288,8 @@ library SessionSig {
         // Read the blacklist count from the first byte's lower 4 bits
         uint256 blacklistCount = uint256(firstByte & 0x0f);
         if (blacklistCount == 0x0f) {
-          // If it's max nibble, read the next byte for the actual size
-          (blacklistCount, pointer) = encoded.readUint8(pointer);
+          // If it's max nibble, read the next 2 bytes for the actual size
+          (blacklistCount, pointer) = encoded.readUint16(pointer);
         }
         uint256 pointerStart = pointer;
 

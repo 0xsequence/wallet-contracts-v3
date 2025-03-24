@@ -35,12 +35,19 @@ Run tests
 forge test
 ```
 
+Run coverage (ignoring scripts and test files).
+
+```sh
+forge coverage --no-match-coverage "(script|test)"
+# Or to generate and view in browser
+forge coverage --no-match-coverage "(script|test)" --report lcov && genhtml -o report --branch-coverage lcov.info && py -m http.server -d report
+```
+
 Deploy contracts
 
 ```sh
 forge script Deploy --rpc-url <xxx> --broadcast
 ```
-
 
 > [!NOTE]
 > Deployments use ERC-2470 for counter factual deployments.

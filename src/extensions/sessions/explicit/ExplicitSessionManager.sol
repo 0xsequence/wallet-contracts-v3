@@ -56,7 +56,7 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
       }
     }
     if (sessionPermissions.signer == address(0)) {
-      revert SessionErrors.InvalidSessionSigner(address(0));
+      revert SessionErrors.InvalidSessionSigner(sessionSigner);
     }
 
     // Check if session has expired.

@@ -234,8 +234,8 @@ library Payload {
       // Top-level: ConfigUpdate(bytes32 imageHash,bytes32 walletsHash)
       return keccak256(abi.encode(CONFIG_UPDATE_TYPEHASH, _decoded.imageHash, walletsHash));
     } else if (_decoded.kind == KIND_DIGEST) {
-      // Top-level: Digest(bytes32 digest,bytes32 walletsHash)
-      return keccak256(abi.encode(DIGEST_TYPEHASH, _decoded.digest, walletsHash));
+      // Top-level: Use MESSAGE_TYPEHASH but assume the digest is already the hashed message
+      return keccak256(abi.encode(MESSAGE_TYPEHASH, _decoded.digest, walletsHash));
     } else {
       // Unknown kind
       revert("Unsupported kind");
