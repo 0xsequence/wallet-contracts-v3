@@ -78,7 +78,7 @@ contract Estimator is Stage2Module {
         }
       }
 
-      emit CallSuccess(_opHash, i);
+      emit CallSucceeded(_opHash, i);
     }
   }
 
