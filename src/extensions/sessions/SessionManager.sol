@@ -42,6 +42,8 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
 
     // Validate calls
     if (sig.callSignatures.length != payload.calls.length) {
+      // Unreachable
+      // Call signature length is dictated by the payload calls length. Will fail in recoverSignature.
       revert InvalidCallSignaturesLength();
     }
 

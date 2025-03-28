@@ -37,8 +37,6 @@ library Payload {
 
   bytes32 private constant CONFIG_UPDATE_TYPEHASH = keccak256("ConfigUpdate(bytes32 imageHash,address[] wallets)");
 
-  bytes32 private constant DIGEST_TYPEHASH = keccak256("Digest(bytes32 digest,address[] wallets)");
-
   uint8 public constant KIND_TRANSACTIONS = 0x00;
   uint8 public constant KIND_MESSAGE = 0x01;
   uint8 public constant KIND_CONFIG_UPDATE = 0x02;

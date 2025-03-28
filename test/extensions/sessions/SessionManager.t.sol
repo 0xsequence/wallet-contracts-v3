@@ -115,6 +115,32 @@ contract SessionManagerTest is SessionTestBase {
     assertEq(imageHash, expectedImageHash);
   }
 
+  function testInvalidPayloadKindReverts() public {
+    Payload.Decoded memory payload;
+    bytes memory encodedSig;
+
+    payload.kind = Payload.KIND_MESSAGE;
+    vm.expectRevert(SessionManager.InvalidPayloadKind.selector);
+    sessionManager.recoverSapientSignature(payload, encodedSig);
+
+    payload.kind = Payload.KIND_CONFIG_UPDATE;
+    vm.expectRevert(SessionManager.InvalidPayloadKind.selector);
+    sessionManager.recoverSapientSignature(payload, encodedSig);
+
+    payload.kind = Payload.KIND_DIGEST;
+    vm.expectRevert(SessionManager.InvalidPayloadKind.selector);
+    sessionManager.recoverSapientSignature(payload, encodedSig);
+  }
+
+  function testInvalidCallsLengthReverts() public {
+    Payload.Decoded memory payload;
+    payload.kind = Payload.KIND_TRANSACTIONS;
+    bytes memory encodedSig;
+
+    vm.expectRevert(SessionManager.InvalidCallsLength.selector);
+    sessionManager.recoverSapientSignature(payload, encodedSig);
+  }
+
   /// @notice Test that a call using delegateCall reverts.
   function testInvalidDelegateCallReverts(Attestation memory attestation, bytes memory data) public {
     attestation.approvedSigner = sessionWallet.addr;
