@@ -241,6 +241,24 @@ library PrimitivesRPC {
     return (rawResponse);
   }
 
+  function toIntentConfigSignature(
+    Vm _vm,
+    address _mainSigner,
+    bytes32 _anyAddressSubdigest
+  ) internal returns (bytes memory) {
+    // Construct the JSON parameters for the custom RPC call
+    string memory params = string.concat(
+      '{"mainSigner":"',
+      _vm.toString(_mainSigner),
+      '","anyAddressSubdigest":"',
+      _vm.toString(_anyAddressSubdigest),
+      '"}'
+    );
+    // Call the custom RPC endpoint
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "intent_signature_encode", params);
+    return rawResponse;
+  }
+
   // ----------------------------------------------------------------
   // session
   // ----------------------------------------------------------------
