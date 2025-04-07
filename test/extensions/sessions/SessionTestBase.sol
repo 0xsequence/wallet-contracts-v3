@@ -18,6 +18,8 @@ abstract contract SessionTestBase is AdvTest {
 
   using LibAttestation for Attestation;
 
+  address internal constant VALUE_TRACKING_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
   function _signAndEncodeRSV(bytes32 hash, Vm.Wallet memory wallet) internal pure returns (string memory) {
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(wallet.privateKey, hash);
     return string(abi.encodePacked(vm.toString(r), ":", vm.toString(s), ":", vm.toString(v)));
@@ -56,12 +58,15 @@ abstract contract SessionTestBase is AdvTest {
   ) internal pure returns (string memory) {
     string memory json = '{"signer":"';
     json = string.concat(json, vm.toString(sessionPerms.signer));
-    json = string.concat(json, '","valueLimit":');
+    json = string.concat(json, '","valueLimit":"');
     json = string.concat(json, vm.toString(sessionPerms.valueLimit));
-    json = string.concat(json, ',"deadline":');
+    json = string.concat(json, '","deadline":"');
     json = string.concat(json, vm.toString(sessionPerms.deadline));
-    json = string.concat(json, ',"permissions":[');
+    json = string.concat(json, '","permissions":[');
     for (uint256 i = 0; i < sessionPerms.permissions.length; i++) {
+      if (i > 0) {
+        json = string.concat(json, ",");
+      }
       json = string.concat(json, _permissionToJSON(sessionPerms.permissions[i]));
     }
     json = string.concat(json, "]}");
@@ -75,6 +80,9 @@ abstract contract SessionTestBase is AdvTest {
     json = string.concat(json, vm.toString(permission.target));
     json = string.concat(json, '","rules":[');
     for (uint256 i = 0; i < permission.rules.length; i++) {
+      if (i > 0) {
+        json = string.concat(json, ",");
+      }
       json = string.concat(json, _ruleToJSON(permission.rules[i]));
     }
     json = string.concat(json, "]}");

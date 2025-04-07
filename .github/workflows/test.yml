@@ -49,7 +49,7 @@ jobs:
             default_branch: main
             setup_tool: node
             setup_version: '20'
-            build_cmd: npm install -g pnpm && pnpm install && pnpm run build
+            build_cmd: npm install -g pnpm && pnpm install && pnpm run build:packages
             server_cmd: cd packages/primitives-cli && pnpm run start server &
     steps:
       - name: Determine SDK Git Commit

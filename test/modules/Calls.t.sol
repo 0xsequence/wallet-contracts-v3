@@ -11,8 +11,6 @@ import { Payload } from "../../src/modules/Payload.sol";
 import { IDelegatedExtension } from "../../src/modules/interfaces/IDelegatedExtension.sol";
 import { PrimitivesRPC } from "../utils/PrimitivesRPC.sol";
 
-import "forge-std/console.sol";
-
 contract CallsImp is Calls {
 
   bytes public expectedSignature;
@@ -104,12 +102,12 @@ contract CallsTest is AdvTest {
 
   event CallSucceeded(bytes32 _opHash, uint256 _index);
   event CallSkipped(bytes32 _opHash, uint256 _index);
+  event CallFailed(bytes32 _opHash, uint256 _index, bytes _returnData);
+  event CallAborted(bytes32 _opHash, uint256 _index, bytes _returnData);
 
-  function test_execute(bytes32 _opHash, CallsPayload memory _payload, bytes calldata _signature) external {
-    vm.assume(_payload.calls.length < 3);
-    address mockDelegatecall = address(new MockDelegatecall());
-    Payload.Decoded memory decoded = toDecodedPayload(_payload);
-
+  function preparePayload(
+    Payload.Decoded memory decoded
+  ) internal {
     uint256 totalEther;
 
     for (uint256 i = 0; i < decoded.calls.length; i++) {
@@ -129,7 +127,14 @@ contract CallsTest is AdvTest {
     }
 
     vm.deal(address(calls), totalEther);
+  }
 
+  function test_execute(bytes32 _opHash, CallsPayload memory _payload, bytes calldata _signature) external {
+    vm.assume(_payload.calls.length < 3);
+    address mockDelegatecall = address(new MockDelegatecall());
+    Payload.Decoded memory decoded = toDecodedPayload(_payload);
+
+    preparePayload(decoded);
     boundToLegalPayload(decoded);
 
     bytes memory packed = PrimitivesRPC.toPackedPayload(vm, decoded);
@@ -199,26 +204,7 @@ contract CallsTest is AdvTest {
 
     Payload.Decoded memory decoded = toDecodedPayload(_payload);
 
-    uint256 totalEther;
-
-    for (uint256 i = 0; i < decoded.calls.length; i++) {
-      decoded.calls[i].to = boundNoPrecompile(decoded.calls[i].to);
-      decoded.calls[i].value = bound(decoded.calls[i].value, 0, 100_000_000_000_000 ether);
-      decoded.calls[i].gasLimit = bound(decoded.calls[i].gasLimit, 0, 1_000_000_000);
-
-      if (decoded.calls[i].delegateCall && decoded.calls[i].gasLimit != 0) {
-        decoded.calls[i].gasLimit = bound(decoded.calls[i].gasLimit, 100_000, 1_000_000_000);
-      }
-
-      if (!decoded.calls[i].delegateCall && !decoded.calls[i].onlyFallback) {
-        totalEther += decoded.calls[i].value;
-      }
-
-      vm.assume(decoded.calls[i].to != address(calls));
-    }
-
-    vm.deal(address(calls), totalEther);
-
+    preparePayload(decoded);
     boundToLegalPayload(decoded);
 
     bytes32 opHash = Payload.hashFor(decoded, address(calls));
@@ -273,6 +259,180 @@ contract CallsTest is AdvTest {
         assertEq(totalTransferred, decoded.calls[i].to.balance);
       }
     }
+  }
+
+  function test_invalid_signature(
+    CallsPayload memory _payload,
+    bytes calldata _signature,
+    bytes calldata _wrongSignature
+  ) external {
+    vm.assume(_signature.length > 0 && _wrongSignature.length > 0);
+    vm.assume(keccak256(_signature) != keccak256(_wrongSignature));
+
+    Payload.Decoded memory decoded = toDecodedPayload(_payload);
+    boundToLegalPayload(decoded);
+
+    bytes memory packed = PrimitivesRPC.toPackedPayload(vm, decoded);
+    bytes32 opHash = Payload.hashFor(decoded, address(calls));
+
+    calls.setExpectedSignature(_signature);
+    calls.setExpectedOpHash(opHash);
+    calls.writeNonce(decoded.space, decoded.nonce);
+
+    vm.expectRevert(abi.encodeWithSelector(Calls.InvalidSignature.selector, decoded, _wrongSignature));
+    calls.execute(packed, _wrongSignature);
+  }
+
+  function test_error_flag_behavior(
+    Payload.Call calldata call1,
+    Payload.Call calldata call2,
+    bytes calldata _signature
+  ) external {
+    CallsPayload memory _payload;
+    _payload.calls = new Payload.Call[](2);
+
+    // Set up the first call to fail
+    _payload.calls[0] = call1;
+    _payload.calls[0].onlyFallback = false;
+    _payload.calls[0].delegateCall = false;
+    _payload.calls[0].behaviorOnError = Payload.BEHAVIOR_IGNORE_ERROR;
+
+    // Set up the second call to be a fallback call
+    _payload.calls[1] = call2;
+    _payload.calls[1].onlyFallback = true;
+
+    Payload.Decoded memory decoded = toDecodedPayload(_payload);
+    preparePayload(decoded);
+    boundToLegalPayload(decoded);
+
+    // Ensure we have enough ether for both calls, even though the second one will be skipped
+    uint256 totalEther = decoded.calls[0].value + decoded.calls[1].value;
+    vm.deal(address(calls), totalEther);
+
+    bytes memory packed = PrimitivesRPC.toPackedPayload(vm, decoded);
+    bytes32 opHash = Payload.hashFor(decoded, address(calls));
+
+    calls.setExpectedSignature(_signature);
+    calls.setExpectedOpHash(opHash);
+    calls.writeNonce(decoded.space, decoded.nonce);
+
+    bytes memory revertData = abi.encodeWithSelector(bytes4(keccak256("revert()")));
+
+    // Force the first call to fail by making it revert
+    vm.mockCallRevert(_payload.calls[0].to, _payload.calls[0].value, _payload.calls[0].data, revertData);
+
+    // First call should fail and emit CallFailed
+    vm.expectEmit(true, true, true, true, address(calls));
+    emit CallFailed(opHash, 0, revertData);
+
+    // Second call should succeed as the previous error makes the fallback execute
+    vm.expectEmit(true, true, true, true, address(calls));
+    emit CallSucceeded(opHash, 1);
+
+    calls.execute(packed, _signature);
+  }
+
+  function test_revert_on_error(Payload.Call calldata call, bytes calldata _signature) external {
+    CallsPayload memory _payload;
+    _payload.calls = new Payload.Call[](1);
+
+    // Set up the call to fail
+    _payload.calls[0] = call;
+    _payload.calls[0].onlyFallback = false;
+    _payload.calls[0].delegateCall = false;
+    _payload.calls[0].behaviorOnError = Payload.BEHAVIOR_REVERT_ON_ERROR;
+
+    Payload.Decoded memory decoded = toDecodedPayload(_payload);
+    preparePayload(decoded);
+    boundToLegalPayload(decoded);
+
+    // Ensure we have enough ether
+    vm.deal(address(calls), decoded.calls[0].value);
+
+    bytes memory packed = PrimitivesRPC.toPackedPayload(vm, decoded);
+    bytes32 opHash = Payload.hashFor(decoded, address(calls));
+
+    calls.setExpectedSignature(_signature);
+    calls.setExpectedOpHash(opHash);
+    calls.writeNonce(decoded.space, decoded.nonce);
+
+    bytes memory revertData = abi.encodeWithSelector(bytes4(keccak256("revert()")));
+
+    // Force the call to fail by making it revert
+    vm.mockCallRevert(_payload.calls[0].to, _payload.calls[0].value, _payload.calls[0].data, revertData);
+
+    // Expect the call to revert with Reverted error
+    vm.expectRevert(abi.encodeWithSelector(Calls.Reverted.selector, decoded, 0, revertData));
+
+    calls.execute(packed, _signature);
+  }
+
+  function test_abort_on_error(Payload.Call calldata call, bytes calldata _signature) external {
+    CallsPayload memory _payload;
+    _payload.calls = new Payload.Call[](1);
+
+    // Set up the call to fail
+    _payload.calls[0] = call;
+    _payload.calls[0].onlyFallback = false;
+    _payload.calls[0].delegateCall = false;
+    _payload.calls[0].behaviorOnError = Payload.BEHAVIOR_ABORT_ON_ERROR;
+
+    Payload.Decoded memory decoded = toDecodedPayload(_payload);
+    preparePayload(decoded);
+    boundToLegalPayload(decoded);
+
+    // Ensure we have enough ether
+    vm.deal(address(calls), decoded.calls[0].value);
+
+    bytes memory packed = PrimitivesRPC.toPackedPayload(vm, decoded);
+    bytes32 opHash = Payload.hashFor(decoded, address(calls));
+
+    calls.setExpectedSignature(_signature);
+    calls.setExpectedOpHash(opHash);
+    calls.writeNonce(decoded.space, decoded.nonce);
+
+    bytes memory revertData = abi.encodeWithSelector(bytes4(keccak256("revert()")));
+
+    // Force the call to fail by making it revert
+    vm.mockCallRevert(_payload.calls[0].to, _payload.calls[0].value, _payload.calls[0].data, revertData);
+
+    // Call should fail and emit CallAborted
+    vm.expectEmit(true, true, true, true, address(calls));
+    emit CallAborted(opHash, 0, revertData);
+
+    calls.execute(packed, _signature);
+  }
+
+  function test_not_enough_gas(Payload.Call calldata call, uint256 txGasLimit, bytes calldata _signature) external {
+    CallsPayload memory _payload;
+    _payload.calls = new Payload.Call[](1);
+
+    txGasLimit = bound(txGasLimit, 1_000_000, 999_999_999);
+
+    // Set up the call with a high gas limit
+    _payload.calls[0] = call;
+    _payload.calls[0].onlyFallback = false;
+    _payload.calls[0].delegateCall = false;
+    _payload.calls[0].gasLimit = bound(call.gasLimit, txGasLimit, 1_000_000_000);
+
+    Payload.Decoded memory decoded = toDecodedPayload(_payload);
+    preparePayload(decoded);
+    boundToLegalPayload(decoded);
+
+    // Ensure we have enough ether
+    vm.deal(address(calls), decoded.calls[0].value);
+
+    bytes memory packed = PrimitivesRPC.toPackedPayload(vm, decoded);
+    bytes32 opHash = Payload.hashFor(decoded, address(calls));
+
+    calls.setExpectedSignature(_signature);
+    calls.setExpectedOpHash(opHash);
+    calls.writeNonce(decoded.space, decoded.nonce);
+
+    // Expect the call to revert with NotEnoughGas error. We do not expect the exact gas left
+    vm.expectPartialRevert(Calls.NotEnoughGas.selector);
+
+    calls.execute{ gas: txGasLimit }(packed, _signature);
   }
 
 }

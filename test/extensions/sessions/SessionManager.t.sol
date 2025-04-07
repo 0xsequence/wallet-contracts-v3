@@ -43,19 +43,59 @@ contract SessionManagerTest is SessionTestBase {
 
   /// @notice Valid explicit session test.
   function testValidExplicitSessionSignature(
-    bytes memory callData
+    bytes4 selector,
+    uint256 param,
+    uint256 value,
+    address explicitTarget2
   ) public {
-    // Build a payload with two calls:
-    //   Call 0: an explicit call to an external target (explicitTarget)
-    //   Call 1: the required incrementUsageLimit call (self–call)
-    uint256 callCount = 2;
-    Payload.Decoded memory payload = _buildPayload(callCount);
+    vm.assume(explicitTarget != explicitTarget2);
+    vm.assume(value > 0);
+    vm.assume(param > 0);
+    bytes memory callData = abi.encodeWithSelector(selector, param);
 
-    // --- Explicit Call (Call 0) ---
-    // Encode call with selector 0x12345678 and parameter amount.
+    // --- Session Permissions ---
+    // Create a SessionPermissions struct granting permission for calls to explicitTarget.
+    SessionPermissions memory sessionPerms = SessionPermissions({
+      signer: sessionWallet.addr,
+      valueLimit: value,
+      deadline: block.timestamp + 1 days,
+      permissions: new Permission[](2)
+    });
+    // Permission with an empty rules set allows all calls to the target.
+    ParameterRule[] memory rules = new ParameterRule[](2);
+    // Rules for explicitTarget in call 0.
+    rules[0] = ParameterRule({
+      cumulative: false,
+      operation: ParameterOperation.EQUAL,
+      value: bytes32(uint256(uint32(selector)) << 224),
+      offset: 0,
+      mask: bytes32(uint256(uint32(0xffffffff)) << 224)
+    });
+    rules[1] = ParameterRule({
+      cumulative: true,
+      operation: ParameterOperation.LESS_THAN_OR_EQUAL,
+      value: bytes32(param),
+      offset: 4, // offset the param (selector is 4 bytes)
+      mask: bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    });
+    sessionPerms.permissions[0] = Permission({ target: explicitTarget, rules: rules });
+    sessionPerms.permissions[1] = Permission({ target: explicitTarget2, rules: new ParameterRule[](0) }); // Unlimited access
+
+    // Build the session topology using PrimitiveRPC.
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
+    string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms);
+    topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
+
+    // Build a payload with two calls:
+    //   Call 0: call not requiring incrementUsageLimit
+    //   Call 1: call requiring incrementUsageLimit
+    //   Call 2: the required incrementUsageLimit call (self–call)
+    Payload.Decoded memory payload = _buildPayload(3);
+
+    // --- Explicit Call 1 ---
     payload.calls[0] = Payload.Call({
       to: explicitTarget,
-      value: 0,
+      value: value,
       data: callData,
       gasLimit: 0,
       delegateCall: false,
@@ -63,44 +103,54 @@ contract SessionManagerTest is SessionTestBase {
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
     });
 
-    // --- Self Call (Call 1) ---
-    // This call is to incrementUsageLimit (which is allowed) in the valid case.
+    // --- Explicit Call 2 ---
     payload.calls[1] = Payload.Call({
-      to: address(sessionManager),
-      value: 0, // valid case: zero value
-      data: abi.encodeWithSelector(sessionManager.incrementUsageLimit.selector, new UsageLimit[](0)),
+      to: explicitTarget2,
+      value: 0,
+      data: callData, // Reuse this because permission for this target is open
       gasLimit: 0,
       delegateCall: false,
       onlyFallback: false,
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
     });
 
-    // --- Session Permissions ---
-    // Create a SessionPermissions struct granting permission for calls to explicitTarget.
-    SessionPermissions memory sessionPerms = SessionPermissions({
-      signer: sessionWallet.addr,
-      valueLimit: 0,
-      deadline: block.timestamp + 1 days,
-      permissions: new Permission[](1)
-    });
-    // Permission with an empty rules set allows all calls to the target.
-    sessionPerms.permissions[0] = Permission({ target: explicitTarget, rules: new ParameterRule[](0) });
-
-    // Build the session topology using PrimitiveRPC.
-    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
-    string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms);
-    topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
+    // --- Increment Usage Limit ---
+    {
+      UsageLimit[] memory limits = new UsageLimit[](2);
+      bytes32 limitHashPrefix = keccak256(abi.encode(sessionWallet.addr, sessionWallet.addr));
+      limits[0] = UsageLimit({
+        usageHash: keccak256(abi.encode(limitHashPrefix, sessionPerms.permissions[0], uint256(1))),
+        usageAmount: param
+      });
+      limits[1] =
+        UsageLimit({ usageHash: keccak256(abi.encode(limitHashPrefix, VALUE_TRACKING_ADDRESS)), usageAmount: value });
+      payload.calls[2] = Payload.Call({
+        to: address(sessionManager),
+        value: 0,
+        data: abi.encodeWithSelector(sessionManager.incrementUsageLimit.selector, limits),
+        gasLimit: 0,
+        delegateCall: false,
+        onlyFallback: false,
+        behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+      });
+    }
 
     // --- Call Signatures ---
-    string[] memory callSignatures = new string[](2);
-    // Sign the explicit call (call 0) using the session key.
-    string memory sessionSignature =
-      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(payload.calls[0], payload), sessionWallet);
-    callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature);
-    // Sign the self call (call 1) using the session key.
-    sessionSignature =
-      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(payload.calls[1], payload), sessionWallet);
-    callSignatures[1] = _explicitCallSignatureToJSON(0, sessionSignature);
+    string[] memory callSignatures = new string[](3);
+    {
+      // Sign the explicit call (call 0) using the session key.
+      string memory sessionSignature =
+        _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(payload.calls[0], payload), sessionWallet);
+      callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature);
+      // Sign the explicit call (call 1) using the session key.
+      sessionSignature =
+        _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(payload.calls[1], payload), sessionWallet);
+      callSignatures[1] = _explicitCallSignatureToJSON(1, sessionSignature);
+      // Sign the self call (call 2) using the session key.
+      sessionSignature =
+        _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(payload.calls[2], payload), sessionWallet);
+      callSignatures[2] = _explicitCallSignatureToJSON(0, sessionSignature);
+    }
 
     // Encode the full signature.
     address[] memory explicitSigners = new address[](1);
@@ -110,6 +160,7 @@ contract SessionManagerTest is SessionTestBase {
       PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, explicitSigners, implicitSigners);
 
     // --- Validate the Payload Signature ---
+    vm.prank(sessionWallet.addr);
     bytes32 imageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     bytes32 expectedImageHash = PrimitivesRPC.sessionImageHash(vm, topology);
     assertEq(imageHash, expectedImageHash);

@@ -22,8 +22,9 @@ abstract contract BaseAuth is IAuth, ISapient, IERC1271, SelfAuth {
     bytes32(0xc852adf5e97c2fc3b38f405671e91b7af1697ef0287577f227ef10494c2a8e86);
 
   error InvalidSapientSignature(Payload.Decoded _payload, bytes _signature);
-  error InvalidStaticSignature(bytes32 _opHash, uint256 _expires);
   error InvalidSignatureWeight(uint256 _threshold, uint256 _weight);
+  error InvalidStaticSignatureExpired(bytes32 _opHash, uint256 _expires);
+  error InvalidStaticSignatureWrongCaller(bytes32 _opHash, address _caller, address _expectedCaller);
 
   event StaticSignatureSet(bytes32 _hash, address _address, uint96 _timestamp);
 
@@ -38,6 +39,12 @@ abstract contract BaseAuth is IAuth, ISapient, IERC1271, SelfAuth {
     Storage.writeBytes32Map(
       STATIC_SIGNATURE_KEY, _hash, bytes32(uint256(uint160(_address)) << 96 | (_timestamp & 0xffffffffffffffffffffffff))
     );
+  }
+
+  function getStaticSignature(
+    bytes32 _hash
+  ) external view returns (address, uint256) {
+    return _getStaticSignature(_hash);
   }
 
   function setStaticSignature(bytes32 _hash, address _address, uint96 _timestamp) external onlySelf {
@@ -62,13 +69,15 @@ abstract contract BaseAuth is IAuth, ISapient, IERC1271, SelfAuth {
       opHash = _payload.hash();
 
       (address addr, uint256 timestamp) = _getStaticSignature(opHash);
-      if (timestamp < block.timestamp) {
-        revert InvalidStaticSignature(opHash, timestamp);
+      if (timestamp <= block.timestamp) {
+        revert InvalidStaticSignatureExpired(opHash, timestamp);
       }
 
-      if (addr == address(0) || addr == msg.sender) {
-        return (true, opHash);
+      if (addr != address(0) && addr != msg.sender) {
+        revert InvalidStaticSignatureWrongCaller(opHash, msg.sender, addr);
       }
+
+      return (true, opHash);
     }
 
     // Static signature is not used, recover and validate imageHash

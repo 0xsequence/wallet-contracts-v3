@@ -27,7 +27,7 @@ library BaseSig {
   uint256 internal constant FLAG_SIGNATURE_SAPIENT_COMPACT = 10;
 
   error LowWeightChainedSignature(bytes _signature, uint256 _threshold, uint256 _weight);
-  error InvalidNestedSignature(Payload.Decoded _payload, bytes32 _subdigest, address _signer, bytes _signature);
+  error InvalidERC1271Signature(bytes32 _opHash, address _signer, bytes _signature);
   error WrongChainedCheckpointOrder(uint256 _nextCheckpoint, uint256 _checkpoint);
   error UnusedSnapshot(Snapshot _snapshot);
   error InvalidSignatureFlag(uint256 _flag);
@@ -153,11 +153,15 @@ library BaseSig {
         nrindex = sigSize + rindex;
       }
 
-      address actualCheckpointer = (nrindex == _signature.length) ? _checkpointer : address(0);
-      Payload.Decoded memory currentPayload = (prevCheckpoint == type(uint256).max) ? _payload : linkedPayload;
+      address checkpointer = nrindex == _signature.length ? _checkpointer : address(0);
 
-      (threshold, weight, imageHash, checkpoint,) =
-        recover(currentPayload, _signature[rindex:nrindex], true, actualCheckpointer);
+      if (prevCheckpoint == type(uint256).max) {
+        (threshold, weight, imageHash, checkpoint, opHash) =
+          recover(_payload, _signature[rindex:nrindex], true, checkpointer);
+      } else {
+        (threshold, weight, imageHash, checkpoint,) =
+          recover(linkedPayload, _signature[rindex:nrindex], true, checkpointer);
+      }
 
       if (weight < threshold) {
         revert LowWeightChainedSignature(_signature[rindex:nrindex], threshold, weight);
@@ -181,8 +185,6 @@ library BaseSig {
     if (_snapshot.imageHash != bytes32(0) && checkpoint <= _snapshot.checkpoint) {
       revert UnusedSnapshot(_snapshot);
     }
-
-    opHash = _payload.hash();
   }
 
   function recoverBranch(
@@ -281,7 +283,7 @@ library BaseSig {
 
           // Call the ERC1271 contract to check if the signature is valid
           if (IERC1271(addr).isValidSignature(_opHash, _signature[rindex:nrindex]) != IERC1271_MAGIC_VALUE) {
-            revert InvalidNestedSignature(_payload, _opHash, addr, _signature);
+            revert InvalidERC1271Signature(_opHash, addr, _signature[rindex:nrindex]);
           }
           rindex = nrindex;
           // Add the weight and compute the merkle root

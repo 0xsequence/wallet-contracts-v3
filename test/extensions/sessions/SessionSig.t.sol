@@ -2,7 +2,6 @@
 pragma solidity ^0.8.27;
 
 import { Vm } from "forge-std/Test.sol";
-import { console } from "forge-std/console.sol";
 import { SessionTestBase } from "test/extensions/sessions/SessionTestBase.sol";
 import { PrimitivesRPC } from "test/utils/PrimitivesRPC.sol";
 
@@ -582,8 +581,6 @@ contract SessionSigTest is SessionTestBase {
     implicitSigners[0] = sessionWallet.addr;
     bytes memory encoded = PrimitivesRPC.sessionEncodeTopology(vm, topology);
 
-    console.log("blacklist.length", blacklist.length);
-
     // Recover the configuration
     (SessionSig.DecodedSignature memory sig, bool hasBlacklist) = harness.recoverConfiguration(encoded);
     assertEq(sig.implicitBlacklist.length, blacklist.length, "Implicit blacklist length");
@@ -856,6 +853,36 @@ contract SessionSigTest is SessionTestBase {
     assertLt(
       encoded.length, encoded2.length, "Encoded call signatures should be shorter when reusing the same attestation"
     );
+  }
+
+  function testEmptyPermissionsStructSize_direct(address signer, uint256 valueLimit, uint256 deadline) public view {
+    // Create an empty permissions struct
+    SessionPermissions memory sessionPerms = SessionPermissions({
+      signer: signer,
+      valueLimit: valueLimit,
+      deadline: deadline,
+      permissions: new Permission[](0)
+    });
+
+    // Directly encode the permissions struct
+    bytes memory encoded = abi.encodePacked(
+      uint8(SessionSig.FLAG_PERMISSIONS),
+      sessionPerms.signer,
+      sessionPerms.valueLimit,
+      sessionPerms.deadline,
+      uint8(0) // empty permissions array length
+    );
+
+    // Verify the size is the minimum size
+    assertEq(encoded.length, SessionSig.MIN_ENCODED_PERMISSION_SIZE, "Incorrect size for empty permissions struct");
+
+    // Verify we can decode it back
+    (SessionSig.DecodedSignature memory sig,) = harness.recoverConfiguration(encoded);
+    assertEq(sig.sessionPermissions.length, 1, "Should have one permissions struct");
+    assertEq(sig.sessionPermissions[0].signer, signer, "Signer should match");
+    assertEq(sig.sessionPermissions[0].valueLimit, valueLimit, "Value limit should match");
+    assertEq(sig.sessionPermissions[0].deadline, deadline, "Deadline should match");
+    assertEq(sig.sessionPermissions[0].permissions.length, 0, "Should have no permissions");
   }
 
 }

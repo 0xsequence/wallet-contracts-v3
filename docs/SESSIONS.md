@@ -422,17 +422,20 @@ Attestation Encoding:
  │ Identity Type (bytes4)                       │
  │ Issuer Hash (bytes32)                        │
  │ Audience Hash (bytes32)                      │
- │ Auth Data Length (uint24)                    │
- │ Auth Data (variable bytes)                   │
  │ Application Data Length (uint24)             │
  │ Application Data (variable bytes)            │
+ │ Auth Data Length (uint24)                    │
+ │ Auth Data (redirect URL)                     │
  └──────────────────────────────────────────────┘
 ```
 
 The Attestation data obtained during authentication. The `Identity Type` is the type of identity that was used to authenticate the user. The `Issuer Hash` is the hash of the issuer. The `Audience Hash` is the hash of the audience. The `Auth Data` is the data obtained during authentication. The `Application Data` can be provided by the dapp.
 
 > [!WARNING]
-> Both `Auth Data` and `Application Data` lengths are encoded using a `uint24`, imposing a maximum size of approximately 16MB per field. Ensure that data lengths are within these limits.
+> The `Application Data` length is encoded using a `uint24`, imposing a maximum size of approximately 16MB per field. Ensure that data lengths are within these limits.
+
+> [!NOTE]
+> The `Auth Data` encodes a length (using `uint24` as above) and the redirect URL. This is intentional to support arbitrary backward compatible encodings in future.
 
 ### Attestation Validation
 

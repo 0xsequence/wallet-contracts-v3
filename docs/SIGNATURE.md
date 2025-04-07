@@ -136,19 +136,19 @@ This function loops over the remainder of the signature, reading one byte at a t
 
 The contract defines constants:
 
-| Constant Name                    | Value (Decimal) | Purpose                                                                                               |
-| -------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
-| `FLAG_SIGNATURE_HASH`            | 0               | ECDSA signature with `r,yParityAndS` (ERC-2098 compact) directly against `_opHash`.                   |
-| `FLAG_ADDRESS`                   | 1               | Just an address “leaf” (adds that address’s weight, but no actual ECDSA check)                        |
-| `FLAG_SIGNATURE_ERC1271`         | 2               | A contract-based signature check using `isValidSignature(opHash, signature)`                          |
-| `FLAG_NODE`                      | 3               | Includes a raw 32-byte node hash in the merkle root. No weight added.                                 |
-| `FLAG_BRANCH`                    | 4               | Nested branch. The next bytes specify length, then recursion into `recoverBranch`.                    |
-| `FLAG_SUBDIGEST`                 | 5               | Hard-coded “accepted subdigest.” If `_opHash` matches the stored 32 bytes, infinite weight.           |
-| `FLAG_NESTED`                    | 6               | A nested multi-sig node with an internal threshold plus an external weight.                           |
-| `FLAG_SIGNATURE_ETH_SIGN`        | 7               | ECDSA signature in “Eth_sign” format (`"\x19Ethereum Signed Message:\n32" + opHash`), using ERC-2098. |
-| `FLAG_SIGNATURE_EIP712`          | 8               | **Currently unimplemented** placeholder for EIP-712 signature recovery.                               |
-| `FLAG_SIGNATURE_SAPIENT`         | 9               | A specialized “sapient” signature with an `ISapient` contract check.                                  |
-| `FLAG_SIGNATURE_SAPIENT_COMPACT` | 10              | A specialized “sapient” signature with `ISapientCompact` and `_opHash` only.                          |
+| Constant Name                          | Value (Decimal) | Purpose                                                                                               |
+| -------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
+| `FLAG_SIGNATURE_HASH`                  | 0               | ECDSA signature with `r,yParityAndS` (ERC-2098 compact) directly against `_opHash`.                   |
+| `FLAG_ADDRESS`                         | 1               | Just an address “leaf” (adds that address’s weight, but no actual ECDSA check)                        |
+| `FLAG_SIGNATURE_ERC1271`               | 2               | A contract-based signature check using `isValidSignature(opHash, signature)`                          |
+| `FLAG_NODE`                            | 3               | Includes a raw 32-byte node hash in the merkle root. No weight added.                                 |
+| `FLAG_BRANCH`                          | 4               | Nested branch. The next bytes specify length, then recursion into `recoverBranch`.                    |
+| `FLAG_SUBDIGEST`                       | 5               | Hard-coded “accepted subdigest.” If `_opHash` matches the stored 32 bytes, infinite weight.           |
+| `FLAG_NESTED`                          | 6               | A nested multi-sig node with an internal threshold plus an external weight.                           |
+| `FLAG_SIGNATURE_ETH_SIGN`              | 7               | ECDSA signature in “Eth_sign” format (`"\x19Ethereum Signed Message:\n32" + opHash`), using ERC-2098. |
+| `FLAG_SIGNATURE_ANY_ADDRESS_SUBDIGEST` | 8               | `FLAG_SUBDIGEST` but with counter factual support.                                                    |
+| `FLAG_SIGNATURE_SAPIENT`               | 9               | A specialized “sapient” signature with an `ISapient` contract check.                                  |
+| `FLAG_SIGNATURE_SAPIENT_COMPACT`       | 10              | A specialized “sapient” signature with `ISapientCompact` and `_opHash` only.                          |
 
 When the parser sees `flag == someValue`, it dispatches to the corresponding block. Each block interprets the lower nibble differently.
 
@@ -272,9 +272,12 @@ ecrecover( keccak256("\x19Ethereum Signed Message:\n32" + _opHash), v, r, s )
 
 ---
 
-### 5.9 **Signature EIP-712** (`flag = 8`)
+### 5.9 **Signature Any Address Subgiest** (`flag = 8`)
 
-- Currently unimplemented.
+- The code reads a 32-byte "hardcoded subdigest." If it matches `_payload.hashFor(address(0))`, sets `weight = type(uint256).max`.
+- Merges `_leafForAnyAddressSubdigest(anyAddressOpHash)`.
+
+This effectively means "if the 32 bytes match the operation hash computed for address(0), we grant infinite weight." This allows for counter-factual payloads.
 
 ---
 

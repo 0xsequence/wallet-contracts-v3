@@ -112,6 +112,17 @@ library PrimitivesRPC {
     return (rawResponse);
   }
 
+  function toPackedPayloadForWallet(
+    Vm _vm,
+    Payload.Decoded memory _decoded,
+    address _wallet
+  ) internal returns (bytes memory) {
+    string memory params =
+      string.concat('{"payload":"', _vm.toString(abi.encode(_decoded)), '","wallet":"', _vm.toString(_wallet), '"}');
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "payload_toPacked", params);
+    return (rawResponse);
+  }
+
   function hashForPayload(
     Vm _vm,
     address _wallet,
@@ -154,6 +165,28 @@ library PrimitivesRPC {
     return string(rawResponse);
   }
 
+  function newConfigWithCheckpointer(
+    Vm _vm,
+    address _checkpointer,
+    uint16 _threshold,
+    uint256 _checkpoint,
+    string memory _elements
+  ) internal returns (string memory) {
+    string memory params = string.concat(
+      '{"threshold":"',
+      _vm.toString(_threshold),
+      '","checkpoint":"',
+      _vm.toString(_checkpoint),
+      '","from":"flat","content":"',
+      _elements,
+      '","checkpointer":"',
+      _vm.toString(_checkpointer),
+      '"}'
+    );
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "config_new", params);
+    return string(rawResponse);
+  }
+
   function toEncodedConfig(Vm _vm, string memory configJson) internal returns (bytes memory) {
     string memory params = string.concat('{"input":', configJson, "}");
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "config_encode", params);
@@ -180,6 +213,28 @@ library PrimitivesRPC {
     // If you wanted no chainId, adapt the JSON, e.g. `"chainId":false`.
     string memory params = string.concat(
       '{"input":', configJson, ',"signatures":"', signatures, '","chainId":', _chainId ? "true" : "false", "}"
+    );
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "signature_encode", params);
+    return (rawResponse);
+  }
+
+  function toEncodedSignatureWithCheckpointerData(
+    Vm _vm,
+    string memory configJson,
+    string memory signatures,
+    bool _chainId,
+    bytes memory checkpointerData
+  ) internal returns (bytes memory) {
+    string memory params = string.concat(
+      '{"input":',
+      configJson,
+      ',"signatures":"',
+      signatures,
+      '","chainId":',
+      _chainId ? "true" : "false",
+      ',"checkpointerData":"',
+      _vm.toString(checkpointerData),
+      '"}'
     );
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "signature_encode", params);
     return (rawResponse);
@@ -402,6 +457,125 @@ library PrimitivesRPC {
       }
     }
     return string.concat(json, "]");
+  }
+
+  // ----------------------------------------------------------------
+  // recovery
+  // ----------------------------------------------------------------
+
+  function recoveryHashFromLeaves(Vm _vm, string memory leaves) internal returns (bytes32) {
+    string memory params = string.concat('{"leaves":"', leaves, '"}');
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "recovery_hashFromLeaves", params);
+    return abi.decode(rawResponse, (bytes32));
+  }
+
+  function recoveryEncode(Vm _vm, string memory leaves) internal returns (bytes memory) {
+    string memory params = string.concat('{"leaves":"', leaves, '"}');
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "recovery_encode", params);
+    return rawResponse;
+  }
+
+  function recoveryTrim(Vm _vm, string memory leaves, address signer) internal returns (bytes memory) {
+    string memory params = string.concat('{"leaves":"', leaves, '","signer":"', _vm.toString(signer), '"}');
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "recovery_trim", params);
+    return rawResponse;
+  }
+
+  function recoveryHashEncoded(Vm _vm, bytes memory encoded) internal returns (bytes32) {
+    string memory params = string.concat('{"encoded":"', _vm.toString(encoded), '"}');
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "recovery_hashEncoded", params);
+    return abi.decode(rawResponse, (bytes32));
+  }
+
+  // ----------------------------------------------------------------
+  // passkeys
+  // ----------------------------------------------------------------
+
+  struct PasskeyPublicKey {
+    bytes32 x;
+    bytes32 y;
+    bool requireUserVerification;
+    string credentialId;
+    bytes32 metadataHash;
+  }
+
+  struct PasskeySignatureComponents {
+    bytes32 r;
+    bytes32 s;
+    bytes authenticatorData;
+    string clientDataJson;
+  }
+
+  function passkeysEncodeSignature(
+    Vm _vm,
+    PasskeyPublicKey memory _pk,
+    PasskeySignatureComponents memory _sig,
+    bool _embedMetadata
+  ) internal returns (bytes memory) {
+    string memory params = '{"x":"';
+    params = string.concat(params, _vm.toString(_pk.x));
+    params = string.concat(params, '","y":"', _vm.toString(_pk.y));
+    params = string.concat(params, '","requireUserVerification":', _pk.requireUserVerification ? "true" : "false");
+    if (bytes(_pk.credentialId).length > 0) {
+      params = string.concat(params, ',"credentialId":"', _pk.credentialId, '"');
+    } else if (_pk.metadataHash != bytes32(0)) {
+      params = string.concat(params, ',"metadataHash":"', _vm.toString(_pk.metadataHash), '"');
+    }
+    params = string.concat(params, ',"r":"', _vm.toString(_sig.r));
+    params = string.concat(params, '","s":"', _vm.toString(_sig.s));
+    params = string.concat(params, '","authenticatorData":"', _vm.toString(_sig.authenticatorData));
+    params = string.concat(params, '","clientDataJson":', _sig.clientDataJson);
+    params = string.concat(params, ',"embedMetadata":', _embedMetadata ? "true" : "false", "}");
+
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "passkeys_encodeSignature", params);
+    return rawResponse;
+  }
+
+  function passkeysDecodeSignature(Vm _vm, bytes memory _encodedSignature) internal returns (string memory) {
+    string memory params = string.concat('{"encodedSignature":"', _vm.toString(_encodedSignature), '"}');
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "passkeys_decodeSignature", params);
+    return string(rawResponse);
+  }
+
+  function passkeysComputeRoot(Vm _vm, PasskeyPublicKey memory _pk) internal returns (bytes32) {
+    string memory params = '{"x":"';
+    params = string.concat(params, _vm.toString(_pk.x));
+    params = string.concat(params, '","y":"', _vm.toString(_pk.y));
+    params = string.concat(params, '","requireUserVerification":', _pk.requireUserVerification ? "true" : "false");
+    if (bytes(_pk.credentialId).length > 0) {
+      params = string.concat(params, ',"credentialId":"', _pk.credentialId, '"');
+    } else if (_pk.metadataHash != bytes32(0)) {
+      params = string.concat(params, ',"metadataHash":"', _vm.toString(_pk.metadataHash), '"');
+    }
+    params = string.concat(params, "}");
+
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "passkeys_computeRoot", params);
+    return abi.decode(rawResponse, (bytes32));
+  }
+
+  function passkeysValidateSignature(
+    Vm _vm,
+    bytes32 _challenge,
+    PasskeyPublicKey memory _pk,
+    PasskeySignatureComponents memory _sig
+  ) internal returns (bool) {
+    string memory params = '{"challenge":"';
+    params = string.concat(params, _vm.toString(_challenge));
+    params = string.concat(params, '","x":"', _vm.toString(_pk.x));
+    params = string.concat(params, '","y":"', _vm.toString(_pk.y));
+    params = string.concat(params, '","requireUserVerification":', _pk.requireUserVerification ? "true" : "false");
+    if (bytes(_pk.credentialId).length > 0) {
+      params = string.concat(params, ',"credentialId":"', _pk.credentialId, '"');
+    } else if (_pk.metadataHash != bytes32(0)) {
+      params = string.concat(params, ',"metadataHash":"', _vm.toString(_pk.metadataHash), '"');
+    }
+    params = string.concat(params, ',"r":"', _vm.toString(_sig.r));
+    params = string.concat(params, '","s":"', _vm.toString(_sig.s));
+    params = string.concat(params, '","authenticatorData":"', _vm.toString(_sig.authenticatorData));
+    params = string.concat(params, '","clientDataJson":', _sig.clientDataJson, "}");
+
+    bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "passkeys_validateSignature", params);
+    return abi.decode(rawResponse, (bool));
   }
 
 }

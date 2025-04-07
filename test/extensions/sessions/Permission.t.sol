@@ -2,7 +2,6 @@
 pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
-import { console } from "forge-std/console.sol";
 
 import {
   LibPermission, ParameterOperation, ParameterRule, Permission

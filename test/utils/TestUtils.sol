@@ -74,4 +74,56 @@ contract AdvTest is Test {
     return abi.encodePacked(r, yParityAndS);
   }
 
+  function generateRandomString(
+    uint256 seed
+  ) internal pure returns (string memory) {
+    uint256 size;
+
+    (seed, size) = useSeed(seed, 0, 300);
+    bytes memory _bytes = new bytes(size);
+
+    // For every byte, select a UTF-8 random char (a-z, A-Z, 0-9, _, -, !, or ?)
+    for (uint256 i = 0; i < size; i++) {
+      uint256 charType;
+      (seed, charType) = useSeed(seed, 0, 4);
+
+      if (charType == 0) {
+        // lowercase a-z (ASCII 97-122)
+        uint256 char;
+        (seed, char) = useSeed(seed, 97, 122);
+        _bytes[i] = bytes1(uint8(char));
+      } else if (charType == 1) {
+        // uppercase A-Z (ASCII 65-90)
+        uint256 char;
+        (seed, char) = useSeed(seed, 65, 90);
+        _bytes[i] = bytes1(uint8(char));
+      } else if (charType == 2) {
+        // numbers 0-9 (ASCII 48-57)
+        uint256 char;
+        (seed, char) = useSeed(seed, 48, 57);
+        _bytes[i] = bytes1(uint8(char));
+      } else {
+        // special characters: _, -, !, ?
+        uint256 specialChar;
+        (seed, specialChar) = useSeed(seed, 0, 3);
+        if (specialChar == 0) {
+          _bytes[i] = bytes1(uint8(95)); // _ (underscore)
+        } else if (specialChar == 1) {
+          _bytes[i] = bytes1(uint8(45)); // - (hyphen)
+        } else if (specialChar == 2) {
+          _bytes[i] = bytes1(uint8(33)); // ! (exclamation mark)
+        } else {
+          _bytes[i] = bytes1(uint8(63)); // ? (question mark)
+        }
+      }
+    }
+    return string(_bytes);
+  }
+
+  function useSeed(uint256 _seed, uint256 _min, uint256 _max) internal pure returns (uint256 seed, uint256 val) {
+    val = uint256(keccak256(abi.encode(_seed)));
+    seed = val;
+    val = val % (_max - _min + 1) + _min;
+  }
+
 }

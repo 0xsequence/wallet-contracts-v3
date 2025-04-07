@@ -21,7 +21,6 @@ using LibBytesPointer for bytes;
 contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionManager {
 
   error InvalidPayloadKind();
-  error InvalidCallSignaturesLength();
   error InvalidCallsLength();
 
   /// @inheritdoc ISapient
@@ -39,13 +38,6 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
 
     // Decode signature
     SessionSig.DecodedSignature memory sig = SessionSig.recoverSignature(payload, encodedSignature);
-
-    // Validate calls
-    if (sig.callSignatures.length != payload.calls.length) {
-      // Unreachable
-      // Call signature length is dictated by the payload calls length. Will fail in recoverSignature.
-      revert InvalidCallSignaturesLength();
-    }
 
     address wallet = msg.sender;
 

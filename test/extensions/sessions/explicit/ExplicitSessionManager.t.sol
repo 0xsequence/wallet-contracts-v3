@@ -19,7 +19,6 @@ contract ExplicitSessionManagerTest is SessionTestBase {
   address wallet;
   Vm.Wallet sessionWallet;
   // Constant for the value tracking address as defined in your ExplicitSessionManager.
-  address constant VALUE_TRACKING_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
   bytes32 constant SELECTOR_MASK = bytes32(bytes4(0xffffffff));
 
   function setUp() public {

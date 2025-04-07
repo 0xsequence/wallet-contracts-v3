@@ -7,6 +7,8 @@ using LibBytesPointer for bytes;
 
 library Payload {
 
+  error InvalidKind(uint8 kind);
+
   bytes32 private constant EIP712_DOMAIN_TYPEHASH =
     keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
@@ -202,23 +204,10 @@ library Payload {
     return keccak256(encoded);
   }
 
-  function _hashParentWallets(
-    address[] memory wallets
-  ) internal pure returns (bytes32) {
-    // Similar approach for an address array: treat each address as 32 bytes
-    // (left or right padded), then keccak the concatenation.
-    bytes memory encoded;
-    for (uint256 i = 0; i < wallets.length; i++) {
-      // We can encode each address as a full 32 bytes
-      encoded = abi.encode(encoded, wallets[i]);
-    }
-    return keccak256(encoded);
-  }
-
   function toEIP712(
     Decoded memory _decoded
   ) internal pure returns (bytes32) {
-    bytes32 walletsHash = _hashParentWallets(_decoded.parentWallets);
+    bytes32 walletsHash = keccak256(abi.encodePacked(_decoded.parentWallets));
 
     if (_decoded.kind == KIND_TRANSACTIONS) {
       bytes32 callsHash = hashCalls(_decoded.calls);
@@ -236,7 +225,7 @@ library Payload {
       return keccak256(abi.encode(MESSAGE_TYPEHASH, _decoded.digest, walletsHash));
     } else {
       // Unknown kind
-      revert("Unsupported kind");
+      revert InvalidKind(_decoded.kind);
     }
   }
 

@@ -15,31 +15,7 @@ contract Guest {
   error DelegateCallNotAllowed(uint256 index);
 
   fallback() external {
-    bytes calldata calls;
-
-    // Check if the first byte is 0x1f (same as on the `execute` structure)
-    if (msg.data[0] == 0x1f) {
-      // Interpret the data as if it were a call
-      // to the `execute` function of the `Calls` module
-      uint256 callsOffset;
-      uint256 callsLength;
-      assembly {
-        calls.offset := 0x64
-        calls.length := calldataload(0x24)
-      }
-
-      assembly {
-        callsOffset := calls.offset
-        callsLength := calls.length
-      }
-    } else {
-      // Fallback to reading the data as a packed payload directly
-      // this should not be a problem since `0x1f` does not make sense
-      // as a global flag for the Guest Module
-      calls = msg.data;
-    }
-
-    Payload.Decoded memory decoded = Payload.fromPackedCalls(calls);
+    Payload.Decoded memory decoded = Payload.fromPackedCalls(msg.data);
     bytes32 opHash = Payload.hash(decoded);
     _dispatchGuest(decoded, opHash);
   }

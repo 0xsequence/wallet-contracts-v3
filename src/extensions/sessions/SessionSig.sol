@@ -20,6 +20,8 @@ library SessionSig {
   uint256 internal constant FLAG_BLACKLIST = 3;
   uint256 internal constant FLAG_IDENTITY_SIGNER = 4;
 
+  uint256 internal constant MIN_ENCODED_PERMISSION_SIZE = 86;
+
   struct CallSignature {
     bool isImplicit;
     address sessionSigner;
@@ -181,7 +183,7 @@ library SessionSig {
 
     // Guess maximum permissions size by bytes length
     {
-      uint256 maxPermissionsSize = encoded.length / 50; //FIXME rough minimum estimate for memory
+      uint256 maxPermissionsSize = encoded.length / MIN_ENCODED_PERMISSION_SIZE;
       sig.sessionPermissions = new SessionPermissions[](maxPermissionsSize);
     }
 

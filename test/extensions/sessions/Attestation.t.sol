@@ -5,7 +5,6 @@ import { Attestation, LibAttestation } from "src/extensions/sessions/implicit/At
 
 import { AdvTest } from "../../utils/TestUtils.sol";
 import { Vm } from "forge-std/Test.sol";
-import { console } from "forge-std/console.sol";
 
 contract AttestationImp {
 
