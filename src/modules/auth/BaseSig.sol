@@ -320,8 +320,6 @@ library BaseSig {
 
           weight += nweight;
           root = LibOptim.fkeccak256(root, node);
-
-          rindex = nrindex;
           continue;
         }
 
@@ -356,7 +354,6 @@ library BaseSig {
 
           bytes32 node = _leafForNested(internalRoot, internalThreshold, externalWeight);
           root = root != bytes32(0) ? LibOptim.fkeccak256(root, node) : node;
-
           continue;
         }
 
@@ -458,7 +455,6 @@ library BaseSig {
           weight += addrWeight;
           bytes32 node = _leafForSapient(addr, addrWeight, sapientImageHash);
           root = root != bytes32(0) ? LibOptim.fkeccak256(root, node) : node;
-          rindex = nrindex;
           continue;
         }
 
@@ -493,7 +489,6 @@ library BaseSig {
           weight += addrWeight;
           bytes32 node = _leafForSapient(addr, addrWeight, sapientImageHash);
           root = root != bytes32(0) ? LibOptim.fkeccak256(root, node) : node;
-          rindex = nrindex;
           continue;
         }
 
