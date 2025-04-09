@@ -167,8 +167,6 @@ library BaseSig {
         revert LowWeightChainedSignature(_signature[rindex:nrindex], threshold, weight);
       }
 
-      rindex = nrindex;
-
       if (_snapshot.imageHash == imageHash) {
         _snapshot.imageHash = bytes32(0);
       }
