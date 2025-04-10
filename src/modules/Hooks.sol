@@ -17,6 +17,19 @@ interface IERC1155Receiver {
 
 }
 
+interface IERC777Receiver {
+
+  function tokensReceived(
+    address operator,
+    address from,
+    address to,
+    uint256 amount,
+    bytes calldata data,
+    bytes calldata operatorData
+  ) external;
+
+}
+
 interface IERC721Receiver {
 
   function onERC721Received(address, address, uint256, bytes calldata) external returns (bytes4);
@@ -29,7 +42,7 @@ interface IERC223Receiver {
 
 }
 
-contract Hooks is SelfAuth, IERC1155Receiver, IERC721Receiver, IERC223Receiver {
+contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, IERC223Receiver {
 
   //                       HOOKS_KEY = keccak256("org.arcadeum.module.hooks.hooks");
   bytes32 private constant HOOKS_KEY = bytes32(0xbe27a319efc8734e89e26ba4bc95f5c788584163b959f03fa04e2d7ab4b9a120);
@@ -91,6 +104,15 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC721Receiver, IERC223Receiver {
   ) external _fallbackIfAvailable(IERC1155Receiver.onERC1155BatchReceived.selector) returns (bytes4) {
     return Hooks.onERC1155BatchReceived.selector;
   }
+
+  function tokensReceived(
+    address operator,
+    address from,
+    address to,
+    uint256 amount,
+    bytes calldata data,
+    bytes calldata operatorData
+  ) external _fallbackIfAvailable(IERC777Receiver.tokensReceived.selector) { }
 
   function onERC721Received(
     address,

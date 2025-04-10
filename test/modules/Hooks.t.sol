@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { Hooks, IERC1155Receiver, IERC223Receiver, IERC721Receiver } from "../../src/modules/Hooks.sol";
+import { Hooks, IERC1155Receiver, IERC223Receiver, IERC721Receiver, IERC777Receiver } from "../../src/modules/Hooks.sol";
 import { SelfAuth } from "../../src/modules/auth/SelfAuth.sol";
 
 import { AdvTest } from "../utils/TestUtils.sol";
@@ -106,6 +106,36 @@ contract HooksTest is AdvTest {
     test_onERC1155BatchReceived(_from, _to, _ids, _values, _data);
   }
 
+  // ERC777 Receiver Tests
+  function test_tokensReceived(
+    address _operator,
+    address _from,
+    address _to,
+    uint256 _amount,
+    bytes calldata _data,
+    bytes calldata _operatorData
+  ) public {
+    bytes4 selector = IERC777Receiver.tokensReceived.selector;
+    assertEq(selector, bytes4(keccak256("tokensReceived(address,address,address,uint256,bytes,bytes)")));
+    hooks.tokensReceived(_operator, _from, _to, _amount, _data, _operatorData);
+  }
+
+  function test_tokensReceived_fallback(
+    address _operator,
+    address _from,
+    address _to,
+    uint256 _amount,
+    bytes calldata _data,
+    bytes calldata _operatorData
+  ) external {
+    MockERC777ReceiverFallback mock = new MockERC777ReceiverFallback();
+    vm.prank(address(hooks));
+    hooks.addHook(IERC777Receiver.tokensReceived.selector, address(mock));
+    vm.expectEmit(true, true, true, true);
+    emit MockERC777ReceiverFallback.Received(address(this), _operator, _from, _to, _amount, _data, _operatorData);
+    test_tokensReceived(_operator, _from, _to, _amount, _data, _operatorData);
+  }
+
   // ERC721 Receiver Tests
   function test_onERC721Received(address _from, address _to, uint256 _tokenId, bytes calldata _data) public {
     bytes4 selector = IERC721Receiver.onERC721Received.selector;
@@ -191,6 +221,25 @@ contract MockERC1155ReceiverFallback is IERC1155Receiver {
   ) external returns (bytes4) {
     emit ReceivedBatch(msg.sender, from, to, ids, values, data);
     return this.onERC1155BatchReceived.selector;
+  }
+
+}
+
+contract MockERC777ReceiverFallback is IERC777Receiver {
+
+  event Received(
+    address sender, address operator, address from, address to, uint256 amount, bytes data, bytes operatorData
+  );
+
+  function tokensReceived(
+    address operator,
+    address from,
+    address to,
+    uint256 amount,
+    bytes calldata data,
+    bytes calldata operatorData
+  ) external {
+    emit Received(msg.sender, operator, from, to, amount, data, operatorData);
   }
 
 }
