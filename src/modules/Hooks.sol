@@ -85,7 +85,13 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, 
     emit DefinedHook(signature, implementation);
   }
 
-  function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure returns (bytes4) {
+  function onERC1155Received(
+    address,
+    address,
+    uint256,
+    uint256,
+    bytes calldata
+  ) external _fallbackIfAvailable(IERC1155Receiver.onERC1155Received.selector) returns (bytes4) {
     return Hooks.onERC1155Received.selector;
   }
 
@@ -95,7 +101,7 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, 
     uint256[] calldata,
     uint256[] calldata,
     bytes calldata
-  ) external pure returns (bytes4) {
+  ) external _fallbackIfAvailable(IERC1155Receiver.onERC1155BatchReceived.selector) returns (bytes4) {
     return Hooks.onERC1155BatchReceived.selector;
   }
 
@@ -106,13 +112,37 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, 
     uint256 amount,
     bytes calldata data,
     bytes calldata operatorData
-  ) external { }
+  ) external _fallbackIfAvailable(IERC777Receiver.tokensReceived.selector) { }
 
-  function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+  function onERC721Received(
+    address,
+    address,
+    uint256,
+    bytes calldata
+  ) external _fallbackIfAvailable(IERC721Receiver.onERC721Received.selector) returns (bytes4) {
     return Hooks.onERC721Received.selector;
   }
 
-  function tokenReceived(address, uint256, bytes calldata) external { }
+  function tokenReceived(
+    address,
+    uint256,
+    bytes calldata
+  ) external _fallbackIfAvailable(IERC223Receiver.tokenReceived.selector) { }
+
+  modifier _fallbackIfAvailable(
+    bytes4 selector
+  ) {
+    address target = _readHook(selector);
+    if (target == address(0)) {
+      _;
+    } else {
+      (bool success, bytes memory result) = target.delegatecall(msg.data);
+      assembly {
+        if iszero(success) { revert(add(result, 32), mload(result)) }
+        return(add(result, 32), mload(result))
+      }
+    }
+  }
 
   fallback() external payable {
     if (msg.data.length >= 4) {
