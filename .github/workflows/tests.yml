@@ -45,7 +45,7 @@ jobs:
           - name: Typescript SDK
             sdk_type: typescript
             repo_name: sequence.js
-            clone_url: git@github.com:0xsequence/sequence.js.git
+            clone_url: https://github.com/0xsequence/sequence.js.git
             repo_url: https://github.com/0xsequence/sequence.js.git
             ssh_url: git@github.com:0xsequence/sequence.js.git
             default_branch: v3
