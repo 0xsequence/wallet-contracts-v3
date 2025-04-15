@@ -98,6 +98,14 @@ library LibBytesPointer {
     }
   }
 
+  function readUint48(bytes calldata _data, uint256 _index) internal pure returns (uint48 a, uint256 newPointer) {
+    assembly {
+      let word := calldataload(add(_index, _data.offset))
+      a := and(shr(208, word), 0xFFFFFFFFFFFF)
+      newPointer := add(_index, 6)
+    }
+  }
+
   function readUint64(bytes calldata _data, uint256 _index) internal pure returns (uint64 a, uint256 newPointer) {
     assembly {
       let word := calldataload(add(_index, _data.offset))
