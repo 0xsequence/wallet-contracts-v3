@@ -53,6 +53,7 @@ jobs:
             setup_version: '20'
             build_cmd: npm install -g pnpm && pnpm install && pnpm run build:packages
             server_cmd: pnpm dev:server &
+
     steps:
       - name: Determine SDK Git Commit
         id: determine_commit
@@ -64,8 +65,6 @@ jobs:
           fi
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Clone SDK Repo
         run: |
           git clone ${{ matrix.clone_url }} sdk-repo
