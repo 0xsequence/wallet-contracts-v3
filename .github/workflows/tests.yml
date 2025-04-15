@@ -48,7 +48,7 @@ jobs:
             clone_url: https://github.com/0xsequence/sequence.js.git
             repo_url: https://github.com/0xsequence/sequence.js.git
             ssh_url: git@github.com:0xsequence/sequence.js.git
-            default_branch: v3
+            default_branch: master
             setup_tool: node
             setup_version: '20'
             build_cmd: npm install -g pnpm && pnpm install && pnpm run build:packages
