@@ -14,11 +14,11 @@ Git hooks will be automatically installed.
 
 ## Testing
 
-Install the [Sequence Core SDK](https://github.com/0xsequence/sequence-core) and run a server using the following command:
+Install the [Sequence v3 SDK](https://github.com/0xsequence/sequence.js) and run a server using the following command:
 
 ```sh
-cd ../sequence-core
-pnpm build
+cd ../sequence.js
+pnpm build:packages
 pnpm dev:server
 ```
 

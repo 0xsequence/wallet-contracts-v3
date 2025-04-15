@@ -42,15 +42,15 @@ jobs:
             server_cmd: ./sequence-server server &
           - name: Typescript SDK
             sdk_type: typescript
-            repo_name: sequence-core
-            clone_url: git@github.com:0xsequence/sequence-core.git
-            repo_url: https://github.com/0xsequence/sequence-core.git
-            ssh_url: git@github.com:0xsequence/sequence-core.git
-            default_branch: main
+            repo_name: sequence.js
+            clone_url: git@github.com:0xsequence/sequence.js.git
+            repo_url: https://github.com/0xsequence/sequence.js.git
+            ssh_url: git@github.com:0xsequence/sequence.js.git
+            default_branch: v3
             setup_tool: node
             setup_version: '20'
             build_cmd: npm install -g pnpm && pnpm install && pnpm run build:packages
-            server_cmd: cd packages/primitives-cli && pnpm run start server &
+            server_cmd: pnpm dev:server &
     steps:
       - name: Determine SDK Git Commit
         id: determine_commit
