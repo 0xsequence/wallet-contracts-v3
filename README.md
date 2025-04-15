@@ -1,6 +1,11 @@
-# Sequence v3 - Contracts + SDK
+sequence.js v3 core libraries and SDK
+=====================================
 
-Sequence v3 contracts and SDKs, with implicit and explicit smart sessions.
+**NOTE: please see [v2](https://github.com/0xsequence/sequence.js/tree/v2) branch for sequence.js 2.x.x**
+
+---
+
+Sequence v3 core libraries and [wallet-contracts-v3](https://github.com/0xsequence/wallet-contracts-v3) SDKs.
 
 ## Development Setup
 
