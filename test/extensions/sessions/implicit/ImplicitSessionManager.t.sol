@@ -11,7 +11,7 @@ import { ImplicitSessionManager } from "src/extensions/sessions/implicit/Implici
 import { ISapient, Payload } from "src/modules/interfaces/ISapient.sol";
 
 import { SessionTestBase } from "test/extensions/sessions/SessionTestBase.sol";
-import { MockImplicitContract, MockInvalidImplicitContract } from "test/mocks/MockImplicitContract.sol";
+import { Emitter } from "test/mocks/Emitter.sol";
 import { PrimitivesRPC } from "test/utils/PrimitivesRPC.sol";
 
 contract ImplicitSessionManagerTest is SessionTestBase {
@@ -19,14 +19,14 @@ contract ImplicitSessionManagerTest is SessionTestBase {
   using LibAttestation for Attestation;
 
   ImplicitSessionManagerHarness public sessionManager;
-  MockImplicitContract public mockImplicit;
+  Emitter public emitter;
   address public wallet;
   Vm.Wallet public sessionWallet;
   Vm.Wallet public identityWallet;
 
   function setUp() public {
     sessionManager = new ImplicitSessionManagerHarness();
-    mockImplicit = new MockImplicitContract();
+    emitter = new Emitter();
     wallet = vm.createWallet("wallet").addr;
     sessionWallet = vm.createWallet("session");
     identityWallet = vm.createWallet("identity");
@@ -54,11 +54,12 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     // Ensure the blacklist doesn't contain the signer or call target
     for (uint256 i = 0; i < blacklist.length; i++) {
       vm.assume(blacklist[i] != sessionWallet.addr);
-      vm.assume(blacklist[i] != address(mockImplicit));
+      vm.assume(blacklist[i] != address(emitter));
     }
 
     attestation.approvedSigner = sessionWallet.addr;
-    Payload.Call memory call = _createCall(address(mockImplicit), false, 0, "");
+    Payload.Call memory call =
+      _createCall(address(emitter), false, 0, abi.encodeWithSelector(Emitter.implicitEmit.selector));
 
     // Validate the call
     sessionManager.validateImplicitCall(call, wallet, sessionWallet.addr, attestation, blacklist);
@@ -69,7 +70,8 @@ contract ImplicitSessionManagerTest is SessionTestBase {
   ) public {
     vm.assume(attestation.approvedSigner != sessionWallet.addr);
     address[] memory blacklist = new address[](0);
-    Payload.Call memory call = _createCall(address(mockImplicit), false, 0, "");
+    Payload.Call memory call =
+      _createCall(address(emitter), false, 0, abi.encodeWithSelector(Emitter.implicitEmit.selector));
 
     // Validate the call
     vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidSessionSigner.selector, sessionWallet.addr));
@@ -83,9 +85,9 @@ contract ImplicitSessionManagerTest is SessionTestBase {
   ) public {
     // Blacklist the session signer
     vm.assume(blacklist.length > 0);
-    // Ensure blacklist doesn't contain the mockImplicitContract
+    // Ensure blacklist doesn't contain the emitter
     for (uint256 i = 0; i < blacklist.length; i++) {
-      vm.assume(blacklist[i] != address(mockImplicit));
+      vm.assume(blacklist[i] != address(emitter));
     }
     // Blacklist the session signer
     randomIdx = bound(randomIdx, 0, blacklist.length - 1);
@@ -94,7 +96,8 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     blacklist = _sortAddressesMemory(blacklist);
 
     attestation.approvedSigner = sessionWallet.addr;
-    Payload.Call memory call = _createCall(address(mockImplicit), false, 0, "");
+    Payload.Call memory call =
+      _createCall(address(emitter), false, 0, abi.encodeWithSelector(Emitter.implicitEmit.selector));
 
     vm.expectRevert(abi.encodeWithSelector(SessionErrors.BlacklistedAddress.selector, sessionWallet.addr));
     sessionManager.validateImplicitCall(call, wallet, sessionWallet.addr, attestation, blacklist);
@@ -105,7 +108,8 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     Attestation memory attestation
   ) public {
     attestation.approvedSigner = sessionWallet.addr;
-    Payload.Call memory call = _createCall(address(mockImplicit), true, 0, "");
+    Payload.Call memory call =
+      _createCall(address(emitter), true, 0, abi.encodeWithSelector(Emitter.implicitEmit.selector));
     address[] memory emptyBlacklist = new address[](0);
 
     vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidDelegateCall.selector));
@@ -115,7 +119,8 @@ contract ImplicitSessionManagerTest is SessionTestBase {
   function test_nonZeroValueNotAllowed(Attestation memory attestation, uint256 nonZeroValue) public {
     vm.assume(nonZeroValue > 0);
     attestation.approvedSigner = sessionWallet.addr;
-    Payload.Call memory call = _createCall(address(mockImplicit), false, nonZeroValue, "");
+    Payload.Call memory call =
+      _createCall(address(emitter), false, nonZeroValue, abi.encodeWithSelector(Emitter.implicitEmit.selector));
     address[] memory emptyBlacklist = new address[](0);
 
     vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidValue.selector));
@@ -130,7 +135,7 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     // Force the blacklist to contain the call target.
     vm.assume(blacklist.length > 0);
     randomIdx = bound(randomIdx, 0, blacklist.length - 1);
-    blacklist[randomIdx] = address(mockImplicit);
+    blacklist[randomIdx] = address(emitter);
     // Ensure the signer isn't blacklisted
     for (uint256 i = 0; i < blacklist.length; i++) {
       vm.assume(blacklist[i] != sessionWallet.addr);
@@ -139,21 +144,21 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     blacklist = _sortAddressesMemory(blacklist);
 
     attestation.approvedSigner = sessionWallet.addr;
-    Payload.Call memory call = _createCall(address(mockImplicit), false, 0, "");
+    Payload.Call memory call =
+      _createCall(address(emitter), false, 0, abi.encodeWithSelector(Emitter.implicitEmit.selector));
 
-    vm.expectRevert(abi.encodeWithSelector(SessionErrors.BlacklistedAddress.selector, address(mockImplicit)));
+    vm.expectRevert(abi.encodeWithSelector(SessionErrors.BlacklistedAddress.selector, address(emitter)));
     sessionManager.validateImplicitCall(call, wallet, sessionWallet.addr, attestation, blacklist);
   }
 
   function test_invalidImplicitResult(
     Attestation memory attestation
   ) public {
-    // Deploy a contract that returns an incorrect implicit result.
-    MockInvalidImplicitContract invalidContract = new MockInvalidImplicitContract();
-    vm.label(address(invalidContract), "invalidContract");
-
     attestation.approvedSigner = sessionWallet.addr;
-    Payload.Call memory call = _createCall(address(invalidContract), false, 0, "");
+
+    // Explicit emit is not approved
+    Payload.Call memory call =
+      _createCall(address(emitter), false, 0, abi.encodeWithSelector(Emitter.explicitEmit.selector));
     address[] memory emptyBlacklist = new address[](0);
 
     vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidImplicitResult.selector));

@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import { Vm } from "forge-std/Vm.sol";
 import { SessionTestBase } from "test/extensions/sessions/SessionTestBase.sol";
 
-import { MockImplicitContract } from "test/mocks/MockImplicitContract.sol";
+import { Emitter } from "test/mocks/Emitter.sol";
 import { PrimitivesRPC } from "test/utils/PrimitivesRPC.sol";
 
 import { SessionErrors } from "src/extensions/sessions/SessionErrors.sol";
@@ -22,19 +22,16 @@ contract SessionManagerTest is SessionTestBase {
 
   SessionManager public sessionManager;
   address public explicitTarget;
-  address public implicitTarget;
   Vm.Wallet public sessionWallet;
   Vm.Wallet public identityWallet;
-  MockImplicitContract public mockImplicit;
+  Emitter public emitter;
 
   function setUp() public {
     sessionManager = new SessionManager();
     sessionWallet = vm.createWallet("session");
     identityWallet = vm.createWallet("identity");
     explicitTarget = address(0xBEEF);
-    // Deploy a mock implicit contract so that implicit calls do not revert.
-    mockImplicit = new MockImplicitContract();
-    implicitTarget = address(mockImplicit);
+    emitter = new Emitter();
   }
 
   function testSupportsInterface() public view {
@@ -298,7 +295,9 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Valid implicit session test.
-  function testValidImplicitSessionSignature(Attestation memory attestation, bytes memory data) public {
+  function testValidImplicitSessionSignature(
+    Attestation memory attestation
+  ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
 
@@ -306,9 +305,9 @@ contract SessionManagerTest is SessionTestBase {
     uint256 callCount = 1;
     Payload.Decoded memory payload = _buildPayload(callCount);
     payload.calls[0] = Payload.Call({
-      to: implicitTarget,
+      to: address(emitter),
       value: 0,
-      data: data,
+      data: abi.encodeWithSelector(Emitter.implicitEmit.selector),
       gasLimit: 0,
       delegateCall: false,
       onlyFallback: false,
