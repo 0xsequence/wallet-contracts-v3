@@ -171,16 +171,28 @@ contract Recovery is ISapientCompact {
     bytes32 rPayloadHash = recoveryPayloadHash(_wallet, _payload);
 
     if (_signer.code.length != 0) {
-      return IERC1271(_signer).isValidSignature(rPayloadHash, _signature) == IERC1271_MAGIC_VALUE;
+      // Try ERC1271
+      try IERC1271(_signer).isValidSignature(rPayloadHash, _signature) returns (bytes4 magicValue) {
+        if (magicValue == IERC1271_MAGIC_VALUE) {
+          return true;
+        }
+      } catch {
+        // Fail over. This may be an EOA using EIP-7702
+      }
     }
 
-    (bytes32 r, bytes32 yParityAndS) = abi.decode(_signature, (bytes32, bytes32));
-    uint256 yParity = uint256(yParityAndS >> 255);
-    bytes32 s = bytes32(uint256(yParityAndS) & 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
-    uint8 v = uint8(yParity) + 27;
+    if (_signature.length == 64) {
+      // ECDSA signature
+      (bytes32 r, bytes32 yParityAndS) = abi.decode(_signature, (bytes32, bytes32));
+      uint256 yParity = uint256(yParityAndS >> 255);
+      bytes32 s = bytes32(uint256(yParityAndS) & 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+      uint8 v = uint8(yParity) + 27;
 
-    address addr = ecrecover(rPayloadHash, v, r, s);
-    return addr == _signer;
+      address addr = ecrecover(rPayloadHash, v, r, s);
+      return addr == _signer;
+    }
+
+    return false;
   }
 
 }
