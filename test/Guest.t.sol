@@ -156,11 +156,15 @@ contract GuestTest is AdvTest {
     vm.expectEmit(true, true, true, true);
     emit CallFailed(opHash, callIndex, revertData);
 
-    // Expect success events for remaining calls
+    // Expect success or skipped events for remaining calls
     for (uint256 i = callIndex + 1; i < decoded.calls.length; i++) {
-      vm.expectCall(decoded.calls[i].to, decoded.calls[i].data);
       vm.expectEmit(true, true, true, true);
-      emit CallSucceeded(opHash, i);
+      if (i == callIndex + 1 || !decoded.calls[i].onlyFallback) {
+        vm.expectCall(decoded.calls[i].to, decoded.calls[i].data);
+        emit CallSucceeded(opHash, i);
+      } else {
+        emit CallSkipped(opHash, i);
+      }
     }
 
     (bool ok,) = address(guest).call(packed);

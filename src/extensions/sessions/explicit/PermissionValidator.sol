@@ -10,19 +10,37 @@ abstract contract PermissionValidator {
   using LibBytes for bytes;
 
   /// @notice Mapping of usage limit hashes to their usage amounts
-  mapping(bytes32 => uint256) public limitUsage;
+  mapping(address => mapping(bytes32 => uint256)) private limitUsage;
+
+  /// @notice Get the usage amount for a given usage hash and wallet
+  /// @param wallet The wallet address
+  /// @param usageHash The usage hash
+  /// @return The usage amount
+  function getLimitUsage(address wallet, bytes32 usageHash) public view returns (uint256) {
+    return limitUsage[wallet][usageHash];
+  }
+
+  /// @notice Set the usage amount for a given usage hash and wallet
+  /// @param wallet The wallet address
+  /// @param usageHash The usage hash
+  /// @param usageAmount The usage amount
+  function setLimitUsage(address wallet, bytes32 usageHash, uint256 usageAmount) internal {
+    limitUsage[wallet][usageHash] = usageAmount;
+  }
 
   /// @notice Validates a rules permission
   /// @param permission The rules permission to validate
   /// @param call The call to validate against
-  /// @param limitHashPrefix Prefix of the hash to use for tracking usage <wallet, signer>
+  /// @param wallet The wallet address
+  /// @param signer The signer address
   /// @param usageLimits Array of current usage limits
   /// @return True if the permission is valid, false otherwise
   /// @return newUsageLimits New array of usage limits
   function validatePermission(
     Permission memory permission,
     Payload.Call calldata call,
-    bytes32 limitHashPrefix,
+    address wallet,
+    address signer,
     UsageLimit[] memory usageLimits
   ) public view returns (bool, UsageLimit[] memory newUsageLimits) {
     if (permission.target != call.to) {
@@ -50,7 +68,7 @@ abstract contract PermissionValidator {
         // Calculate cumulative usage
         uint256 value256 = uint256(value);
         // Find the usage limit for the current rule
-        bytes32 usageHash = keccak256(abi.encode(limitHashPrefix, permission, i));
+        bytes32 usageHash = keccak256(abi.encode(signer, permission, i));
         uint256 previousUsage;
         UsageLimit memory usageLimit;
         for (uint256 j = 0; j < newUsageLimits.length; j++) {
@@ -70,7 +88,7 @@ abstract contract PermissionValidator {
         }
         if (previousUsage == 0) {
           // Not in current payload, use storage
-          previousUsage = limitUsage[usageHash];
+          previousUsage = getLimitUsage(wallet, usageHash);
         }
         // Cumulate usage
         value256 += previousUsage;

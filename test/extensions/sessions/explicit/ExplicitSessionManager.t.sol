@@ -398,7 +398,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
 
   function test_validateLimitUsageIncrement_rule(
     UsageLimit memory limit
-  ) public view {
+  ) public {
     limit.usageAmount = bound(limit.usageAmount, 1, type(uint256).max);
 
     // Prepare a call that is intended to be the increment call.
@@ -430,7 +430,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     incCall.data = expectedData;
 
     // This call should pass without revert.
-    harness.validateLimitUsageIncrement(incCall, usageArr, wallet);
+    vm.prank(wallet);
+    harness.validateLimitUsageIncrement(incCall, usageArr);
   }
 
   function test_validateLimitUsageIncrement_value(
@@ -459,10 +460,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     usageArr[0] = usage;
 
     // Construct the expected usage increment.
-    // Calculate the limit hash prefix as in the internal function.
-    bytes32 limitHashPrefix = keccak256(abi.encode(wallet, sessionWallet.addr));
     UsageLimit memory expectedLimit =
-      UsageLimit({ usageHash: keccak256(abi.encode(limitHashPrefix, VALUE_TRACKING_ADDRESS)), usageAmount: value });
+      UsageLimit({ usageHash: keccak256(abi.encode(sessionWallet.addr, VALUE_TRACKING_ADDRESS)), usageAmount: value });
     UsageLimit[] memory limitsArr = new UsageLimit[](1);
     limitsArr[0] = expectedLimit;
 
@@ -471,7 +470,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     incCall.data = expectedData;
 
     // This call should pass without revert.
-    harness.validateLimitUsageIncrement(incCall, usageArr, wallet);
+    harness.validateLimitUsageIncrement(incCall, usageArr);
   }
 
   function test_validateLimitUsageIncrement_InvalidBehaviorOnError() public {
@@ -494,7 +493,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     usageArr[0] = usage;
 
     vm.expectRevert(SessionErrors.InvalidLimitUsageIncrement.selector);
-    harness.validateLimitUsageIncrement(incCall, usageArr, wallet);
+    vm.prank(wallet);
+    harness.validateLimitUsageIncrement(incCall, usageArr);
   }
 
   function test_validateLimitUsageIncrement_InvalidCallData() public {
@@ -518,7 +518,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     });
 
     vm.expectRevert(SessionErrors.InvalidLimitUsageIncrement.selector);
-    harness.validateLimitUsageIncrement(incCall, usageArr, wallet);
+    vm.prank(wallet);
+    harness.validateLimitUsageIncrement(incCall, usageArr);
   }
 
   function test_validateLimitUsageIncrement_InvalidCall() public {
@@ -542,7 +543,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     usageArr[0] = usage;
 
     vm.expectRevert(SessionErrors.InvalidLimitUsageIncrement.selector);
-    harness.validateLimitUsageIncrement(incCall, usageArr, wallet);
+    vm.prank(wallet);
+    harness.validateLimitUsageIncrement(incCall, usageArr);
   }
 
   function test_incrementUsageLimit(
@@ -564,11 +566,12 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     }
 
     // Increment the usage limit
+    vm.prank(wallet);
     harness.incrementUsageLimit(limits);
 
     // Check totals
     for (uint256 i = 0; i < limits.length; i++) {
-      assertEq(harness.limitUsage(limits[i].usageHash), limits[i].usageAmount);
+      assertEq(harness.getLimitUsage(wallet, limits[i].usageHash), limits[i].usageAmount);
     }
   }
 
@@ -588,11 +591,12 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       limits[i].usageAmount = bound(limits[i].usageAmount, limits[i].usageAmount, type(uint256).max);
     }
     // Second increment (without checks or tests)
+    vm.prank(wallet);
     harness.incrementUsageLimit(limits);
 
     // Check totals
     for (uint256 i = 0; i < limits.length; i++) {
-      assertEq(harness.limitUsage(limits[i].usageHash), limits[i].usageAmount);
+      assertEq(harness.getLimitUsage(wallet, limits[i].usageHash), limits[i].usageAmount);
     }
   }
 
@@ -605,6 +609,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     limits[1] = UsageLimit({ usageHash: limit.usageHash, usageAmount: limit.usageAmount - 1 });
 
     vm.expectRevert(SessionErrors.InvalidLimitUsageIncrement.selector);
+    vm.prank(wallet);
     harness.incrementUsageLimit(limits);
   }
 
@@ -630,10 +635,9 @@ contract ExplicitSessionManagerHarness is ExplicitSessionManager {
   /// @notice Exposes the internal _validateLimitUsageIncrement function.
   function validateLimitUsageIncrement(
     Payload.Call calldata call,
-    SessionUsageLimits[] memory sessionUsageLimits,
-    address wallet
+    SessionUsageLimits[] memory sessionUsageLimits
   ) public view {
-    _validateLimitUsageIncrement(call, sessionUsageLimits, wallet);
+    _validateLimitUsageIncrement(call, sessionUsageLimits);
   }
 
 }

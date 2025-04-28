@@ -14,6 +14,8 @@ import { SelfAuth } from "../src/modules/auth/SelfAuth.sol";
 import { Calls } from "../src/modules/Calls.sol";
 import { Stage1Auth } from "../src/modules/auth/Stage1Auth.sol";
 import { IPartialAuth } from "../src/modules/interfaces/IPartialAuth.sol";
+
+import { ISapient } from "../src/modules/interfaces/ISapient.sol";
 import { PrimitivesRPC } from "./utils/PrimitivesRPC.sol";
 import { AdvTest } from "./utils/TestUtils.sol";
 
@@ -1027,6 +1029,128 @@ contract TestStage1Module is AdvTest {
 
     // Verify imageHash is still configHash2
     assertEq(Stage2Module(vars.wallet).imageHash(), vars.configHash2);
+  }
+
+  struct nested_sapient_test_params {
+    Payload.Decoded payload;
+    uint16 threshold;
+    uint56 checkpoint;
+    uint8 weight;
+    uint256 pk;
+    address parentWallet;
+  }
+
+  struct nested_sapient_test_vars {
+    address signer;
+    string config;
+    bytes32 configHash;
+    address wallet;
+    bytes parentedSignature;
+  }
+
+  function test_recover_sapient_as_if_nested(
+    nested_sapient_test_params memory params
+  ) public {
+    boundToLegalPayload(params.payload);
+    params.threshold = uint16(bound(params.threshold, 0, params.weight));
+    params.pk = boundPk(params.pk);
+
+    nested_sapient_test_vars memory vars;
+
+    vars.signer = vm.addr(params.pk);
+
+    {
+      string memory ce;
+      ce = string(abi.encodePacked(ce, "signer:", vm.toString(vars.signer), ":", vm.toString(params.weight)));
+      vars.config = PrimitivesRPC.newConfig(vm, params.threshold, params.checkpoint, ce);
+    }
+    vars.configHash = PrimitivesRPC.getImageHash(vm, vars.config);
+
+    vars.wallet = payable(factory.deploy(address(stage1Module), vars.configHash));
+
+    address[] memory nextParentWallets = new address[](params.payload.parentWallets.length + 1);
+    for (uint256 i = 0; i < params.payload.parentWallets.length; i++) {
+      nextParentWallets[i] = params.payload.parentWallets[i];
+    }
+    nextParentWallets[params.payload.parentWallets.length] = params.parentWallet;
+
+    address[] memory prevParentWallets = params.payload.parentWallets;
+    params.payload.parentWallets = nextParentWallets;
+
+    // Sign the parented payload
+    (uint256 v, bytes32 r, bytes32 s) = vm.sign(params.pk, Payload.hashFor(params.payload, vars.wallet));
+    vars.parentedSignature = PrimitivesRPC.toEncodedSignature(
+      vm,
+      vars.config,
+      string(
+        abi.encodePacked(vm.toString(vars.signer), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))
+      ),
+      !params.payload.noChainId
+    );
+
+    // Restore the original parentWallets
+    params.payload.parentWallets = prevParentWallets;
+
+    // Recover the parented payload
+    vm.prank(params.parentWallet);
+    bytes32 recovered = Stage1Auth(vars.wallet).recoverSapientSignature(params.payload, vars.parentedSignature);
+    assertEq(recovered, bytes32(uint256(1)));
+  }
+
+  function test_recover_sapient_as_if_nested_wrong_signature_fail(
+    nested_sapient_test_params memory params,
+    uint56 _differentCheckpoint
+  ) public {
+    vm.assume(_differentCheckpoint != params.checkpoint);
+    boundToLegalPayload(params.payload);
+    params.threshold = uint16(bound(params.threshold, 0, params.weight));
+    params.pk = boundPk(params.pk);
+
+    nested_sapient_test_vars memory vars;
+
+    vars.signer = vm.addr(params.pk);
+
+    string memory differentCheckpointConfig;
+    {
+      string memory ce;
+      ce = string(abi.encodePacked(ce, "signer:", vm.toString(vars.signer), ":", vm.toString(params.weight)));
+      vars.config = PrimitivesRPC.newConfig(vm, params.threshold, params.checkpoint, ce);
+      differentCheckpointConfig = PrimitivesRPC.newConfig(vm, params.threshold, _differentCheckpoint, ce);
+    }
+    vars.configHash = PrimitivesRPC.getImageHash(vm, vars.config);
+
+    vars.wallet = payable(factory.deploy(address(stage1Module), vars.configHash));
+
+    address[] memory nextParentWallets = new address[](params.payload.parentWallets.length + 1);
+    for (uint256 i = 0; i < params.payload.parentWallets.length; i++) {
+      nextParentWallets[i] = params.payload.parentWallets[i];
+    }
+    nextParentWallets[params.payload.parentWallets.length] = params.parentWallet;
+
+    address[] memory prevParentWallets = params.payload.parentWallets;
+    params.payload.parentWallets = nextParentWallets;
+
+    // Sign the parented payload
+    (uint256 v, bytes32 r, bytes32 s) = vm.sign(params.pk, Payload.hashFor(params.payload, vars.wallet));
+    vars.parentedSignature = PrimitivesRPC.toEncodedSignature(
+      vm,
+      differentCheckpointConfig,
+      string(
+        abi.encodePacked(vm.toString(vars.signer), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))
+      ),
+      !params.payload.noChainId
+    );
+
+    vm.expectRevert(
+      abi.encodeWithSelector(BaseAuth.InvalidSapientSignature.selector, params.payload, vars.parentedSignature)
+    );
+
+    // Restore the original parentWallets
+    params.payload.parentWallets = prevParentWallets;
+
+    // Recover the parented payload
+    vm.prank(params.parentWallet);
+    Stage1Auth(vars.wallet).recoverSapientSignature(params.payload, vars.parentedSignature);
   }
 
   receive() external payable { }

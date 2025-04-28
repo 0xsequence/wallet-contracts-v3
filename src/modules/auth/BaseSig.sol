@@ -166,7 +166,6 @@ library BaseSig {
       if (weight < threshold) {
         revert LowWeightChainedSignature(_signature[rindex:nrindex], threshold, weight);
       }
-
       rindex = nrindex;
 
       if (_snapshot.imageHash == imageHash) {
@@ -179,7 +178,6 @@ library BaseSig {
 
       linkedPayload.imageHash = imageHash;
       prevCheckpoint = checkpoint;
-      rindex = nrindex;
     }
 
     if (_snapshot.imageHash != bytes32(0) && checkpoint <= _snapshot.checkpoint) {
@@ -322,8 +320,6 @@ library BaseSig {
 
           weight += nweight;
           root = LibOptim.fkeccak256(root, node);
-
-          rindex = nrindex;
           continue;
         }
 
@@ -358,7 +354,6 @@ library BaseSig {
 
           bytes32 node = _leafForNested(internalRoot, internalThreshold, externalWeight);
           root = root != bytes32(0) ? LibOptim.fkeccak256(root, node) : node;
-
           continue;
         }
 
@@ -460,7 +455,6 @@ library BaseSig {
           weight += addrWeight;
           bytes32 node = _leafForSapient(addr, addrWeight, sapientImageHash);
           root = root != bytes32(0) ? LibOptim.fkeccak256(root, node) : node;
-          rindex = nrindex;
           continue;
         }
 
@@ -495,7 +489,6 @@ library BaseSig {
           weight += addrWeight;
           bytes32 node = _leafForSapient(addr, addrWeight, sapientImageHash);
           root = root != bytes32(0) ? LibOptim.fkeccak256(root, node) : node;
-          rindex = nrindex;
           continue;
         }
 

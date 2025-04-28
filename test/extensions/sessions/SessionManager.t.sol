@@ -117,13 +117,12 @@ contract SessionManagerTest is SessionTestBase {
     // --- Increment Usage Limit ---
     {
       UsageLimit[] memory limits = new UsageLimit[](2);
-      bytes32 limitHashPrefix = keccak256(abi.encode(sessionWallet.addr, sessionWallet.addr));
       limits[0] = UsageLimit({
-        usageHash: keccak256(abi.encode(limitHashPrefix, sessionPerms.permissions[0], uint256(1))),
+        usageHash: keccak256(abi.encode(sessionWallet.addr, sessionPerms.permissions[0], uint256(1))),
         usageAmount: param
       });
       limits[1] =
-        UsageLimit({ usageHash: keccak256(abi.encode(limitHashPrefix, VALUE_TRACKING_ADDRESS)), usageAmount: value });
+        UsageLimit({ usageHash: keccak256(abi.encode(sessionWallet.addr, VALUE_TRACKING_ADDRESS)), usageAmount: value });
       payload.calls[2] = Payload.Call({
         to: address(sessionManager),
         value: 0,

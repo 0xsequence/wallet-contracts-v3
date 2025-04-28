@@ -11,11 +11,10 @@ import { Payload } from "src/modules/Payload.sol";
 
 contract PermissionValidatorHarness is PermissionValidator {
 
-  function incrementUsageLimit(
-    UsageLimit[] calldata limits
-  ) external {
+  function incrementUsageLimit(address wallet, UsageLimit[] calldata limits) external {
     for (uint256 i = 0; i < limits.length; i++) {
-      limitUsage[limits[i].usageHash] += limits[i].usageAmount;
+      uint256 current = getLimitUsage(wallet, limits[i].usageHash);
+      setLimitUsage(wallet, limits[i].usageHash, current + limits[i].usageAmount);
     }
   }
 
@@ -27,7 +26,8 @@ contract PermissionValidatorTest is Test {
   address constant TARGET = address(0xDEAD);
   bytes4 constant DUMMY_SELECTOR = bytes4(0x12345678);
   bytes32 constant SELECTOR_MASK = bytes32(bytes4(0xffffffff));
-  bytes32 constant TEST_HASH_PREFIX = bytes32(uint256(1)); // Arbitrary test prefix
+  address constant TEST_WALLET = address(0xBEEF);
+  address constant TEST_SIGNER = address(0xCAFE);
 
   function setUp() public {
     validator = new PermissionValidatorHarness();
@@ -57,13 +57,13 @@ contract PermissionValidatorTest is Test {
     });
 
     UsageLimit[] memory emptyLimits = new UsageLimit[](0);
-    (bool success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+    (bool success,) = validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, emptyLimits);
     assertTrue(success, "Permission validation should succeed with matching selector");
 
     // Test with non-matching call (flip all bits of selector)
     bytes4 nonMatchingSelector = ~selector;
     call.data = abi.encodePacked(nonMatchingSelector, bytes28(0));
-    (success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+    (success,) = validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, emptyLimits);
     assertFalse(success, "Permission validation should fail with non-matching selector");
   }
 
@@ -96,18 +96,18 @@ contract PermissionValidatorTest is Test {
     emptyLimits[0].usageAmount = 0;
 
     (bool success, UsageLimit[] memory newLimits) =
-      validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+      validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, emptyLimits);
     assertTrue(success, "First call should succeed");
     assertEq(newLimits.length, 1, "Should have one usage limit");
     assertEq(newLimits[0].usageAmount, value, "Usage amount should be value");
 
     // Increment the limit
-    validator.incrementUsageLimit(newLimits);
+    validator.incrementUsageLimit(TEST_WALLET, newLimits);
 
     // Create a second call that would exceed the limit
     value = bound(value, limit - value + 1, type(uint256).max - value);
     call.data = abi.encodeWithSelector(DUMMY_SELECTOR, value);
-    (success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, newLimits);
+    (success,) = validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, newLimits);
     assertFalse(success, "Second call should fail as it would exceed limit");
   }
 
@@ -132,7 +132,7 @@ contract PermissionValidatorTest is Test {
     });
 
     UsageLimit[] memory emptyLimits = new UsageLimit[](0);
-    (bool success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+    (bool success,) = validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, emptyLimits);
 
     if (testValue >= threshold) {
       assertTrue(success, "Should succeed with value >= threshold");
@@ -164,7 +164,7 @@ contract PermissionValidatorTest is Test {
     });
 
     UsageLimit[] memory emptyLimits = new UsageLimit[](0);
-    (bool success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+    (bool success,) = validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, emptyLimits);
 
     assertTrue(success, "Should pass when values are not equal");
   }
@@ -192,7 +192,7 @@ contract PermissionValidatorTest is Test {
     });
 
     UsageLimit[] memory emptyLimits = new UsageLimit[](0);
-    (bool success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+    (bool success,) = validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, emptyLimits);
 
     assertFalse(success, "Should fail when values are equal");
   }
@@ -233,7 +233,7 @@ contract PermissionValidatorTest is Test {
     });
 
     UsageLimit[] memory emptyLimits = new UsageLimit[](0);
-    (bool success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+    (bool success,) = validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, emptyLimits);
     assertTrue(success, "Should succeed when masked value matches with offset");
 
     // Second test
@@ -243,7 +243,7 @@ contract PermissionValidatorTest is Test {
     }
     bytes32 maskedSecondValue = secondValue & mask;
     call.data = secondCallData;
-    (success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+    (success,) = validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, emptyLimits);
     if (maskedValue == maskedSecondValue) {
       // Expect success when values match
       assertTrue(success, "Should succeed when masked value matches with offset");
@@ -276,7 +276,7 @@ contract PermissionValidatorTest is Test {
     });
 
     UsageLimit[] memory emptyLimits = new UsageLimit[](0);
-    (bool success,) = validator.validatePermission(permission, call, TEST_HASH_PREFIX, emptyLimits);
+    (bool success,) = validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, emptyLimits);
     assertFalse(success, "Should fail when target does not match");
   }
 

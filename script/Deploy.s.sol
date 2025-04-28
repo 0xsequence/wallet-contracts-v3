@@ -5,7 +5,6 @@ import { SingletonDeployer, console } from "erc2470-libs/script/SingletonDeploye
 import { Factory } from "src/Factory.sol";
 import { Guest } from "src/Guest.sol";
 import { Stage1Module } from "src/Stage1Module.sol";
-import { Stage2Module } from "src/Stage2Module.sol";
 import { SessionManager } from "src/extensions/sessions/SessionManager.sol";
 
 contract Deploy is SingletonDeployer {
@@ -19,10 +18,9 @@ contract Deploy is SingletonDeployer {
     address factory = _deployIfNotAlready("Factory", initCode, salt, pk);
 
     initCode = abi.encodePacked(type(Stage1Module).creationCode, abi.encode(factory));
-    _deployIfNotAlready("Stage1Module", initCode, salt, pk);
+    address stage1Module = _deployIfNotAlready("Stage1Module", initCode, salt, pk);
 
-    initCode = abi.encodePacked(type(Stage2Module).creationCode, abi.encode(factory));
-    _deployIfNotAlready("Stage2Module", initCode, salt, pk);
+    console.log("Stage2Module for Stage1Module is", Stage1Module(payable(stage1Module)).STAGE_2_IMPLEMENTATION());
 
     initCode = abi.encodePacked(type(Guest).creationCode);
     _deployIfNotAlready("Guest", initCode, salt, pk);

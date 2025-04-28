@@ -105,7 +105,7 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
 
       // Bulk validate the updated usage limits
       Payload.Call calldata lastCall = payload.calls[payload.calls.length - 1];
-      _validateLimitUsageIncrement(lastCall, actualSessionUsageLimits, wallet);
+      _validateLimitUsageIncrement(lastCall, actualSessionUsageLimits);
     }
 
     // Return the image hash

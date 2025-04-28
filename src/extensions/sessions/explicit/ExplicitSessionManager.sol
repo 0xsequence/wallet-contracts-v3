@@ -20,12 +20,13 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
   function incrementUsageLimit(
     UsageLimit[] calldata limits
   ) external {
+    address wallet = msg.sender;
     for (uint256 i = 0; i < limits.length; i++) {
-      if (limits[i].usageAmount < limitUsage[limits[i].usageHash]) {
+      if (limits[i].usageAmount < getLimitUsage(wallet, limits[i].usageHash)) {
         // Cannot decrement usage limit
         revert SessionErrors.InvalidLimitUsageIncrement();
       }
-      limitUsage[limits[i].usageHash] = limits[i].usageAmount;
+      setLimitUsage(wallet, limits[i].usageHash, limits[i].usageAmount);
     }
   }
 
@@ -87,9 +88,8 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
     Permission memory permission = sessionPermissions.permissions[permissionIdx];
 
     // Validate the permission for the current call
-    bytes32 limitHashPrefix = keccak256(abi.encode(wallet, sessionSigner));
     (bool isValid, UsageLimit[] memory limits) =
-      validatePermission(permission, call, limitHashPrefix, sessionUsageLimits.limits);
+      validatePermission(permission, call, wallet, sessionSigner, sessionUsageLimits.limits);
     if (!isValid) {
       revert SessionErrors.InvalidPermission();
     }
@@ -110,13 +110,11 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
   /// @notice Verifies the limit usage increment
   /// @param call The call to validate
   /// @param sessionUsageLimits The session usage limits
-  /// @param wallet The wallet's address
   /// @dev Reverts if the required increment call is missing or invalid
   /// @dev If no usage limits are used, this function does nothing
   function _validateLimitUsageIncrement(
     Payload.Call calldata call,
-    SessionUsageLimits[] memory sessionUsageLimits,
-    address wallet
+    SessionUsageLimits[] memory sessionUsageLimits
   ) internal view {
     // Limits call is only required if there are usage limits used
     if (sessionUsageLimits.length > 0) {
@@ -140,9 +138,8 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
           limits[limitIndex++] = sessionUsageLimits[i].limits[j];
         }
         if (sessionUsageLimits[i].totalValueUsed > 0) {
-          bytes32 limitHashPrefix = keccak256(abi.encode(wallet, sessionUsageLimits[i].signer));
           limits[limitIndex++] = UsageLimit({
-            usageHash: keccak256(abi.encode(limitHashPrefix, VALUE_TRACKING_ADDRESS)),
+            usageHash: keccak256(abi.encode(sessionUsageLimits[i].signer, VALUE_TRACKING_ADDRESS)),
             usageAmount: sessionUsageLimits[i].totalValueUsed
           });
         }

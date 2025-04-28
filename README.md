@@ -1,6 +1,7 @@
-# Sequence v3 - Contracts + SDK
+Sequence v3 wallet contracts
+============================
 
-Sequence v3 contracts and SDKs, with implicit and explicit smart sessions.
+Sequence v3 wallet contracts, with implicit and explicit smart sessions.
 
 ## Development Setup
 
@@ -14,11 +15,11 @@ Git hooks will be automatically installed.
 
 ## Testing
 
-Install the [Sequence Core SDK](https://github.com/0xsequence/sequence-core) and run a server using the following command:
+Install the [Sequence v3 SDK](https://github.com/0xsequence/sequence.js) and run a server using the following command:
 
 ```sh
-cd ../sequence-core
-pnpm build
+cd ../sequence.js
+pnpm build:packages
 pnpm dev:server
 ```
 

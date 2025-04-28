@@ -238,7 +238,7 @@ contract BaseSigTest is AdvTest {
     bytes revertFromSigner;
   }
 
-  function test_recovert_one_1271_invalid_signature_revert_fail(
+  function test_recover_one_1271_invalid_signature_revert_fail(
     test_recover_one_1271_invalid_signature_fail_params memory params
   ) external {
     assumeNotPrecompile2(params.signer);
@@ -312,7 +312,7 @@ contract BaseSigTest is AdvTest {
     bytes4 bad4Bytes;
   }
 
-  function test_recovert_one_1271_invalid_signature_bad_return_fail(
+  function test_recover_one_1271_invalid_signature_bad_return_fail(
     test_recover_one_1271_invalid_signature_bad_return_fail_params memory params
   ) external {
     assumeNotPrecompile2(params.signer);

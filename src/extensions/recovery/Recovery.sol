@@ -114,8 +114,6 @@ contract Recovery is ISapientCompact {
 
         verified = verified || nverified;
         root = LibOptim.fkeccak256(root, nroot);
-
-        rindex = nrindex;
         continue;
       }
 

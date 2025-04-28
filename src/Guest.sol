@@ -27,13 +27,15 @@ contract Guest {
     for (uint256 i = 0; i < numCalls; i++) {
       Payload.Call memory call = _decoded.calls[i];
 
-      // If the call is of fallback kind, and errorFlag is set to false
-      // then we can skip the call
+      // Skip onlyFallback calls if no error occurred
       if (call.onlyFallback && !errorFlag) {
-        errorFlag = false;
         emit Calls.CallSkipped(_opHash, i);
         continue;
       }
+
+      // Reset the error flag
+      // onlyFallback calls only apply when the immediately preceding transaction fails
+      errorFlag = false;
 
       uint256 gasLimit = call.gasLimit;
       if (gasLimit != 0 && gasleft() < gasLimit) {
