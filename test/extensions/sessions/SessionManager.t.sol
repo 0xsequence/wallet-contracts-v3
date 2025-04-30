@@ -57,6 +57,7 @@ contract SessionManagerTest is SessionTestBase {
     // Create a SessionPermissions struct granting permission for calls to explicitTarget.
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: sessionWallet.addr,
+      allowMessages: false,
       valueLimit: value,
       deadline: block.timestamp + 1 days,
       permissions: new Permission[](2)
@@ -168,10 +169,6 @@ contract SessionManagerTest is SessionTestBase {
   function testInvalidPayloadKindReverts() public {
     Payload.Decoded memory payload;
     bytes memory encodedSig;
-
-    payload.kind = Payload.KIND_MESSAGE;
-    vm.expectRevert(SessionManager.InvalidPayloadKind.selector);
-    sessionManager.recoverSapientSignature(payload, encodedSig);
 
     payload.kind = Payload.KIND_CONFIG_UPDATE;
     vm.expectRevert(SessionManager.InvalidPayloadKind.selector);
@@ -334,6 +331,87 @@ contract SessionManagerTest is SessionTestBase {
     bytes32 imageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     bytes32 expectedImageHash = PrimitivesRPC.sessionImageHash(vm, topology);
     assertEq(imageHash, expectedImageHash);
+  }
+
+  function testValidMessageSignature(
+    bytes memory message
+  ) public {
+    // Create a message payload
+    Payload.Decoded memory payload;
+    payload.kind = Payload.KIND_MESSAGE;
+    payload.message = message;
+
+    // Create session permissions that allow messages
+    SessionPermissions memory sessionPerms = SessionPermissions({
+      signer: sessionWallet.addr,
+      allowMessages: true, // Allow messages
+      valueLimit: 0,
+      deadline: block.timestamp + 1 days,
+      permissions: new Permission[](0)
+    });
+
+    // Build the session topology using PrimitiveRPC
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
+    string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms);
+    topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
+
+    // Create the call signature for the message
+    string[] memory callSignatures = new string[](1);
+    bytes32 messageHash = Payload.hash(payload);
+    string memory sessionSignature = _signAndEncodeRSV(messageHash, sessionWallet);
+    callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature);
+
+    // Encode the full signature
+    address[] memory explicitSigners = new address[](1);
+    explicitSigners[0] = sessionWallet.addr;
+    address[] memory implicitSigners = new address[](0);
+    bytes memory encodedSig =
+      PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, explicitSigners, implicitSigners);
+
+    // Validate the signature
+    bytes32 imageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
+    bytes32 expectedImageHash = PrimitivesRPC.sessionImageHash(vm, topology);
+    assertEq(imageHash, expectedImageHash);
+  }
+
+  function testInvalidMessageSignature_MissingPermissions(
+    bytes memory message
+  ) public {
+    // Create a message payload
+    Payload.Decoded memory payload;
+    payload.kind = Payload.KIND_MESSAGE;
+    payload.message = message;
+
+    // Create session permissions that allow messages
+    SessionPermissions memory sessionPerms = SessionPermissions({
+      signer: sessionWallet.addr,
+      allowMessages: false, // Do not allow messages
+      valueLimit: 0,
+      deadline: block.timestamp + 1 days,
+      permissions: new Permission[](0)
+    });
+
+    // Build the session topology using PrimitiveRPC
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
+    string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms);
+    topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
+
+    // Create the call signature for the message
+    string[] memory callSignatures = new string[](1);
+    bytes32 messageHash = Payload.hash(payload);
+    string memory sessionSignature = _signAndEncodeRSV(messageHash, sessionWallet);
+    callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature);
+
+    // Encode the full signature
+    address[] memory explicitSigners = new address[](1);
+    explicitSigners[0] = sessionWallet.addr;
+    address[] memory implicitSigners = new address[](0);
+    bytes memory encodedSig =
+      PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, explicitSigners, implicitSigners);
+
+    // Validate the signature
+    vm.expectRevert(SessionErrors.MissingPermission.selector);
+    sessionManager.recoverSapientSignature(payload, encodedSig);
   }
 
 }

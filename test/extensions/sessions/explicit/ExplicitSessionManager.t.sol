@@ -5,6 +5,7 @@ import { Vm } from "forge-std/Test.sol";
 import { SessionTestBase } from "test/extensions/sessions/SessionTestBase.sol";
 
 import { SessionErrors } from "src/extensions/sessions/SessionErrors.sol";
+import { SessionSig } from "src/extensions/sessions/SessionSig.sol";
 import { ExplicitSessionManager } from "src/extensions/sessions/explicit/ExplicitSessionManager.sol";
 import { IExplicitSessionManager } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import { SessionPermissions, SessionUsageLimits } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
@@ -50,6 +51,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Create SessionPermissions with one Permission.
     SessionPermissions memory perms = SessionPermissions({
       signer: sessionWallet.addr,
+      allowMessages: false,
       valueLimit: 0, // no native token usage for this test
       deadline: block.timestamp + 1 days,
       permissions: new Permission[](1)
@@ -108,6 +110,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Create SessionPermissions with a signer that does NOT match the session signer.
     SessionPermissions memory perms = SessionPermissions({
       signer: invalidSigner, // different signer
+      allowMessages: false,
       valueLimit: 100,
       deadline: block.timestamp + 1 days,
       permissions: new Permission[](1)
@@ -147,6 +150,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Create SessionPermissions with a deadline in the past.
     SessionPermissions memory perms = SessionPermissions({
       signer: sessionWallet.addr,
+      allowMessages: false,
       valueLimit: 100,
       deadline: expiredTimestamp, // expired
       permissions: new Permission[](1)
@@ -189,6 +193,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Create valid SessionPermissions (won't reach permission check).
     SessionPermissions memory perms = SessionPermissions({
       signer: sessionWallet.addr,
+      allowMessages: false,
       valueLimit: 100,
       deadline: block.timestamp + 1 days,
       permissions: new Permission[](1)
@@ -230,6 +235,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Need valid session permissions for the test to reach self-call validation
     SessionPermissions memory perms = SessionPermissions({
       signer: sessionWallet.addr, // Match the session signer
+      allowMessages: false,
       valueLimit: 100,
       deadline: block.timestamp + 1 days,
       permissions: new Permission[](1)
@@ -263,6 +269,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Need valid session permissions for the test to reach self-call validation
     SessionPermissions memory perms = SessionPermissions({
       signer: sessionWallet.addr, // Match the session signer
+      allowMessages: false,
       valueLimit: 100,
       deadline: block.timestamp + 1 days,
       permissions: new Permission[](1)
@@ -296,6 +303,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Create SessionPermissions with an empty permissions array.
     SessionPermissions memory perms = SessionPermissions({
       signer: sessionWallet.addr,
+      allowMessages: false,
       valueLimit: 100,
       deadline: block.timestamp + 1 days,
       permissions: new Permission[](0)
@@ -330,6 +338,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Set valueLimit lower than the call value.
     SessionPermissions memory perms = SessionPermissions({
       signer: sessionWallet.addr,
+      allowMessages: false,
       valueLimit: 10, // limit too low
       deadline: block.timestamp + 1 days,
       permissions: new Permission[](1)
@@ -371,6 +380,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Create SessionPermissions expecting selector 0x12345678.
     SessionPermissions memory perms = SessionPermissions({
       signer: sessionWallet.addr,
+      allowMessages: false,
       valueLimit: 0,
       deadline: block.timestamp + 1 days,
       permissions: new Permission[](1)

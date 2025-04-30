@@ -30,6 +30,40 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
     }
   }
 
+  function _findSessionPermissions(
+    SessionPermissions[] memory allSessionPermissions,
+    address sessionSigner
+  ) internal view returns (SessionPermissions memory sessionPermissions) {
+    for (uint256 i = 0; i < allSessionPermissions.length; i++) {
+      if (allSessionPermissions[i].signer == sessionSigner) {
+        sessionPermissions = allSessionPermissions[i];
+        break;
+      }
+    }
+    if (sessionPermissions.signer == address(0)) {
+      revert SessionErrors.InvalidSessionSigner(sessionSigner);
+    }
+
+    // Check if session has expired.
+    if (sessionPermissions.deadline != 0 && block.timestamp > sessionPermissions.deadline) {
+      revert SessionErrors.SessionExpired(sessionPermissions.deadline);
+    }
+    return sessionPermissions;
+  }
+
+  function _validateMessageSignature(
+    address sessionSigner,
+    SessionPermissions[] memory allSessionPermissions
+  ) internal view {
+    // Find the permissions for the given session signer
+    SessionPermissions memory sessionPermissions = _findSessionPermissions(allSessionPermissions, sessionSigner);
+
+    // Validate the message signer has permissions to sign
+    if (!sessionPermissions.allowMessages) {
+      revert SessionErrors.MissingPermission();
+    }
+  }
+
   /// @notice Validates an explicit call
   /// @param payload The decoded payload containing calls
   /// @param callIdx The index of the call to validate
@@ -49,21 +83,7 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
     SessionUsageLimits memory sessionUsageLimits
   ) internal view returns (SessionUsageLimits memory newSessionUsageLimits) {
     // Find the permissions for the given session signer
-    SessionPermissions memory sessionPermissions;
-    for (uint256 i = 0; i < allSessionPermissions.length; i++) {
-      if (allSessionPermissions[i].signer == sessionSigner) {
-        sessionPermissions = allSessionPermissions[i];
-        break;
-      }
-    }
-    if (sessionPermissions.signer == address(0)) {
-      revert SessionErrors.InvalidSessionSigner(sessionSigner);
-    }
-
-    // Check if session has expired.
-    if (sessionPermissions.deadline != 0 && block.timestamp > sessionPermissions.deadline) {
-      revert SessionErrors.SessionExpired(sessionPermissions.deadline);
-    }
+    SessionPermissions memory sessionPermissions = _findSessionPermissions(allSessionPermissions, sessionSigner);
 
     // Delegate calls are not allowed
     Payload.Call calldata call = payload.calls[callIdx];

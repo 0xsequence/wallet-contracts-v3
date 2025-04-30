@@ -19,9 +19,10 @@ contract SessionSigHarness {
 
   function recover(
     Payload.Decoded calldata payload,
+    address wallet,
     bytes calldata signature
   ) external view returns (SessionSig.DecodedSignature memory) {
-    return SessionSig.recoverSignature(payload, signature);
+    return SessionSig.recoverSignature(payload, wallet, signature);
   }
 
   function recoverConfiguration(
@@ -59,6 +60,7 @@ contract SessionSigTest is SessionTestBase {
     }
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: sessionWallet.addr,
+      allowMessages: false,
       valueLimit: 1000,
       deadline: 2000,
       permissions: new Permission[](1)
@@ -105,7 +107,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover and validate.
     {
-      SessionSig.DecodedSignature memory sig = harness.recover(payload, encoded);
+      SessionSig.DecodedSignature memory sig = harness.recover(payload, sessionWallet.addr, encoded);
       assertEq(sig.callSignatures.length, 1, "Call signatures length");
       SessionSig.CallSignature memory callSig = sig.callSignatures[0];
       assertFalse(callSig.isImplicit, "Call should be explicit");
@@ -161,7 +163,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover and validate.
     {
-      SessionSig.DecodedSignature memory sig = harness.recover(payload, encoded);
+      SessionSig.DecodedSignature memory sig = harness.recover(payload, sessionWallet.addr, encoded);
       assertEq(sig.callSignatures.length, 1, "Call signatures length");
       SessionSig.CallSignature memory callSig = sig.callSignatures[0];
       assertTrue(callSig.isImplicit, "Call should be implicit");
@@ -225,7 +227,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover and validate
     {
-      SessionSig.DecodedSignature memory sig = harness.recover(payload, encoded);
+      SessionSig.DecodedSignature memory sig = harness.recover(payload, sessionWallet.addr, encoded);
       assertEq(sig.callSignatures.length, 2, "Call signatures length");
 
       for (uint256 i = 0; i < sig.callSignatures.length; i++) {
@@ -272,8 +274,8 @@ contract SessionSigTest is SessionTestBase {
     // Create session permissions for both calls with different signers
     SessionPermissions[] memory sessionPermsArray = new SessionPermissions[](2);
     {
-      sessionPermsArray[0] = _createSessionPermissions(address(0xBEEF), 1000, 2000, sessionWallet.addr);
-      sessionPermsArray[1] = _createSessionPermissions(address(0xCAFE), 1000, 2000, sessionWallet2.addr);
+      sessionPermsArray[0] = _createSessionPermissions(address(0xBEEF), false, 1000, 2000, sessionWallet.addr);
+      sessionPermsArray[1] = _createSessionPermissions(address(0xCAFE), false, 1000, 2000, sessionWallet2.addr);
     }
 
     // Create the topology from the CLI
@@ -313,7 +315,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover and validate
     {
-      SessionSig.DecodedSignature memory sig = harness.recover(payload, encoded);
+      SessionSig.DecodedSignature memory sig = harness.recover(payload, sessionWallet.addr, encoded);
       assertEq(sig.callSignatures.length, 2, "Call signatures length");
 
       // Verify first signature
@@ -364,7 +366,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the signature
     vm.expectRevert(SessionErrors.InvalidIdentitySigner.selector);
-    harness.recover(payload, encoded);
+    harness.recover(payload, sessionWallet.addr, encoded);
   }
 
   function testRecover_invalidIdentitySigner_noMatchAttestationSigner(
@@ -402,7 +404,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the signature
     vm.expectRevert(SessionErrors.InvalidIdentitySigner.selector);
-    harness.recover(payload, encoded);
+    harness.recover(payload, sessionWallet.addr, encoded);
   }
 
   function testRecover_invalidIdentitySigner_noSignersEncoded(
@@ -438,7 +440,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the signature
     vm.expectRevert(SessionErrors.InvalidIdentitySigner.selector);
-    harness.recover(payload, encoded);
+    harness.recover(payload, sessionWallet.addr, encoded);
   }
 
   function testRecover_invalidBlacklist_requiredForImplicitSigner(
@@ -479,7 +481,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the signature
     vm.expectRevert(SessionErrors.InvalidBlacklist.selector);
-    harness.recover(payload, encoded);
+    harness.recover(payload, sessionWallet.addr, encoded);
   }
 
   function testRecover_invalidAttestationIndex(Attestation memory attestation, uint256 count, uint256 index) public {
@@ -528,7 +530,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the signature
     vm.expectRevert(SessionErrors.InvalidAttestation.selector);
-    harness.recover(payload, encoded);
+    harness.recover(payload, sessionWallet.addr, encoded);
   }
 
   function testConfiguration_largeBlacklist(
@@ -859,6 +861,7 @@ contract SessionSigTest is SessionTestBase {
     // Create an empty permissions struct
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: signer,
+      allowMessages: false,
       valueLimit: valueLimit,
       deadline: deadline,
       permissions: new Permission[](0)

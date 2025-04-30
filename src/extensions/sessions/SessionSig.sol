@@ -58,6 +58,7 @@ library SessionSig {
   ///         - session_signature: [r, s, v (compact)]
   function recoverSignature(
     Payload.Decoded calldata payload,
+    address wallet,
     bytes calldata encodedSignature
   ) internal view returns (DecodedSignature memory sig) {
     uint256 pointer = 0;
@@ -116,10 +117,9 @@ library SessionSig {
 
     // ----- Call Signatures -----
     {
-      uint256 callsCount = payload.calls.length;
-      sig.callSignatures = new CallSignature[](callsCount);
+      sig.callSignatures = new CallSignature[](payload.kind == Payload.KIND_MESSAGE ? 1 : payload.calls.length);
 
-      for (uint256 i = 0; i < callsCount; i++) {
+      for (uint256 i = 0; i < sig.callSignatures.length; i++) {
         CallSignature memory callSignature;
 
         // Determine signature type
@@ -152,8 +152,13 @@ library SessionSig {
           uint8 v;
           (r, s, v, pointer) = encodedSignature.readRSVCompact(pointer);
 
-          bytes32 callHash = hashCallWithReplayProtection(payload.calls[i], payload);
-          callSignature.sessionSigner = ecrecover(callHash, v, r, s);
+          bytes32 validationHash;
+          if (payload.kind == Payload.KIND_MESSAGE) {
+            validationHash = Payload.hashFor(payload, wallet);
+          } else {
+            validationHash = hashCallWithReplayProtection(payload.calls[i], payload);
+          }
+          callSignature.sessionSigner = ecrecover(validationHash, v, r, s);
         }
 
         sig.callSignatures[i] = callSignature;
@@ -194,9 +199,13 @@ library SessionSig {
       // The top 4 bits are the flag
       uint256 flag = (firstByte & 0xf0) >> 4;
 
-      // Permissions configuration (0x00)
+      // Permissions configuration (0x0X)
       if (flag == FLAG_PERMISSIONS) {
         SessionPermissions memory nodePermissions;
+
+        // Allow messages flag is the last bit of the first byte
+        nodePermissions.allowMessages = (firstByte & 0x01) != 0;
+
         uint256 pointerStart = pointer;
 
         // Read signer
@@ -213,7 +222,7 @@ library SessionSig {
 
         // Update root
         {
-          bytes32 permissionHash = _leafHashForPermissions(encoded[pointerStart:pointer]);
+          bytes32 permissionHash = _leafHashForPermissions(encoded[pointerStart:pointer], nodePermissions.allowMessages);
           sig.imageHash =
             sig.imageHash != bytes32(0) ? LibOptim.fkeccak256(sig.imageHash, permissionHash) : permissionHash;
         }
@@ -223,7 +232,7 @@ library SessionSig {
         continue;
       }
 
-      // Node (0x01)
+      // Node (0x1X)
       if (flag == FLAG_NODE) {
         // Read pre-hashed node
         bytes32 node;
@@ -235,7 +244,7 @@ library SessionSig {
         continue;
       }
 
-      // Branch (0x02)
+      // Branch (0x2X)
       if (flag == FLAG_BRANCH) {
         // Read branch size
         uint256 size;
@@ -279,7 +288,7 @@ library SessionSig {
         continue;
       }
 
-      // Blacklist (0x03)
+      // Blacklist (0x3X)
       if (flag == FLAG_BLACKLIST) {
         if (hasBlacklist) {
           // Blacklist already set
@@ -308,7 +317,7 @@ library SessionSig {
         continue;
       }
 
-      // Identity signer (0x04)
+      // Identity signer (0x4X)
       if (flag == FLAG_IDENTITY_SIGNER) {
         if (sig.identitySigner != address(0)) {
           // Identity signer already set
@@ -355,9 +364,11 @@ library SessionSig {
 
   /// @notice Hashes the encoded session permissions into a leaf node.
   function _leafHashForPermissions(
-    bytes calldata encodedPermissions
+    bytes calldata encodedPermissions,
+    bool allowMessages
   ) internal pure returns (bytes32) {
-    return keccak256(abi.encodePacked(uint8(FLAG_PERMISSIONS), encodedPermissions));
+    uint8 flag = uint8((FLAG_PERMISSIONS << 4) | (allowMessages ? 1 : 0));
+    return keccak256(abi.encodePacked(flag, encodedPermissions));
   }
 
   /// @notice Hashes the encoded blacklist into a leaf node.
