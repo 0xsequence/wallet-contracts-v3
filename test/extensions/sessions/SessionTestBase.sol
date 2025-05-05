@@ -28,11 +28,16 @@ abstract contract SessionTestBase is AdvTest {
   /// @dev Encodes the explicit config.
   function _encodeExplicitConfig(
     address signer,
+    bool allowMessages,
     uint256 valueLimit,
     uint256 deadline
   ) internal pure returns (bytes memory) {
+    uint8 flag = uint8(SessionSig.FLAG_PERMISSIONS << 4);
+    if (allowMessages) {
+      flag |= 1;
+    }
     bytes memory node = abi.encodePacked(
-      uint8(SessionSig.FLAG_PERMISSIONS),
+      uint8(flag),
       signer,
       valueLimit,
       deadline,
@@ -58,7 +63,9 @@ abstract contract SessionTestBase is AdvTest {
   ) internal pure returns (string memory) {
     string memory json = '{"signer":"';
     json = string.concat(json, vm.toString(sessionPerms.signer));
-    json = string.concat(json, '","valueLimit":"');
+    json = string.concat(json, '","allowMessages":');
+    json = string.concat(json, sessionPerms.allowMessages ? "true" : "false");
+    json = string.concat(json, ',"valueLimit":"');
     json = string.concat(json, vm.toString(sessionPerms.valueLimit));
     json = string.concat(json, '","deadline":"');
     json = string.concat(json, vm.toString(sessionPerms.deadline));
@@ -169,12 +176,14 @@ abstract contract SessionTestBase is AdvTest {
 
   function _createSessionPermissions(
     address target,
+    bool allowMessages,
     uint256 valueLimit,
     uint256 deadline,
     address signer
   ) internal pure returns (SessionPermissions memory) {
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: signer,
+      allowMessages: allowMessages,
       valueLimit: valueLimit,
       deadline: deadline,
       permissions: new Permission[](1)

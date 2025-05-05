@@ -29,17 +29,26 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
     bytes calldata encodedSignature
   ) external view returns (bytes32) {
     // Validate outer Payload
-    if (payload.kind != Payload.KIND_TRANSACTIONS) {
+    if (payload.kind == Payload.KIND_TRANSACTIONS) {
+      if (payload.calls.length == 0) {
+        revert InvalidCallsLength();
+      }
+    } else if (payload.kind != Payload.KIND_MESSAGE) {
       revert InvalidPayloadKind();
-    }
-    if (payload.calls.length == 0) {
-      revert InvalidCallsLength();
     }
 
     // Decode signature
-    SessionSig.DecodedSignature memory sig = SessionSig.recoverSignature(payload, encodedSignature);
-
     address wallet = msg.sender;
+    SessionSig.DecodedSignature memory sig = SessionSig.recoverSignature(payload, wallet, encodedSignature);
+
+    // Message
+    if (payload.kind == Payload.KIND_MESSAGE) {
+      // Validate message signer has permissions to sign
+      _validateMessageSignature(sig.callSignatures[0].sessionSigner, sig.sessionPermissions);
+      return sig.imageHash;
+    }
+
+    // Calls
 
     // Initialize session usage limits for explicit session
     SessionUsageLimits[] memory sessionUsageLimits = new SessionUsageLimits[](payload.calls.length);

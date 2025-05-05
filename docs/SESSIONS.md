@@ -54,27 +54,30 @@ Within these configuration bytes, the data is structured as a series of tagged n
 
 The following flags are defined:
 
-- **0x00: Permissions Node**
-- **0x01: Node (Pre-hashed 32-byte value)**
-- **0x02: Branch (Nested encoding)**
-- **0x03: Blacklist**
-- **0x04: Identity Signer**
+- **0x0X: Permissions Node**
+- **0x1X: Node (Pre-hashed 32-byte value)**
+- **0x2X: Branch (Nested encoding)**
+- **0x3X: Blacklist**
+- **0x4X: Identity Signer**
 
 > [!IMPORTANT]
 > There must be exactly **one** Identity Signer and at most one Blacklist node. Multiple entries will trigger a validation error. If there are any implicit sessions (attestations), a blacklist is mandatory.
 
-#### Permissions Node (FLAG 0x00)
+#### Permissions Node (FLAG 0x0X)
+
+The permissions node flag includes the `Allow Messages` flag as the additional data bit `0`. i.e. `0x01` when enabled.
 
 This node encodes session permissions for a specific signer:
 
 ```
 Permissions Node Layout:
- ┌─────────────────────────────────────────────┐
- │ Signer (address)                            │
- │ Value Limit (uint256)                       │
- │ Deadline (uint256)                          │
- │ Permissions Array (encoded permissions)     │
- └─────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────────────┐
+ │ Allow Messages (bool, bit 0 in flag additional data) │
+ │ Signer (address)                                     │
+ │ Value Limit (uint256)                                │
+ │ Deadline (uint256)                                   │
+ │ Permissions Array (encoded permissions)              │
+ └──────────────────────────────────────────────────────┘
 ```
 
 ##### Permission Object Encoding
@@ -116,7 +119,7 @@ Parameter Rule Encoding:
 > [!TIP]
 > A permission with an empty rules array is treated as _open_, granting unrestricted access to the target, subject only to other constraints such as value limits and deadlines.
 
-#### Node (FLAG 0x01)
+#### Node (FLAG 0x1X)
 
 This node includes a 32-byte pre-hashed value:
 
@@ -129,7 +132,9 @@ Node Layout:
 
 This node is an optimization to reduce the size of the configuration tree in calldata. By using this node, unused permissions or configuration segments can be hidden, while still allowing the complete image hash to be derived.
 
-#### Branch (FLAG 0x02)
+#### Branch (FLAG 0x2X)
+
+The branch flag includes the **Size Indicator** as the additional data bits `3..0`. i.e. `0x21` when the size indicator is `1`.
 
 Branches allow for the recursive grouping of nested configuration nodes into a single unit. They are used to bundle together multiple nodes - such as several permissions nodes or even other branch nodes - so that the entire collection can be processed as one entity. This design minimizes redundancy and optimizes the calldata size by avoiding repeated encoding of common structures.
 
@@ -154,7 +159,7 @@ The **Size Indicator** specifies the total number of bytes that the branch occup
 > [!NOTE]
 > The branch size is determined by bits in the additional data portion of the flag byte. Ensure that branch sizes do not exceed the limits imposed by the `uintX` size field.
 
-#### Blacklist (FLAG 0x03)
+#### Blacklist (FLAG 0x3X)
 
 The blacklist node specifies addresses that are disallowed for implicit sessions. This includes both target addresses that cannot be called and session signers that are not allowed to make implicit calls.
 
@@ -179,7 +184,7 @@ When an implicit session call is made, both the session signer and the target ad
 > [!WARNING]
 > The blacklist doesn't not prevent explicit sessions from calling blacklisted addresses or prevent explicit signers. To block an explicit session or it's permissions, update the wallet configuration to remove the explicit session.
 
-#### Identity Signer (FLAG 0x04)
+#### Identity Signer (FLAG 0x4X)
 
 Specifies the identity signer used for attestation verification:
 
@@ -268,6 +273,7 @@ The permissions system governs what actions a session signer is allowed to execu
 Defined in the `SessionPermissions` struct, these include:
 
 - **Signer:** Authorized session signer.
+- **Allow Messages:** Whether or not the session is permitted to sign messages.
 - **Value Limit:** Maximum native token value allowed.
 - **Deadline:** Expiration timestamp (0 indicates no deadline).
 - **Permissions Array:** List of permission objects.

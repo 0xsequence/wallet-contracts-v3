@@ -7,6 +7,8 @@ import { Permission, UsageLimit } from "./Permission.sol";
 struct SessionPermissions {
   /// @notice Address of the session signer these permissions apply to
   address signer;
+  /// @notice Whether signing messages is allowed
+  bool allowMessages;
   /// @notice Maximum native token value this signer can send
   uint256 valueLimit;
   /// @notice Deadline for the session. (0 = no deadline)
