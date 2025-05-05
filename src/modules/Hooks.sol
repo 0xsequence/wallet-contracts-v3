@@ -17,6 +17,19 @@ interface IERC1155Receiver {
 
 }
 
+interface IERC777Receiver {
+
+  function tokensReceived(
+    address operator,
+    address from,
+    address to,
+    uint256 amount,
+    bytes calldata data,
+    bytes calldata operatorData
+  ) external;
+
+}
+
 interface IERC721Receiver {
 
   function onERC721Received(address, address, uint256, bytes calldata) external returns (bytes4);
@@ -29,7 +42,7 @@ interface IERC223Receiver {
 
 }
 
-contract Hooks is SelfAuth, IERC1155Receiver, IERC721Receiver, IERC223Receiver {
+contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, IERC223Receiver {
 
   //                       HOOKS_KEY = keccak256("org.arcadeum.module.hooks.hooks");
   bytes32 private constant HOOKS_KEY = bytes32(0xbe27a319efc8734e89e26ba4bc95f5c788584163b959f03fa04e2d7ab4b9a120);
@@ -72,7 +85,13 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC721Receiver, IERC223Receiver {
     emit DefinedHook(signature, implementation);
   }
 
-  function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure returns (bytes4) {
+  function onERC1155Received(
+    address,
+    address,
+    uint256,
+    uint256,
+    bytes calldata
+  ) external fallbackIfAvailable returns (bytes4) {
     return Hooks.onERC1155Received.selector;
   }
 
@@ -82,15 +101,37 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC721Receiver, IERC223Receiver {
     uint256[] calldata,
     uint256[] calldata,
     bytes calldata
-  ) external pure returns (bytes4) {
+  ) external fallbackIfAvailable returns (bytes4) {
     return Hooks.onERC1155BatchReceived.selector;
   }
 
-  function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+  function tokensReceived(
+    address operator,
+    address from,
+    address to,
+    uint256 amount,
+    bytes calldata data,
+    bytes calldata operatorData
+  ) external fallbackIfAvailable { }
+
+  function onERC721Received(address, address, uint256, bytes calldata) external fallbackIfAvailable returns (bytes4) {
     return Hooks.onERC721Received.selector;
   }
 
-  function tokenReceived(address, uint256, bytes calldata) external { }
+  function tokenReceived(address, uint256, bytes calldata) external fallbackIfAvailable { }
+
+  modifier fallbackIfAvailable() {
+    address target = _readHook(bytes4(msg.data));
+    if (target == address(0)) {
+      _;
+    } else {
+      (bool success, bytes memory result) = target.delegatecall(msg.data);
+      assembly {
+        if iszero(success) { revert(add(result, 32), mload(result)) }
+        return(add(result, 32), mload(result))
+      }
+    }
+  }
 
   fallback() external payable {
     if (msg.data.length >= 4) {
