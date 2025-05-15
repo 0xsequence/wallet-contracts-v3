@@ -154,6 +154,9 @@ library SessionSig {
 
           bytes32 callHash = hashCallWithReplayProtection(payload.calls[i], payload);
           callSignature.sessionSigner = ecrecover(callHash, v, r, s);
+          if (callSignature.sessionSigner == address(0)) {
+            revert SessionErrors.InvalidIdentitySigner();
+          }
         }
 
         sig.callSignatures[i] = callSignature;
