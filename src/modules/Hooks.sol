@@ -85,7 +85,13 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, 
     emit DefinedHook(signature, implementation);
   }
 
-  function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure returns (bytes4) {
+  function onERC1155Received(
+    address,
+    address,
+    uint256,
+    uint256,
+    bytes calldata
+  ) external fallbackIfAvailable returns (bytes4) {
     return Hooks.onERC1155Received.selector;
   }
 
@@ -95,7 +101,7 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, 
     uint256[] calldata,
     uint256[] calldata,
     bytes calldata
-  ) external pure returns (bytes4) {
+  ) external fallbackIfAvailable returns (bytes4) {
     return Hooks.onERC1155BatchReceived.selector;
   }
 
@@ -106,13 +112,26 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, 
     uint256 amount,
     bytes calldata data,
     bytes calldata operatorData
-  ) external { }
+  ) external fallbackIfAvailable { }
 
-  function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+  function onERC721Received(address, address, uint256, bytes calldata) external fallbackIfAvailable returns (bytes4) {
     return Hooks.onERC721Received.selector;
   }
 
-  function tokenReceived(address, uint256, bytes calldata) external { }
+  function tokenReceived(address, uint256, bytes calldata) external fallbackIfAvailable { }
+
+  modifier fallbackIfAvailable() {
+    address target = _readHook(bytes4(msg.data));
+    if (target == address(0)) {
+      _;
+    } else {
+      (bool success, bytes memory result) = target.delegatecall(msg.data);
+      assembly {
+        if iszero(success) { revert(add(result, 32), mload(result)) }
+        return(add(result, 32), mload(result))
+      }
+    }
+  }
 
   fallback() external payable {
     if (msg.data.length >= 4) {
