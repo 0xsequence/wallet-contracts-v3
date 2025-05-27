@@ -12,8 +12,7 @@ contract Estimator is Stage2Module {
   function _isValidImage(
     bytes32 _imageHash
   ) internal view virtual override returns (bool) {
-    super._isValidImage(_imageHash);
-    return true;
+    return super._isValidImage(_imageHash);
   }
 
   function estimate(
