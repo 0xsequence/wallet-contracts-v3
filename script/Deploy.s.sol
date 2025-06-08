@@ -6,6 +6,7 @@ import { Factory } from "src/Factory.sol";
 import { Guest } from "src/Guest.sol";
 import { Stage1Module } from "src/Stage1Module.sol";
 import { SessionManager } from "src/extensions/sessions/SessionManager.sol";
+import { ValueForwarder } from "src/extensions/sessions/utils/ValueForwarder.sol";
 
 contract Deploy is SingletonDeployer {
 
@@ -27,6 +28,9 @@ contract Deploy is SingletonDeployer {
 
     initCode = abi.encodePacked(type(SessionManager).creationCode);
     _deployIfNotAlready("SessionManager", initCode, salt, pk);
+
+    initCode = abi.encodePacked(type(ValueForwarder).creationCode);
+    _deployIfNotAlready("ValueForwarder", initCode, salt, pk);
   }
 
 }
