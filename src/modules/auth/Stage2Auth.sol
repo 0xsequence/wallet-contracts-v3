@@ -6,15 +6,22 @@ import { Implementation } from "../Implementation.sol";
 import { Storage } from "../Storage.sol";
 import { BaseAuth } from "./BaseAuth.sol";
 
+/// @title Stage2Auth
+/// @author Agustin Aguilar
+/// @notice Stage 2 auth contract
 contract Stage2Auth is BaseAuth, Implementation {
 
-  //                        IMAGE_HASH_KEY = keccak256("org.arcadeum.module.auth.upgradable.image.hash");
+  /// @dev keccak256("org.arcadeum.module.auth.upgradable.image.hash")
   bytes32 internal constant IMAGE_HASH_KEY = bytes32(0xea7157fa25e3aa17d0ae2d5280fa4e24d421c61842aa85e45194e1145aa72bf8);
 
+  /// @notice Emitted when the image hash is updated
   event ImageHashUpdated(bytes32 newImageHash);
 
+  /// @notice Error thrown when the image hash is zero
   error ImageHashIsZero();
 
+  /// @notice Get the image hash
+  /// @return imageHash The image hash
   function imageHash() external view virtual returns (bytes32) {
     return Storage.readBytes32(IMAGE_HASH_KEY);
   }

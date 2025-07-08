@@ -18,6 +18,10 @@ contract PermissionValidatorHarness is PermissionValidator {
     }
   }
 
+  function callSetLimitUsage(address wallet, bytes32 usageHash, uint256 usageAmount) public {
+    setLimitUsage(wallet, usageHash, usageAmount);
+  }
+
 }
 
 contract PermissionValidatorTest is Test {
@@ -31,6 +35,13 @@ contract PermissionValidatorTest is Test {
 
   function setUp() public {
     validator = new PermissionValidatorHarness();
+  }
+
+  function test_LimitUsageUpdated(address wallet, bytes32 usageHash, uint256 usageAmount) public {
+    vm.expectEmit(true, true, true, true);
+    emit PermissionValidator.LimitUsageUpdated(wallet, usageHash, usageAmount);
+    validator.callSetLimitUsage(wallet, usageHash, usageAmount);
+    assertEq(validator.getLimitUsage(wallet, usageHash), usageAmount);
   }
 
   function test_validatePermission_Equal(

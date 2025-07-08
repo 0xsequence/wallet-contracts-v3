@@ -70,6 +70,11 @@ This node encodes session permissions for a specific signer:
 ```
 Permissions Node Layout:
  ┌─────────────────────────────────────────────┐
+ │ Flag Byte                                   │
+ │   ┌────────────────────────┐                │
+ │   │ Bits 7..4: FLAG (0x00) │                │
+ │   │ Bits 3..0: Unused      │                │
+ │   └────────────────────────┘                │
  │ Signer (address)                            │
  │ Value Limit (uint256)                       │
  │ Deadline (uint256)                          │
@@ -104,8 +109,8 @@ Parameter Rule Encoding:
  ┌──────────────────────────────────────────────────────────────┐
  │ Operation & Cumulative Flag (1 byte)                         │
  │   ┌────────────────────────────────────────────────────────┐ │
- │   │ Bit 7 (0x80): Cumulative flag (1 = cumulative)         │ │
- │   │ Bits 6..0  (0x7F): Operation (e.g., 0 = EQUAL, etc.)   │ │
+ │   │ Bits 7..1  (0xFE): Operation (e.g., 0 = EQUAL, etc.)   │ │
+ │   │ Bit 0 (0x01): Cumulative flag (1 = cumulative)         │ │
  │   └────────────────────────────────────────────────────────┘ │
  │ Value (bytes32)                                              │
  │ Offset (uint256)                                             │
@@ -122,9 +127,14 @@ This node includes a 32-byte pre-hashed value:
 
 ```
 Node Layout:
- ┌─────────────────────────────┐
- │ Node Hash (bytes32)         │
- └─────────────────────────────┘
+ ┌──────────────────────────────┐
+ │ Flag Byte                    │
+ │   ┌────────────────────────┐ │
+ │   │ Bits 7..4: FLAG (0x01) │ │
+ │   │ Bits 3..0: Unused      │ │
+ │   └────────────────────────┘ │
+ │ Node Hash (bytes32)          │
+ └──────────────────────────────┘
 ```
 
 This node is an optimization to reduce the size of the configuration tree in calldata. By using this node, unused permissions or configuration segments can be hidden, while still allowing the complete image hash to be derived.
@@ -135,13 +145,18 @@ Branches allow for the recursive grouping of nested configuration nodes into a s
 
 ```
 Branch Node Layout:
- ┌─────────────────────────────────────────────┐
- │ Size Indicator (uintX, determined by flag)  │
- │ Branch Data (nested configuration bytes)    │
- └─────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────┐
+ │ Flag Byte                                    │
+ │   ┌────────────────────────────────────────┐ │
+ │   │ Bits 7..4: FLAG (0x02)                 │ │
+ │   │ Bits 3..0: Size of size field in bytes │ │
+ │   └────────────────────────────────────────┘ │
+ │ Size (uintX, where X is determined above)    │
+ │ Branch Data (nested configuration bytes)     │
+ └──────────────────────────────────────────────┘
 ```
 
-The **Size Indicator** specifies the total number of bytes that the branch occupies. The branch data that follows can include a mix of permissions nodes, pre-hashed nodes, blacklists, and even other branches. When processing a branch:
+The **Size** field specifies the total number of bytes that the branch occupies. The size of this field is determined by the additional data portion of the flag byte (bits 3..0), which indicates how many bytes are used to encode the size. The branch data that follows can include a mix of permissions nodes, pre-hashed nodes, blacklists, and even other branches. When processing a branch:
 
 - The branch data is parsed recursively, with each nested node being processed according to its own flag.
 - The leaf hashes of all nested nodes are computed.
@@ -151,9 +166,6 @@ The **Size Indicator** specifies the total number of bytes that the branch occup
 > [!TIP]
 > Branch nodes are especially useful for modularizing the configuration structure. They allow logically related nodes to be grouped together, which not only improves organization but also potentially reduces the overall size of the calldata by allowing unused leaves to be rolled up into a single node.
 
-> [!NOTE]
-> The branch size is determined by bits in the additional data portion of the flag byte. Ensure that branch sizes do not exceed the limits imposed by the `uintX` size field.
-
 #### Blacklist (FLAG 0x03)
 
 The blacklist node specifies addresses that are disallowed for implicit sessions. This includes both target addresses that cannot be called and session signers that are not allowed to make implicit calls.
@@ -161,10 +173,20 @@ The blacklist node specifies addresses that are disallowed for implicit sessions
 ```
 Blacklist Node Layout:
  ┌──────────────────────────────────────────────┐
- │ Blacklist Count (uint24, with overflow check)│
+ │ Flag Byte                                    │
+ │   ┌────────────────────────────────────────┐ │
+ │   │ Bits 7..4: FLAG (0x03)                 │ │
+ │   │ Bits 3..0: Blacklist count or 0x0F     │ │
+ │   └────────────────────────────────────────┘ │
+ │ [Optional] Extended Count (uint16)           │
  │ Blacklisted Addresses (sorted array)         │
  └──────────────────────────────────────────────┘
 ```
+
+The blacklist count is encoded in the additional data portion of the flag byte (bits 3..0):
+
+- If the count is 14 or less, it is stored directly in these bits
+- If the count is 15 or more, these bits are set to 0x0F and the actual count is stored in the next 2 bytes as a uint16
 
 The blacklist serves two security purposes:
 
@@ -185,9 +207,14 @@ Specifies the identity signer used for attestation verification:
 
 ```
 Identity Signer Layout:
- ┌─────────────────────────────┐
- │ Identity Signer (address)   │
- └─────────────────────────────┘
+ ┌──────────────────────────────┐
+ │ Flag Byte                    │
+ │   ┌────────────────────────┐ │
+ │   │ Bits 7..4: FLAG (0x04) │ │
+ │   │ Bits 3..0: Unused      │ │
+ │   └────────────────────────┘ │
+ │ Identity Signer (address)    │
+ └──────────────────────────────┘
 ```
 
 > [!IMPORTANT]
@@ -231,7 +258,7 @@ Call Signature Layout:
  │   │               index; if explicit, this is the          ││
  │   │               session permission index                 ││
  │   └────────────────────────────────────────────────────────┘│
- │ Session Signature (EIP-2098 compact: see below)            │
+ │ Session Signature (EIP-2098 compact: see below)             │
  └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -297,8 +324,8 @@ Parameter Rule:
  ┌────────────────────────────────────────────────────────────┐
  │ Operation & Cumulative Flag (1 byte)                       │
  │   ┌──────────────────────────────────────────────────────┐ │
- │   │ Bit 7 (0x80): Cumulative flag (1 = cumulative)       │ │
- │   │ Bits 6..0 (0x7F): Operation (e.g., 0 = EQUAL, etc.)  │ │
+ │   │ Bits 7..1  (0xFE): Operation (e.g., 0 = EQUAL, etc.) │ │
+ │   │ Bit 0 (0x01): Cumulative flag (1 = cumulative)       │ │
  │   └──────────────────────────────────────────────────────┘ │
  │ Value (bytes32)                                            │
  │ Offset (uint256)                                           │

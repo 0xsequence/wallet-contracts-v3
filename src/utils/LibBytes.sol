@@ -1,100 +1,116 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.18;
 
-/**
- * @title Library for reading data from bytes arrays
- * @author Agustin Aguilar (aa@horizon.io), Michael Standen (mstan@horizon.io)
- * @notice This library contains functions for reading data from bytes arrays.
- *
- * @dev These functions do not check if the input index is within the bounds of the data array.
- *         Reading out of bounds may return dirty values.
- */
+/// @title Library for reading data from bytes arrays
+/// @author Agustin Aguilar (aa@horizon.io), Michael Standen (mstan@horizon.io)
+/// @notice This library contains functions for reading data from bytes arrays.
+/// @dev These functions do not check if the input index is within the bounds of the data array.
+/// @dev Reading out of bounds may return dirty values.
 library LibBytes {
 
-  /**
-   * @notice Returns the bytes32 value at the given index in the input data.
-   * @param data The input data.
-   * @param index The index of the value to retrieve.
-   * @return a The bytes32 value at the given index.
-   */
-  function readBytes32(bytes calldata data, uint256 index) internal pure returns (bytes32 a) {
+  function readFirstUint8(
+    bytes calldata _data
+  ) internal pure returns (uint8 a, uint256 newPointer) {
     assembly {
-      a := calldataload(add(data.offset, index))
-    }
-  }
-
-  /**
-   * @notice Returns the uint8 value at the given index in the input data.
-   * @param data The input data.
-   * @param index The index of the value to retrieve.
-   * @return a The uint8 value at the given index.
-   */
-  function readUint8(bytes calldata data, uint256 index) internal pure returns (uint8 a) {
-    assembly {
-      let word := calldataload(add(index, data.offset))
+      let word := calldataload(_data.offset)
       a := shr(248, word)
+      newPointer := 1
     }
   }
 
-  /**
-   * @notice Returns the first uint16 value in the input data.
-   * @param data The input data.
-   * @return a The first uint16 value in the input data.
-   */
-  function readFirstUint16(
-    bytes calldata data
-  ) internal pure returns (uint16 a) {
+  function readUint8(bytes calldata _data, uint256 _index) internal pure returns (uint8 a, uint256 newPointer) {
     assembly {
-      let word := calldataload(data.offset)
+      let word := calldataload(add(_index, _data.offset))
+      a := shr(248, word)
+      newPointer := add(_index, 1)
+    }
+  }
+
+  function readUint16(bytes calldata _data, uint256 _index) internal pure returns (uint16 a, uint256 newPointer) {
+    assembly {
+      let word := calldataload(add(_index, _data.offset))
       a := shr(240, word)
+      newPointer := add(_index, 2)
     }
   }
 
-  /**
-   * @notice Returns the uint32 value at the given index in the input data.
-   * @param data The input data.
-   * @param index The index of the value to retrieve.
-   * @return a The uint32 value at the given index.
-   */
-  function readUint32(bytes calldata data, uint256 index) internal pure returns (uint32 a) {
+  function readUint24(bytes calldata _data, uint256 _index) internal pure returns (uint24 a, uint256 newPointer) {
     assembly {
-      let word := calldataload(add(index, data.offset))
-      a := shr(224, word)
+      let word := calldataload(add(_index, _data.offset))
+      a := shr(232, word)
+      newPointer := add(_index, 3)
     }
   }
 
-  // ERC-2098 Compact Signature
-  function readRSVCompact(bytes calldata data, uint256 index) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
+  function readUint64(bytes calldata _data, uint256 _index) internal pure returns (uint64 a, uint256 newPointer) {
+    assembly {
+      let word := calldataload(add(_index, _data.offset))
+      a := shr(192, word)
+      newPointer := add(_index, 8)
+    }
+  }
+
+  function readUint160(bytes calldata _data, uint256 _index) internal pure returns (uint160 a, uint256 newPointer) {
+    assembly {
+      let word := calldataload(add(_index, _data.offset))
+      a := shr(96, word)
+      newPointer := add(_index, 20)
+    }
+  }
+
+  function readUint256(bytes calldata _data, uint256 _index) internal pure returns (uint256 a, uint256 newPointer) {
+    assembly {
+      a := calldataload(add(_index, _data.offset))
+      newPointer := add(_index, 32)
+    }
+  }
+
+  function readUintX(
+    bytes calldata _data,
+    uint256 _index,
+    uint256 _length
+  ) internal pure returns (uint256 a, uint256 newPointer) {
+    assembly {
+      let word := calldataload(add(_index, _data.offset))
+      let shift := sub(256, mul(_length, 8))
+      a := and(shr(shift, word), sub(shl(mul(8, _length), 1), 1))
+      newPointer := add(_index, _length)
+    }
+  }
+
+  function readBytes4(bytes calldata _data, uint256 _pointer) internal pure returns (bytes4 a, uint256 newPointer) {
+    assembly {
+      let word := calldataload(add(_pointer, _data.offset))
+      a := and(word, 0xffffffff00000000000000000000000000000000000000000000000000000000)
+      newPointer := add(_pointer, 4)
+    }
+  }
+
+  function readBytes32(bytes calldata _data, uint256 _pointer) internal pure returns (bytes32 a, uint256 newPointer) {
+    assembly {
+      a := calldataload(add(_pointer, _data.offset))
+      newPointer := add(_pointer, 32)
+    }
+  }
+
+  function readAddress(bytes calldata _data, uint256 _index) internal pure returns (address a, uint256 newPointer) {
+    assembly {
+      let word := calldataload(add(_index, _data.offset))
+      a := and(shr(96, word), 0xffffffffffffffffffffffffffffffffffffffff)
+      newPointer := add(_index, 20)
+    }
+  }
+
+  /// @dev ERC-2098 Compact Signature
+  function readRSVCompact(
+    bytes calldata _data,
+    uint256 _index
+  ) internal pure returns (bytes32 r, bytes32 s, uint8 v, uint256 newPointer) {
     uint256 yParityAndS;
     assembly {
-      let offset := data.offset
-      r := calldataload(add(offset, index))
-      yParityAndS := calldataload(add(offset, add(index, 32)))
-    }
-    uint256 yParity = uint256(yParityAndS >> 255);
-    s = bytes32(uint256(yParityAndS) & ((1 << 255) - 1));
-    v = uint8(yParity) + 27;
-  }
-
-  function readMBytes4(bytes memory data, uint256 index) internal pure returns (bytes4 a) {
-    assembly {
-      let word := mload(add(add(data, 0x20), index))
-      a := and(word, 0xFFFFFFFF00000000000000000000000000000000000000000000000000000000)
-    }
-  }
-
-  function readMBytes32(bytes memory data, uint256 index) internal pure returns (bytes32 a) {
-    assembly {
-      a := mload(add(add(data, 0x20), index))
-    }
-  }
-
-  // ERC-2098 Compact Signature
-  function readMRSVCompact(bytes memory data, uint256 index) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
-    uint256 yParityAndS;
-    assembly {
-      r := mload(add(add(data, 0x20), index))
-      yParityAndS := mload(add(add(data, 0x20), add(index, 32)))
+      r := calldataload(add(_index, _data.offset))
+      yParityAndS := calldataload(add(_index, add(_data.offset, 32)))
+      newPointer := add(_index, 64)
     }
     uint256 yParity = uint256(yParityAndS >> 255);
     s = bytes32(uint256(yParityAndS) & ((1 << 255) - 1));

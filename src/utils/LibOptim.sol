@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.18;
 
-/**
- * @title Library for optimized EVM operations
- * @author Agustin Aguilar (aa@horizon.io)
- * @notice This library contains functions for optimizing certain EVM operations.
- */
+/// @title LibOptim
+/// @author Agustin Aguilar
+/// @notice Library for optimized EVM operations
 library LibOptim {
 
   /**

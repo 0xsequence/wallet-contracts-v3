@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { LibBytesPointer } from "../../../utils/LibBytesPointer.sol";
+import { LibBytes } from "../../../utils/LibBytes.sol";
 
+/// @notice Permission for a specific session signer
+/// @param target Address of the target contract this permission applies to
+/// @param rules Array of parameter rules
 struct Permission {
   address target;
   ParameterRule[] rules;
 }
 
+/// @notice Parameter operation for a specific session signer
 enum ParameterOperation {
   EQUAL,
   NOT_EQUAL,
@@ -15,23 +19,36 @@ enum ParameterOperation {
   LESS_THAN_OR_EQUAL
 }
 
+/// @notice Parameter rule for a specific session signer
+/// @param cumulative If the value should accumulate over multiple calls
+/// @param operation Operation to apply to the parameter
+/// @param value Value to compare against the masked parameter
+/// @param offset Offset in calldata to read the parameter
+/// @param mask Mask to apply to the parameter
 struct ParameterRule {
-  bool cumulative; // If the value should accumulate over multiple calls
-  ParameterOperation operation; // Operation to apply to the parameter
-  bytes32 value; // Value to compare against
-  uint256 offset; // Offset in calldata to read the parameter
-  bytes32 mask; // Mask to apply to the parameter
+  bool cumulative;
+  ParameterOperation operation;
+  bytes32 value;
+  uint256 offset;
+  bytes32 mask;
 }
 
+/// @notice Usage limit for a specific session signer
+/// @param usageHash Usage identifier
+/// @param usageAmount Amount of usage
 struct UsageLimit {
   bytes32 usageHash;
   uint256 usageAmount;
 }
 
-using LibBytesPointer for bytes;
+using LibBytes for bytes;
 
+/// @title LibPermission
+/// @author Michael Standen
+/// @notice Library for permission management
 library LibPermission {
 
+  /// @notice Error thrown when the rules length exceeds the maximum
   error RulesLengthExceedsMax();
 
   /// @notice Reads a permission from a packed bytes array

@@ -9,6 +9,9 @@ import { ISignalsImplicitMode } from "./ISignalsImplicitMode.sol";
 
 using LibAttestation for Attestation;
 
+/// @title ImplicitSessionManager
+/// @author Agustin Aguilar, Michael Standen
+/// @notice Manager for implicit sessions
 abstract contract ImplicitSessionManager {
 
   /// @notice Validates a call in implicit mode

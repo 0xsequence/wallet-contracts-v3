@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import { Payload } from "../../modules/Payload.sol";
 import { ISapient } from "../../modules/interfaces/ISapient.sol";
-import { LibBytesPointer } from "../../utils/LibBytesPointer.sol";
+import { LibBytes } from "../../utils/LibBytes.sol";
 
 import { SessionErrors } from "./SessionErrors.sol";
 import { SessionSig } from "./SessionSig.sol";
@@ -16,11 +16,16 @@ import {
 import { Permission, UsageLimit } from "./explicit/Permission.sol";
 import { ImplicitSessionManager } from "./implicit/ImplicitSessionManager.sol";
 
-using LibBytesPointer for bytes;
+using LibBytes for bytes;
 
+/// @title SessionManager
+/// @author Michael Standen, Agustin Aguilar
+/// @notice Manager for smart sessions
 contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionManager {
 
+  /// @notice Error thrown when the payload kind is invalid
   error InvalidPayloadKind();
+  /// @notice Error thrown when the calls length is invalid
   error InvalidCallsLength();
 
   /// @inheritdoc ISapient
@@ -67,7 +72,8 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
             // Initialize new session usage limits
             limits.signer = callSignature.sessionSigner;
             limits.limits = new UsageLimit[](0);
-            limits.totalValueUsed = 0;
+            bytes32 usageHash = keccak256(abi.encode(callSignature.sessionSigner, VALUE_TRACKING_ADDRESS));
+            limits.totalValueUsed = getLimitUsage(wallet, usageHash);
             break;
           }
           if (sessionUsageLimits[limitsIdx].signer == callSignature.sessionSigner) {
@@ -110,14 +116,6 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
 
     // Return the image hash
     return sig.imageHash;
-  }
-
-  /// @notice Returns true if the contract implements the given interface
-  /// @param interfaceId The interface identifier
-  function supportsInterface(
-    bytes4 interfaceId
-  ) public pure virtual override returns (bool) {
-    return interfaceId == type(ISapient).interfaceId || super.supportsInterface(interfaceId);
   }
 
 }

@@ -5,8 +5,12 @@ import { Payload } from "./modules/Payload.sol";
 import { IDelegatedExtension } from "./modules/interfaces/IDelegatedExtension.sol";
 import { LibOptim } from "./utils/LibOptim.sol";
 
+/// @title Simulator
+/// @author William Hua
+/// @notice Helper for simulating the execution of a payload
 contract Simulator {
 
+  /// @notice Status of the call
   enum Status {
     Skipped,
     Succeeded,
@@ -16,12 +20,16 @@ contract Simulator {
     NotEnoughGas
   }
 
+  /// @notice Result of the call
   struct Result {
     Status status;
     bytes result;
     uint256 gasUsed;
   }
 
+  /// @notice Simulate the execution of a payload
+  /// @param _calls The calls to simulate
+  /// @return results The results of the calls
   function simulate(
     Payload.Call[] calldata _calls
   ) external returns (Result[] memory results) {

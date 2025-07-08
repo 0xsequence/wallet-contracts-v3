@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { SingletonDeployer, console } from "erc2470-libs/script/SingletonDeployer.s.sol";
+import { SingletonDeployer, console } from "lib/erc2470-libs/script/SingletonDeployer.s.sol";
 import { Factory } from "src/Factory.sol";
 import { Guest } from "src/Guest.sol";
 import { Stage1Module } from "src/Stage1Module.sol";

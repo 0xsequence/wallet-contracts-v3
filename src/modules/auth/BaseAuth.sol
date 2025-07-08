@@ -5,7 +5,7 @@ import { Payload } from "../Payload.sol";
 
 import { Storage } from "../Storage.sol";
 import { IAuth } from "../interfaces/IAuth.sol";
-import { IERC1271 } from "../interfaces/IERC1271.sol";
+import { IERC1271, IERC1271_MAGIC_VALUE_HASH } from "../interfaces/IERC1271.sol";
 
 import { IPartialAuth } from "../interfaces/IPartialAuth.sol";
 import { ISapient } from "../interfaces/ISapient.sol";
@@ -15,17 +15,25 @@ import { SelfAuth } from "./SelfAuth.sol";
 
 using Payload for Payload.Decoded;
 
-abstract contract BaseAuth is IAuth, ISapient, IERC1271, SelfAuth {
+/// @title BaseAuth
+/// @author Agustin Aguilar, Michael Standen
+/// @notice Base contract for the auth module
+abstract contract BaseAuth is IAuth, IPartialAuth, ISapient, IERC1271, SelfAuth {
 
-  //                                              keccak256("org.sequence.module.auth.static")
+  /// @dev keccak256("org.sequence.module.auth.static")
   bytes32 private constant STATIC_SIGNATURE_KEY =
     bytes32(0xc852adf5e97c2fc3b38f405671e91b7af1697ef0287577f227ef10494c2a8e86);
 
+  /// @notice Error thrown when the sapient signature is invalid
   error InvalidSapientSignature(Payload.Decoded _payload, bytes _signature);
+  /// @notice Error thrown when the signature weight is invalid
   error InvalidSignatureWeight(uint256 _threshold, uint256 _weight);
+  /// @notice Error thrown when the static signature has expired
   error InvalidStaticSignatureExpired(bytes32 _opHash, uint256 _expires);
+  /// @notice Error thrown when the static signature has the wrong caller
   error InvalidStaticSignatureWrongCaller(bytes32 _opHash, address _caller, address _expectedCaller);
 
+  /// @notice Event emitted when a static signature is set
   event StaticSignatureSet(bytes32 _hash, address _address, uint96 _timestamp);
 
   function _getStaticSignature(
@@ -41,17 +49,29 @@ abstract contract BaseAuth is IAuth, ISapient, IERC1271, SelfAuth {
     );
   }
 
+  /// @notice Get the static signature for a specific hash
+  /// @param _hash The hash to get the static signature for
+  /// @return address The address associated with the static signature
+  /// @return timestamp The timestamp of the static signature
   function getStaticSignature(
     bytes32 _hash
   ) external view returns (address, uint256) {
     return _getStaticSignature(_hash);
   }
 
+  /// @notice Set the static signature for a specific hash
+  /// @param _hash The hash to set the static signature for
+  /// @param _address The address to associate with the static signature
+  /// @param _timestamp The timestamp of the static signature
+  /// @dev Only callable by the wallet itself
   function setStaticSignature(bytes32 _hash, address _address, uint96 _timestamp) external onlySelf {
     _setStaticSignature(_hash, _address, _timestamp);
     emit StaticSignatureSet(_hash, _address, _timestamp);
   }
 
+  /// @notice Update the image hash
+  /// @param _imageHash The new image hash
+  /// @dev Only callable by the wallet itself
   function updateImageHash(
     bytes32 _imageHash
   ) external virtual onlySelf {
@@ -96,6 +116,7 @@ abstract contract BaseAuth is IAuth, ISapient, IERC1271, SelfAuth {
     isValid = _isValidImage(imageHash);
   }
 
+  /// @inheritdoc ISapient
   function recoverSapientSignature(
     Payload.Decoded memory _payload,
     bytes calldata _signature
@@ -118,6 +139,7 @@ abstract contract BaseAuth is IAuth, ISapient, IERC1271, SelfAuth {
     return bytes32(uint256(1));
   }
 
+  /// @inheritdoc IERC1271
   function isValidSignature(bytes32 _hash, bytes calldata _signature) external view returns (bytes4) {
     Payload.Decoded memory payload = Payload.fromDigest(_hash);
 
@@ -126,9 +148,10 @@ abstract contract BaseAuth is IAuth, ISapient, IERC1271, SelfAuth {
       return bytes4(0);
     }
 
-    return bytes4(0x20c13b0b);
+    return IERC1271_MAGIC_VALUE_HASH;
   }
 
+  /// @inheritdoc IPartialAuth
   function recoverPartialSignature(
     Payload.Decoded memory _payload,
     bytes calldata _signature

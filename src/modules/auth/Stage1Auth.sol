@@ -6,20 +6,28 @@ import { Implementation } from "../Implementation.sol";
 import { Storage } from "../Storage.sol";
 import { BaseAuth } from "./BaseAuth.sol";
 
+/// @title Stage1Auth
+/// @author Agustin Aguilar
+/// @notice Stage 1 auth contract
 contract Stage1Auth is BaseAuth, Implementation {
 
+  /// @notice Error thrown when the image hash is zero
+  error ImageHashIsZero();
+  /// @notice Error thrown when the signature type is invalid
+  error InvalidSignatureType(bytes1 _type);
+
+  /// @notice Initialization code hash
   bytes32 public immutable INIT_CODE_HASH;
+  /// @notice Factory address
   address public immutable FACTORY;
+  /// @notice Stage 2 implementation address
   address public immutable STAGE_2_IMPLEMENTATION;
 
-  //                        IMAGE_HASH_KEY = keccak256("org.arcadeum.module.auth.upgradable.image.hash");
+  /// @dev keccak256("org.arcadeum.module.auth.upgradable.image.hash")
   bytes32 internal constant IMAGE_HASH_KEY = bytes32(0xea7157fa25e3aa17d0ae2d5280fa4e24d421c61842aa85e45194e1145aa72bf8);
 
+  /// @notice Emitted when the image hash is updated
   event ImageHashUpdated(bytes32 newImageHash);
-
-  // Errors
-  error ImageHashIsZero();
-  error InvalidSignatureType(bytes1 _type);
 
   constructor(address _factory, address _stage2) {
     // Build init code hash of the deployed wallets using that module

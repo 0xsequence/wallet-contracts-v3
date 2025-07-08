@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { ISapient, Payload } from "../../../modules/interfaces/ISapient.sol";
-import { LibBytesPointer } from "../../../utils/LibBytesPointer.sol";
+import { Payload } from "../../../modules/Payload.sol";
+import { LibBytes } from "../../../utils/LibBytes.sol";
 
 import { SessionErrors } from "../SessionErrors.sol";
 import { IExplicitSessionManager, SessionPermissions, SessionUsageLimits } from "./IExplicitSessionManager.sol";
@@ -11,9 +11,9 @@ import { PermissionValidator } from "./PermissionValidator.sol";
 
 abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionValidator {
 
-  using LibBytesPointer for bytes;
+  using LibBytes for bytes;
 
-  // Special address used for tracking native token value limits
+  /// @notice Special address used for tracking native token value limits
   address public constant VALUE_TRACKING_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
   /// @inheritdoc IExplicitSessionManager
@@ -58,6 +58,11 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
     }
     if (sessionPermissions.signer == address(0)) {
       revert SessionErrors.InvalidSessionSigner(sessionSigner);
+    }
+
+    // Check if session chainId is valid
+    if (sessionPermissions.chainId != 0 && sessionPermissions.chainId != block.chainid) {
+      revert SessionErrors.InvalidChainId(sessionPermissions.chainId);
     }
 
     // Check if session has expired.
@@ -153,14 +158,6 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
         revert SessionErrors.InvalidLimitUsageIncrement();
       }
     }
-  }
-
-  /// @notice Returns true if the contract implements the given interface
-  /// @param interfaceId The interface identifier
-  function supportsInterface(
-    bytes4 interfaceId
-  ) public pure virtual returns (bool) {
-    return interfaceId == type(ISapient).interfaceId || interfaceId == type(IExplicitSessionManager).interfaceId;
   }
 
 }

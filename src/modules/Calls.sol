@@ -5,20 +5,32 @@ import { LibOptim } from "../utils/LibOptim.sol";
 import { Nonce } from "./Nonce.sol";
 import { Payload } from "./Payload.sol";
 import { BaseAuth } from "./auth/BaseAuth.sol";
-import { SelfAuth } from "./auth/SelfAuth.sol";
 import { IDelegatedExtension } from "./interfaces/IDelegatedExtension.sol";
 
+/// @title Calls
+/// @author Agustin Aguilar, Michael Standen, William Hua
+/// @notice Contract for executing calls
 abstract contract Calls is BaseAuth, Nonce {
 
+  /// @notice Emitted when a call succeeds
   event CallSucceeded(bytes32 _opHash, uint256 _index);
+  /// @notice Emitted when a call fails
   event CallFailed(bytes32 _opHash, uint256 _index, bytes _returnData);
+  /// @notice Emitted when a call is aborted
   event CallAborted(bytes32 _opHash, uint256 _index, bytes _returnData);
+  /// @notice Emitted when a call is skipped
   event CallSkipped(bytes32 _opHash, uint256 _index);
 
+  /// @notice Error thrown when a call reverts
   error Reverted(Payload.Decoded _payload, uint256 _index, bytes _returnData);
+  /// @notice Error thrown when a signature is invalid
   error InvalidSignature(Payload.Decoded _payload, bytes _signature);
+  /// @notice Error thrown when there is not enough gas
   error NotEnoughGas(Payload.Decoded _payload, uint256 _index, uint256 _gasLeft);
 
+  /// @notice Execute a call
+  /// @param _payload The payload
+  /// @param _signature The signature
   function execute(bytes calldata _payload, bytes calldata _signature) external payable virtual {
     uint256 startingGas = gasleft();
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
@@ -33,6 +45,9 @@ abstract contract Calls is BaseAuth, Nonce {
     _execute(startingGas, opHash, decoded);
   }
 
+  /// @notice Execute a call
+  /// @dev Callable only by the contract itself
+  /// @param _payload The payload
   function selfExecute(
     bytes calldata _payload
   ) external payable virtual onlySelf {

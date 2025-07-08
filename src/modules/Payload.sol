@@ -1,19 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { LibBytesPointer } from "../utils/LibBytesPointer.sol";
+import { LibBytes } from "../utils/LibBytes.sol";
 
-using LibBytesPointer for bytes;
+using LibBytes for bytes;
 
+/// @title Payload
+/// @author Agustin Aguilar, Michael Standen, William Hua
+/// @notice Library for encoding and decoding payloads
 library Payload {
 
+  /// @notice Error thrown when the kind is invalid
   error InvalidKind(uint8 kind);
 
-  bytes32 private constant EIP712_DOMAIN_TYPEHASH =
-    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+  /// @dev keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
+  bytes32 private constant EIP712_DOMAIN_TYPEHASH = 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
 
-  bytes32 private constant EIP712_DOMAIN_NAME_SEQUENCE = keccak256("Sequence Wallet");
-  bytes32 private constant EIP712_DOMAIN_VERSION_SEQUENCE = keccak256("3");
+  /// @dev keccak256("Sequence Wallet")
+  bytes32 private constant EIP712_DOMAIN_NAME_SEQUENCE =
+    0x4aa45ca7ad825ceb1bf35643f0a58c295239df563b1b565c2485f96477c56318;
+
+  /// @dev keccak256("3")
+  bytes32 private constant EIP712_DOMAIN_VERSION_SEQUENCE =
+    0x2a80e1ef1d7842f27f2e6be0972bb708b9a135c38860dbe73c27c3486c34f4de;
 
   function domainSeparator(bool _noChainId, address _wallet) internal view returns (bytes32 _domainSeparator) {
     return keccak256(
@@ -27,27 +36,42 @@ library Payload {
     );
   }
 
-  bytes32 private constant CALL_TYPEHASH = keccak256(
-    "Call(address to,uint256 value,bytes data,uint256 gasLimit,bool delegateCall,bool onlyFallback,uint256 behaviorOnError)"
-  );
+  /// @dev keccak256("Call(address to,uint256 value,bytes data,uint256 gasLimit,bool delegateCall,bool onlyFallback,uint256 behaviorOnError)")
+  bytes32 private constant CALL_TYPEHASH = 0x0603985259a953da1f65a522f589c17bd1d0117ec1d3abb7c0788aef251ef437;
 
-  bytes32 private constant CALLS_TYPEHASH = keccak256(
-    "Calls(Call[] calls,uint256 space,uint256 nonce,address[] wallets)Call(address to,uint256 value,bytes data,uint256 gasLimit,bool delegateCall,bool onlyFallback,uint256 behaviorOnError)"
-  );
+  /// @dev keccak256("Calls(Call[] calls,uint256 space,uint256 nonce,address[] wallets)Call(address to,uint256 value,bytes data,uint256 gasLimit,bool delegateCall,bool onlyFallback,uint256 behaviorOnError)")
+  bytes32 private constant CALLS_TYPEHASH = 0x11e1e4079a79a66e4ade50033cfe2678cdd5341d2dfe5ef9513edb1a0be147a2;
 
-  bytes32 private constant MESSAGE_TYPEHASH = keccak256("Message(bytes message,address[] wallets)");
+  /// @dev keccak256("Message(bytes message,address[] wallets)")
+  bytes32 private constant MESSAGE_TYPEHASH = 0xe19a3b94fc3c7ece3f890d98a99bc422615537a08dea0603fa8425867d87d466;
 
-  bytes32 private constant CONFIG_UPDATE_TYPEHASH = keccak256("ConfigUpdate(bytes32 imageHash,address[] wallets)");
+  /// @dev keccak256("ConfigUpdate(bytes32 imageHash,address[] wallets)")
+  bytes32 private constant CONFIG_UPDATE_TYPEHASH = 0x11fdeb7e8373a1aa96bfac8d0ea91526b2c5d15e5cee20e0543e780258f3e8e4;
 
+  /// @notice Kind of transaction
   uint8 public constant KIND_TRANSACTIONS = 0x00;
+  /// @notice Kind of digest
   uint8 public constant KIND_MESSAGE = 0x01;
+  /// @notice Kind of config update
   uint8 public constant KIND_CONFIG_UPDATE = 0x02;
+  /// @notice Kind of message
   uint8 public constant KIND_DIGEST = 0x03;
 
+  /// @notice Behavior on error: ignore error
   uint8 public constant BEHAVIOR_IGNORE_ERROR = 0x00;
+  /// @notice Behavior on error: revert on error
   uint8 public constant BEHAVIOR_REVERT_ON_ERROR = 0x01;
+  /// @notice Behavior on error: abort on error
   uint8 public constant BEHAVIOR_ABORT_ON_ERROR = 0x02;
 
+  /// @notice Payload call information
+  /// @param to Address of the target contract
+  /// @param value Value to send with the call
+  /// @param data Data to send with the call
+  /// @param gasLimit Gas limit for the call
+  /// @param delegateCall If the call is a delegate call
+  /// @param onlyFallback If the call should only be executed in an error scenario
+  /// @param behaviorOnError Behavior on error
   struct Call {
     address to;
     uint256 value;
@@ -58,6 +82,16 @@ library Payload {
     uint256 behaviorOnError;
   }
 
+  /// @notice Decoded payload
+  /// @param kind Kind of payload
+  /// @param noChainId If the chain ID should be omitted
+  /// @param calls Array of calls (transaction kind)
+  /// @param space Nonce space for the calls (transaction kind)
+  /// @param nonce Nonce value for the calls (transaction kind)
+  /// @param message Message to validate (message kind)
+  /// @param imageHash Image hash to update to (config update kind)
+  /// @param digest Digest to validate (digest kind)
+  /// @param parentWallets Parent wallets
   struct Decoded {
     uint8 kind;
     bool noChainId;
@@ -196,12 +230,11 @@ library Payload {
   ) internal pure returns (bytes32) {
     // In EIP712, an array is often hashed as the keccak256 of the concatenated
     // hashes of each item. So we hash each Call, pack them, and hash again.
-    bytes memory encoded;
+    bytes32[] memory callHashes = new bytes32[](calls.length);
     for (uint256 i = 0; i < calls.length; i++) {
-      bytes32 callHash = hashCall(calls[i]);
-      encoded = abi.encodePacked(encoded, callHash);
+      callHashes[i] = hashCall(calls[i]);
     }
-    return keccak256(encoded);
+    return keccak256(abi.encodePacked(callHashes));
   }
 
   function toEIP712(

@@ -63,7 +63,7 @@ library PrimitivesRPC {
     uint256 _maxDepth,
     uint256 _seed,
     uint256 _minThresholdOnNested,
-    string memory _checkpointer
+    string memory _skew
   ) internal returns (string memory) {
     string memory params = string.concat(
       '{"maxDepth":',
@@ -72,8 +72,8 @@ library PrimitivesRPC {
       _vm.toString(_seed),
       '","minThresholdOnNested":',
       _vm.toString(_minThresholdOnNested),
-      ',"checkpointer":"',
-      _checkpointer,
+      ',"skewed":"',
+      _skew,
       '"}'
     );
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "devTools_randomConfig", params);

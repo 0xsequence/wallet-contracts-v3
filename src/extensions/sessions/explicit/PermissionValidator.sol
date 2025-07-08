@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { Payload } from "../../../modules/interfaces/ISapient.sol";
+import { Payload } from "../../../modules/Payload.sol";
 import { LibBytes } from "../../../utils/LibBytes.sol";
 import { ParameterOperation, ParameterRule, Permission, UsageLimit } from "./Permission.sol";
 
+/// @title PermissionValidator
+/// @author Michael Standen, Agustin Aguilar
+/// @notice Validates permissions for a given call
 abstract contract PermissionValidator {
 
   using LibBytes for bytes;
+
+  /// @notice Emitted when the usage amount for a given wallet and usage hash is updated
+  event LimitUsageUpdated(address wallet, bytes32 usageHash, uint256 usageAmount);
 
   /// @notice Mapping of usage limit hashes to their usage amounts
   mapping(address => mapping(bytes32 => uint256)) private limitUsage;
@@ -26,6 +32,7 @@ abstract contract PermissionValidator {
   /// @param usageAmount The usage amount
   function setLimitUsage(address wallet, bytes32 usageHash, uint256 usageAmount) internal {
     limitUsage[wallet][usageHash] = usageAmount;
+    emit LimitUsageUpdated(wallet, usageHash, usageAmount);
   }
 
   /// @notice Validates a rules permission
@@ -59,7 +66,7 @@ abstract contract PermissionValidator {
       ParameterRule memory rule = permission.rules[i];
 
       // Extract value from calldata at offset
-      bytes32 value = call.data.readBytes32(rule.offset);
+      (bytes32 value,) = call.data.readBytes32(rule.offset);
 
       // Apply mask
       value = value & rule.mask;

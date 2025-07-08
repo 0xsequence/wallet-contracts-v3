@@ -4,17 +4,22 @@ pragma solidity ^0.8.27;
 import { Calls } from "./modules/Calls.sol";
 import { Payload } from "./modules/Payload.sol";
 
-import { IAuth } from "./modules/interfaces/IAuth.sol";
-import { LibBytesPointer } from "./utils/LibBytesPointer.sol";
+import { LibBytes } from "./utils/LibBytes.sol";
 import { LibOptim } from "./utils/LibOptim.sol";
 
+/// @title Guest
+/// @author Agustin Aguilar, William Hua, Michael Standen
+/// @notice Guest for dispatching calls
 contract Guest {
 
-  using LibBytesPointer for bytes;
+  using LibBytes for bytes;
 
+  /// @notice Error thrown when a delegate call is not allowed
   error DelegateCallNotAllowed(uint256 index);
 
-  fallback() external {
+  /// @notice Fallback function
+  /// @dev Dispatches the guest call
+  fallback() external payable {
     Payload.Decoded memory decoded = Payload.fromPackedCalls(msg.data);
     bytes32 opHash = Payload.hash(decoded);
     _dispatchGuest(decoded, opHash);

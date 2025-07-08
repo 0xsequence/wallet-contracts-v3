@@ -37,7 +37,41 @@ contract BaseSigTest is AdvTest {
     Payload.Decoded memory payload;
     payload.noChainId = true;
 
-    string memory config = PrimitivesRPC.randomConfig(vm, _maxDepth, _seed, 1, "");
+    string memory config = PrimitivesRPC.randomConfig(vm, _maxDepth, _seed, 1, "none");
+    bytes memory encodedConfig = PrimitivesRPC.toEncodedConfig(vm, config);
+
+    (, uint256 weight, bytes32 imageHash,, bytes32 opHash) =
+      baseSigImp.recoverPub(payload, encodedConfig, true, address(0));
+
+    assertEq(weight, 0);
+    assertEq(imageHash, PrimitivesRPC.getImageHash(vm, config));
+    assertEq(opHash, Payload.hashFor(payload, address(baseSigImp)));
+  }
+
+  function test_recover_random_config_unsigned_skewed_left(uint256 _seed) external {
+    uint256 _maxDepth = 54;
+
+    Payload.Decoded memory payload;
+    payload.noChainId = true;
+
+    string memory config = PrimitivesRPC.randomConfig(vm, _maxDepth, _seed, 1, "left");
+    bytes memory encodedConfig = PrimitivesRPC.toEncodedConfig(vm, config);
+
+    (, uint256 weight, bytes32 imageHash,, bytes32 opHash) =
+      baseSigImp.recoverPub(payload, encodedConfig, true, address(0));
+
+    assertEq(weight, 0);
+    assertEq(imageHash, PrimitivesRPC.getImageHash(vm, config));
+    assertEq(opHash, Payload.hashFor(payload, address(baseSigImp)));
+  }
+
+  function test_recover_random_config_unsigned_skewed_right(uint256 _seed) external {
+    uint256 _maxDepth = 54;
+
+    Payload.Decoded memory payload;
+    payload.noChainId = true;
+
+    string memory config = PrimitivesRPC.randomConfig(vm, _maxDepth, _seed, 1, "right");
     bytes memory encodedConfig = PrimitivesRPC.toEncodedConfig(vm, config);
 
     (, uint256 weight, bytes32 imageHash,, bytes32 opHash) =
@@ -202,7 +236,7 @@ contract BaseSigTest is AdvTest {
       vm.mockCall(
         address(params.signer),
         abi.encodeWithSignature("isValidSignature(bytes32,bytes)", payloadHash, params.signature),
-        abi.encode(bytes4(0x20c13b0b))
+        abi.encode(bytes4(0x1626ba7e))
       );
 
       vm.expectCall(
@@ -318,7 +352,7 @@ contract BaseSigTest is AdvTest {
     assumeNotPrecompile2(params.signer);
     vm.assume(params.prefix.length + params.suffix.length < 600);
 
-    if (params.bad4Bytes == bytes4(0x20c13b0b)) {
+    if (params.bad4Bytes == bytes4(0x1626ba7e)) {
       params.bad4Bytes = bytes4(0x00000000);
     }
 
@@ -742,7 +776,6 @@ contract BaseSigTest is AdvTest {
         vars.config1,
         string(
           abi.encodePacked(
-            "--signature ",
             vm.toString(vars.signer1addr),
             ":hash:",
             vm.toString(vars.r2),
@@ -759,7 +792,6 @@ contract BaseSigTest is AdvTest {
         vars.config2,
         string(
           abi.encodePacked(
-            "--signature ",
             vm.toString(vars.signer2addr),
             ":hash:",
             vm.toString(vars.r3),
@@ -1003,7 +1035,6 @@ contract BaseSigTest is AdvTest {
         vars.config1,
         string(
           abi.encodePacked(
-            "--signature ",
             vm.toString(vars.signer1addr),
             ":hash:",
             vm.toString(vars.r2),
@@ -1021,7 +1052,6 @@ contract BaseSigTest is AdvTest {
         vars.config2,
         string(
           abi.encodePacked(
-            "--signature ",
             vm.toString(vars.signer2addr),
             ":hash:",
             vm.toString(vars.r3),
@@ -1156,7 +1186,6 @@ contract BaseSigTest is AdvTest {
         vars.config1,
         string(
           abi.encodePacked(
-            "--signature ",
             vm.toString(vars.signer1addr),
             ":hash:",
             vm.toString(vars.r2),
@@ -1174,7 +1203,6 @@ contract BaseSigTest is AdvTest {
         vars.config2,
         string(
           abi.encodePacked(
-            "--signature ",
             vm.toString(vars.signer2addr),
             ":hash:",
             vm.toString(vars.r3),

@@ -115,7 +115,7 @@ contract TestStage1Module is AdvTest {
 
     // Call isValidSignature
     bytes4 result = Stage1Module(wallet).isValidSignature(_digest, signature);
-    assertEq(result, bytes4(0x20c13b0b));
+    assertEq(result, bytes4(0x1626ba7e));
   }
 
   struct test_update_config_params {
@@ -245,7 +245,7 @@ contract TestStage1Module is AdvTest {
     }
 
     bytes4 result = Stage2Module(wallet).isValidSignature(params.digest, vars.useNewImageHashSignature);
-    assertEq(result, bytes4(0x20c13b0b));
+    assertEq(result, bytes4(0x1626ba7e));
   }
 
   function test_receiveETH_stage1() external {
@@ -370,12 +370,12 @@ contract TestStage1Module is AdvTest {
 
     // Call isValidSignature and expect it to succeed
     bytes4 result = Stage1Module(wallet).isValidSignature(_digest, hex"80");
-    assertEq(result, bytes4(0x20c13b0b));
+    assertEq(result, bytes4(0x1626ba7e));
 
     // Even if called from other caller
     vm.prank(_otherCaller);
     result = Stage1Module(wallet).isValidSignature(_digest, hex"80");
-    assertEq(result, bytes4(0x20c13b0b));
+    assertEq(result, bytes4(0x1626ba7e));
   }
 
   function test_static_signature_specific_address(
@@ -413,7 +413,7 @@ contract TestStage1Module is AdvTest {
     // Call isValidSignature from _onlyAddress should succeed
     vm.prank(_onlyAddress);
     bytes4 result = Stage1Module(wallet).isValidSignature(_digest, hex"80");
-    assertEq(result, bytes4(0x20c13b0b));
+    assertEq(result, bytes4(0x1626ba7e));
 
     // Call isValidSignature from _otherCaller should fail
     vm.prank(_otherCaller);
@@ -465,7 +465,7 @@ contract TestStage1Module is AdvTest {
     // --- Test Case 1: Use signature just before expiry (should work) ---
     vm.warp(_validUntil - 1); // Set time to just before expiration
     bytes4 result = Stage1Module(wallet).isValidSignature(_digest, hex"80");
-    assertEq(result, bytes4(0x20c13b0b), "Signature should be valid before expiry");
+    assertEq(result, bytes4(0x1626ba7e), "Signature should be valid before expiry");
 
     // --- Test Case 2: Use signature exactly at expiry (should fail) ---
     vm.warp(_validUntil); // Set time exactly to expiration

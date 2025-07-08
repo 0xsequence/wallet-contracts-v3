@@ -2,16 +2,19 @@
 pragma solidity ^0.8.27;
 
 import { Payload } from "../../modules/Payload.sol";
-import { LibBytesPointer } from "../../utils/LibBytesPointer.sol";
+import { LibBytes } from "../../utils/LibBytes.sol";
 import { LibOptim } from "../../utils/LibOptim.sol";
 import { SessionErrors } from "./SessionErrors.sol";
 import { SessionPermissions } from "./explicit/IExplicitSessionManager.sol";
 import { LibPermission, Permission } from "./explicit/Permission.sol";
 import { Attestation, LibAttestation } from "./implicit/Attestation.sol";
 
-using LibBytesPointer for bytes;
+using LibBytes for bytes;
 using LibAttestation for Attestation;
 
+/// @title SessionSig
+/// @author Michael Standen, Agustin Aguilar
+/// @notice Library for session signatures
 library SessionSig {
 
   uint256 internal constant FLAG_PERMISSIONS = 0;
@@ -20,15 +23,26 @@ library SessionSig {
   uint256 internal constant FLAG_BLACKLIST = 3;
   uint256 internal constant FLAG_IDENTITY_SIGNER = 4;
 
-  uint256 internal constant MIN_ENCODED_PERMISSION_SIZE = 86;
+  uint256 internal constant MIN_ENCODED_PERMISSION_SIZE = 94;
 
+  /// @notice Call signature for a specific session
+  /// @param isImplicit If the call is implicit
+  /// @param sessionSigner Address of the session signer
+  /// @param sessionPermission Session permission for explicit calls
+  /// @param attestation Attestation for implicit calls
   struct CallSignature {
     bool isImplicit;
     address sessionSigner;
-    uint8 sessionPermission; // For explicit
-    Attestation attestation; // For implicit
+    uint8 sessionPermission;
+    Attestation attestation;
   }
 
+  /// @notice Decoded signature for a specific session
+  /// @param imageHash Derived configuration image hash
+  /// @param identitySigner Identity signer address
+  /// @param implicitBlacklist Implicit blacklist addresses
+  /// @param sessionPermissions Session permissions for each explicit signer
+  /// @param callSignatures Call signatures for each call in the payload
   struct DecodedSignature {
     bytes32 imageHash;
     address identitySigner;
@@ -38,7 +52,7 @@ library SessionSig {
   }
 
   /// @notice Recovers the decoded signature from the encodedSignature bytes.
-  /// The encoded layout is conceptually separated into three parts:
+  /// @dev The encoded layout is conceptually separated into three parts:
   ///  1) Session Configuration
   ///  2) A reusable list of Attestations + their identity signatures (if any implicit calls exist)
   ///  3) Call Signatures (one per call in the payload)
@@ -154,6 +168,9 @@ library SessionSig {
 
           bytes32 callHash = hashCallWithReplayProtection(payload.calls[i], payload);
           callSignature.sessionSigner = ecrecover(callHash, v, r, s);
+          if (callSignature.sessionSigner == address(0)) {
+            revert SessionErrors.InvalidSessionSigner(address(0));
+          }
         }
 
         sig.callSignatures[i] = callSignature;
@@ -202,11 +219,14 @@ library SessionSig {
         // Read signer
         (nodePermissions.signer, pointer) = encoded.readAddress(pointer);
 
+        // Read chainId
+        (nodePermissions.chainId, pointer) = encoded.readUint256(pointer);
+
         // Read value limit
         (nodePermissions.valueLimit, pointer) = encoded.readUint256(pointer);
 
         // Read deadline
-        (nodePermissions.deadline, pointer) = encoded.readUint256(pointer);
+        (nodePermissions.deadline, pointer) = encoded.readUint64(pointer);
 
         // Read permissions array
         (nodePermissions.permissions, pointer) = _decodePermissions(encoded, pointer);
@@ -333,7 +353,6 @@ library SessionSig {
       assembly {
         mstore(permissions, permissionsCount)
       }
-      sig.sessionPermissions = permissions;
     }
 
     return (sig, hasBlacklist);
@@ -376,10 +395,13 @@ library SessionSig {
 
   /// @notice Hashes a call with replay protection.
   /// @dev The replay protection is based on the chainId, space, and nonce in the payload.
+  /// @param call The call to hash
+  /// @param payload The payload to hash
+  /// @return callHash The hash of the call with replay protection
   function hashCallWithReplayProtection(
     Payload.Call calldata call,
     Payload.Decoded calldata payload
-  ) public view returns (bytes32) {
+  ) public view returns (bytes32 callHash) {
     return keccak256(
       abi.encodePacked(payload.noChainId ? 0 : block.chainid, payload.space, payload.nonce, Payload.hashCall(call))
     );

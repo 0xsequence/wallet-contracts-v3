@@ -96,30 +96,111 @@ contract RecoveryTest is AdvTest {
     assertEq(recovery.timestampForQueuedPayload(_wallet, signerAddr, payloadHash), block.timestamp);
   }
 
-  function test_queue_payload_invalid_signature_fail(
+  function test_queue_payload_ecdsa_with_code(
+    uint256 _signerPk,
+    address _wallet,
+    Payload.Decoded memory _payload,
+    uint64 _randomTime,
+    bytes memory _randomCode
+  ) external {
+    _randomCode = abi.encodePacked(bytes1(0x00), _randomCode);
+    boundToLegalPayload(_payload);
+
+    vm.warp(_randomTime);
+
+    _signerPk = boundPk(_signerPk);
+    bytes32 recoveryPayloadHash = recovery.recoveryPayloadHash(_wallet, _payload);
+    bytes32 payloadHash = Payload.hashFor(_payload, _wallet);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(_signerPk, recoveryPayloadHash);
+
+    bytes32 yParityAndS = bytes32((uint256(v - 27) << 255) | uint256(s));
+    bytes memory signature = abi.encodePacked(r, yParityAndS);
+
+    address signerAddr = vm.addr(_signerPk);
+    vm.etch(signerAddr, _randomCode);
+
+    vm.expectEmit(true, true, true, true, address(recovery));
+    emit Recovery.NewQueuedPayload(_wallet, signerAddr, payloadHash, block.timestamp);
+    recovery.queuePayload(_wallet, signerAddr, _payload, signature);
+
+    assertEq(recovery.totalQueuedPayloads(_wallet, signerAddr), 1);
+    assertEq(recovery.queuedPayloadHashes(_wallet, signerAddr, 0), payloadHash);
+    assertEq(recovery.timestampForQueuedPayload(_wallet, signerAddr, payloadHash), block.timestamp);
+  }
+
+  function test_queue_payload_invalid_signature_fail_no_code(
     uint256 _signerPk,
     address _wallet,
     Payload.Decoded memory _payload,
     uint64 _randomTime,
     address _wrongSigner
   ) external {
+    assumeNotPrecompile(_wrongSigner);
+    vm.assume(_wrongSigner.code.length == 0);
+
     boundToLegalPayload(_payload);
     _signerPk = boundPk(_signerPk);
 
-    boundNoPrecompile(_wrongSigner);
-    vm.assume(_wrongSigner.code.length == 0);
-
     address signerAddr = vm.addr(_signerPk);
     vm.assume(signerAddr != _wrongSigner);
+    vm.label(signerAddr, "signer");
+    vm.label(_wrongSigner, "wrongSigner");
 
     vm.warp(_randomTime);
 
-    _signerPk = boundPk(_signerPk);
     bytes32 recoveryPayloadHash = recovery.recoveryPayloadHash(_wallet, _payload);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_signerPk, recoveryPayloadHash);
 
     bytes32 yParityAndS = bytes32((uint256(v - 27) << 255) | uint256(s));
     bytes memory signature = abi.encodePacked(r, yParityAndS);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Recovery.InvalidSignature.selector, _wallet, _wrongSigner, _payload, signature)
+    );
+    recovery.queuePayload(_wallet, _wrongSigner, _payload, signature);
+  }
+
+  function test_queue_payload_invalid_signature_fail_has_code(
+    uint256 _signerPk,
+    address _wallet,
+    Payload.Decoded memory _payload,
+    uint64 _randomTime,
+    address _wrongSigner,
+    bytes memory _randomCode
+  ) external {
+    _wrongSigner = boundNoPrecompile(_wrongSigner);
+    assumeNotPrecompile2(_wrongSigner);
+    // Ensure there is code without 0xef prefix
+    _randomCode = abi.encodePacked(bytes1(0x00), _randomCode);
+
+    vm.etch(_wrongSigner, _randomCode);
+
+    boundToLegalPayload(_payload);
+    _signerPk = boundPk(_signerPk);
+
+    {
+      address signerAddr = vm.addr(_signerPk);
+      vm.assume(signerAddr != _wrongSigner);
+      vm.label(signerAddr, "signer");
+      vm.label(_wrongSigner, "wrongSigner");
+    }
+
+    vm.warp(_randomTime);
+
+    bytes memory signature;
+    {
+      bytes32 recoveryPayloadHash = recovery.recoveryPayloadHash(_wallet, _payload);
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(_signerPk, recoveryPayloadHash);
+
+      bytes32 yParityAndS = bytes32((uint256(v - 27) << 255) | uint256(s));
+      signature = abi.encodePacked(r, yParityAndS);
+
+      vm.mockCall(
+        _wrongSigner,
+        abi.encodeWithSelector(IERC1271.isValidSignature.selector, recoveryPayloadHash, signature),
+        abi.encode(bytes4(0x00000000))
+      );
+    }
 
     vm.expectRevert(
       abi.encodeWithSelector(Recovery.InvalidSignature.selector, _wallet, _wrongSigner, _payload, signature)
@@ -164,13 +245,13 @@ contract RecoveryTest is AdvTest {
     address _wallet,
     Payload.Decoded memory _payload,
     uint64 _randomTime,
-    bytes calldata _signerCode
+    bytes memory _signerCode
   ) external {
     boundToLegalPayload(_payload);
     _signer = boundNoPrecompile(_signer);
+    assumeNotPrecompile2(_signer);
 
-    vm.assume(_signerCode.length != 0);
-    vm.assume(_signer.code.length == 0);
+    _signerCode = abi.encodePacked(bytes1(0x00), _signerCode);
     vm.warp(_randomTime);
 
     bytes32 payloadHash = Payload.hashFor(_payload, _wallet);
@@ -179,7 +260,7 @@ contract RecoveryTest is AdvTest {
     vm.mockCall(
       _signer,
       abi.encodeWithSelector(IERC1271.isValidSignature.selector, recoveryPayloadHash, _signature),
-      abi.encode(bytes4(0x20c13b0b))
+      abi.encode(bytes4(0x1626ba7e))
     );
     vm.etch(_signer, _signerCode);
 
@@ -198,16 +279,16 @@ contract RecoveryTest is AdvTest {
     address _wallet,
     Payload.Decoded memory _payload,
     uint64 _randomTime,
-    bytes calldata _signerCode,
+    bytes memory _signerCode,
     bytes4 _badMagicValue
   ) external {
     boundToLegalPayload(_payload);
     _signer = boundNoPrecompile(_signer);
+    assumeNotPrecompile2(_signer);
 
-    vm.assume(_signerCode.length != 0);
-    vm.assume(_signer.code.length == 0);
+    _signerCode = abi.encodePacked(bytes1(0x00), _signerCode);
     vm.warp(_randomTime);
-    if (_badMagicValue == bytes4(0x20c13b0b)) {
+    if (_badMagicValue == bytes4(0x1626ba7e)) {
       _badMagicValue = bytes4(0);
     }
 
@@ -230,14 +311,14 @@ contract RecoveryTest is AdvTest {
     address _wallet,
     Payload.Decoded memory _payload,
     uint64 _randomTime,
-    bytes calldata _signerCode,
+    bytes memory _signerCode,
     bytes calldata _revertData
   ) external {
     boundToLegalPayload(_payload);
     _signer = boundNoPrecompile(_signer);
+    assumeNotPrecompile2(_signer);
 
-    vm.assume(_signerCode.length != 0);
-    vm.assume(_signer.code.length == 0);
+    _signerCode = abi.encodePacked(bytes1(0x00), _signerCode);
     vm.warp(_randomTime);
 
     bytes32 recoveryPayloadHash = recovery.recoveryPayloadHash(_wallet, _payload);

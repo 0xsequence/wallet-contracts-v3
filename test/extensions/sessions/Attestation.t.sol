@@ -8,6 +8,12 @@ import { Vm } from "forge-std/Test.sol";
 
 contract AttestationImp {
 
+  function toPacked(
+    Attestation memory attestation
+  ) external pure returns (bytes memory encoded) {
+    return LibAttestation.toPacked(attestation);
+  }
+
   function fromPacked(
     bytes calldata encoded,
     uint256 pointer
@@ -25,10 +31,10 @@ contract AttestationTest is AdvTest {
     attestationImp = new AttestationImp();
   }
 
-  function test_unpackAttestation(
+  function test_packAndUnpackAttestation(
     Attestation memory attestation
   ) external view {
-    bytes memory packed = LibAttestation.toPacked(attestation);
+    bytes memory packed = attestationImp.toPacked(attestation);
     (Attestation memory unpacked, uint256 pointer) = attestationImp.fromPacked(packed, 0);
 
     assertEq(pointer, packed.length, "pointer");
@@ -39,6 +45,7 @@ contract AttestationTest is AdvTest {
     assertEq(attestation.audienceHash, unpacked.audienceHash, "audienceHash");
     assertEq(attestation.applicationData, unpacked.applicationData, "applicationData");
     assertEq(attestation.authData.redirectUrl, unpacked.authData.redirectUrl, "authData.redirectUrl");
+    assertEq(attestation.authData.issuedAt, unpacked.authData.issuedAt, "authData.issuedAt");
   }
 
 }

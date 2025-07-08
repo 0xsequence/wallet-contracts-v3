@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { LibBytesPointer } from "../../utils/LibBytesPointer.sol";
+import { LibBytes } from "../../utils/LibBytes.sol";
 import { LibOptim } from "../../utils/LibOptim.sol";
 import { Payload } from "../Payload.sol";
 
 import { ICheckpointer, Snapshot } from "../interfaces/ICheckpointer.sol";
-import { IERC1271, IERC1271_MAGIC_VALUE } from "../interfaces/IERC1271.sol";
+import { IERC1271, IERC1271_MAGIC_VALUE_HASH } from "../interfaces/IERC1271.sol";
 import { ISapient, ISapientCompact } from "../interfaces/ISapient.sol";
 
-using LibBytesPointer for bytes;
+using LibBytes for bytes;
 using Payload for Payload.Decoded;
 
+/// @title BaseSig
+/// @author Agustin Aguilar, Michael Standen, William Hua, Shun Kakinoki
+/// @notice Library for recovering signatures from the base-auth payload
 library BaseSig {
 
   uint256 internal constant FLAG_SIGNATURE_HASH = 0;
@@ -26,10 +29,15 @@ library BaseSig {
   uint256 internal constant FLAG_SIGNATURE_SAPIENT = 9;
   uint256 internal constant FLAG_SIGNATURE_SAPIENT_COMPACT = 10;
 
+  /// @notice Error thrown when the weight is too low for a chained signature
   error LowWeightChainedSignature(bytes _signature, uint256 _threshold, uint256 _weight);
+  /// @notice Error thrown when the ERC1271 signature is invalid
   error InvalidERC1271Signature(bytes32 _opHash, address _signer, bytes _signature);
+  /// @notice Error thrown when the checkpoint order is wrong
   error WrongChainedCheckpointOrder(uint256 _nextCheckpoint, uint256 _checkpoint);
+  /// @notice Error thrown when the snapshot is unused
   error UnusedSnapshot(Snapshot _snapshot);
+  /// @notice Error thrown when the signature flag is invalid
   error InvalidSignatureFlag(uint256 _flag);
 
   function _leafForAddressAndWeight(address _addr, uint256 _weight) internal pure returns (bytes32) {
@@ -66,7 +74,7 @@ library BaseSig {
     (uint256 signatureFlag, uint256 rindex) = _signature.readFirstUint8();
 
     // The possible flags are:
-    // - 0000 00XX (bits [1..0]): signature type (00 = normal, 01 = chained, 10 = no chain id)
+    // - 0000 00XX (bits [1..0]): signature type (00 = normal, 01/11 = chained, 10 = no chain id)
     // - 000X XX00 (bits [4..2]): checkpoint size (00 = 0 bytes, 001 = 1 byte, 010 = 2 bytes...)
     // - 00X0 0000 (bit [5]): threshold size (0 = 1 byte, 1 = 2 bytes)
     // - 0X00 0000 (bit [6]): set if imageHash checkpointer is used
@@ -97,7 +105,7 @@ library BaseSig {
       }
     }
 
-    // If signature type is 01 we do a chained signature
+    // If signature type is 01 or 11 we do a chained signature
     if (signatureFlag & 0x01 == 0x01) {
       return recoverChained(_payload, _checkpointer, snapshot, _signature[rindex:]);
     }
@@ -218,13 +226,9 @@ library BaseSig {
           }
 
           bytes32 r;
-          bytes32 yParityAndS;
-          (r, rindex) = _signature.readBytes32(rindex);
-          (yParityAndS, rindex) = _signature.readBytes32(rindex);
-
-          uint256 yParity = uint256(yParityAndS >> 255);
-          bytes32 s = bytes32(uint256(yParityAndS) & 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
-          uint8 v = uint8(yParity) + 27;
+          bytes32 s;
+          uint8 v;
+          (r, s, v, rindex) = _signature.readRSVCompact(rindex);
 
           address addr = ecrecover(_opHash, v, r, s);
 
@@ -280,7 +284,7 @@ library BaseSig {
           uint256 nrindex = rindex + size;
 
           // Call the ERC1271 contract to check if the signature is valid
-          if (IERC1271(addr).isValidSignature(_opHash, _signature[rindex:nrindex]) != IERC1271_MAGIC_VALUE) {
+          if (IERC1271(addr).isValidSignature(_opHash, _signature[rindex:nrindex]) != IERC1271_MAGIC_VALUE_HASH) {
             revert InvalidERC1271Signature(_opHash, addr, _signature[rindex:nrindex]);
           }
           rindex = nrindex;
@@ -387,13 +391,9 @@ library BaseSig {
           }
 
           bytes32 r;
-          bytes32 yParityAndS;
-          (r, rindex) = _signature.readBytes32(rindex);
-          (yParityAndS, rindex) = _signature.readBytes32(rindex);
-
-          uint256 yParity = uint256(yParityAndS >> 255);
-          bytes32 s = bytes32(uint256(yParityAndS) & ((1 << 255) - 1));
-          uint8 v = uint8(yParity) + 27;
+          bytes32 s;
+          uint8 v;
+          (r, s, v, rindex) = _signature.readRSVCompact(rindex);
 
           address addr = ecrecover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _opHash)), v, r, s);
 
@@ -417,7 +417,7 @@ library BaseSig {
             weight = type(uint256).max;
           }
 
-          bytes32 node = _leafForAnyAddressSubdigest(anyAddressOpHash);
+          bytes32 node = _leafForAnyAddressSubdigest(hardcoded);
           root = root != bytes32(0) ? LibOptim.fkeccak256(root, node) : node;
           continue;
         }

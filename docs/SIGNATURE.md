@@ -26,26 +26,31 @@ Sequence uses a specialized signature format that:
 When `recover` is first invoked, it reads the **first byte** of the signature as `signatureFlag`. That byte is bit-packed as follows (with bit `0` as the least-significant bit):
 
 ```
- ┌─────────────── Bit 7 (0x80) : Reserved
+ ┌─────────────── Bit 7 (0x80) : Static signature
  │ ┌───────────── Bit 6 (0x40) : Checkpointer usage flag
  │ │ ┌─────────── Bit 5 (0x20) : Threshold size indicator (0 => 1 byte, 1 => 2 bytes)
  │ │ │  ┌──────── Bits 4..2 (0x1C) : Checkpoint size (encoded as an integer 0..7)
  │ │ │  │  ┌───── Bit 1 (0x02) : "no chain id" signature type
  │ │ │  │  │ ┌─── Bit 0 (0x01) : "chained" signature type
-[X 6 5 432 1 0]
+[7 6 5 432 1 0]
 ```
 
 We can break this down more concretely:
 
+1. **Bit 7** set (`0x80`) indicates a static signature:
+   - When set, the signature has been pre-stored in contract storage and bypasses normal validation
+   - Validation only checks:
+     - That the stored expiry timestamp has not passed
+     - That the stored signer matches the transaction sender (or is unset with `address(0)`)
 1. **Bit 6** set (`0x40`) means the signature includes an external **imageHash checkpointer**:
    - If set, the signature will contain:
      - The checkpointer contract `address`
      - A 3-byte length for the “checkpointer data”
      - That data, passed to `ICheckpointer(checkpointer).snapshotFor(...)`
-2. **Bits 4..2** (the field `((signatureFlag & 0x1c) >> 2)`) define the **checkpoint size** in bytes. Possible values are `0..7`. If this value is `N`, then the next `N` bytes of the signature after reading the flag (and optional checkpointer data) represent the **checkpoint**.
-3. **Bit 5** (`0x20`) sets how many bytes are used to read the threshold. If it is `0`, the threshold is read as 1 byte; if it is `1`, the threshold is read as 2 bytes. (Hence `( (signatureFlag & 0x20) >> 5 ) + 1`.)
-4. **Bit 1** (`0x02`) indicates the “no chain id” signature. If set, `_payload.noChainId` is true. This affects how `_payload.hash()` is computed.
-5. **Bit 0** (`0x01`) indicates the signature is **chained**. In that case, the code calls `recoverChained`, which processes multiple sub-signatures in sequence.
+1. **Bits 4..2** (the field `((signatureFlag & 0x1c) >> 2)`) define the **checkpoint size** in bytes. Possible values are `0..7`. If this value is `N`, then the next `N` bytes of the signature after reading the flag (and optional checkpointer data) represent the **checkpoint**.
+1. **Bit 5** (`0x20`) sets how many bytes are used to read the threshold. If it is `0`, the threshold is read as 1 byte; if it is `1`, the threshold is read as 2 bytes. (Hence `( (signatureFlag & 0x20) >> 5 ) + 1`.)
+1. **Bit 1** (`0x02`) indicates the “no chain id” signature. If set, `_payload.noChainId` is true. This affects how `_payload.hash()` is computed.
+1. **Bit 0** (`0x01`) indicates the signature is **chained**. In that case, the code calls `recoverChained`, which processes multiple sub-signatures in sequence.
 
 Putting it together:
 
@@ -139,7 +144,7 @@ The contract defines constants:
 | Constant Name                          | Value (Decimal) | Purpose                                                                                               |
 | -------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
 | `FLAG_SIGNATURE_HASH`                  | 0               | ECDSA signature with `r,yParityAndS` (ERC-2098 compact) directly against `_opHash`.                   |
-| `FLAG_ADDRESS`                         | 1               | Just an address “leaf” (adds that address’s weight, but no actual ECDSA check)                        |
+| `FLAG_ADDRESS`                         | 1               | Just an address “leaf” (with no actual ECDSA check)                                                   |
 | `FLAG_SIGNATURE_ERC1271`               | 2               | A contract-based signature check using `isValidSignature(opHash, signature)`                          |
 | `FLAG_NODE`                            | 3               | Includes a raw 32-byte node hash in the merkle root. No weight added.                                 |
 | `FLAG_BRANCH`                          | 4               | Nested branch. The next bytes specify length, then recursion into `recoverBranch`.                    |
@@ -320,8 +325,8 @@ Below is a hypothetical top-level signature that is **not** chained, uses a chec
 
 1. **signatureFlag** = `0x6C` => in binary `0110 1100`
    - Bit 6 => `1`, so we have a checkpointer
-   - Bits 4..2 => `110` => checkpoint size = 6 bytes
    - Bit 5 => `1`, threshold uses 2 bytes
+   - Bits 4..2 => `110` => checkpoint size = 6 bytes
    - Bit 1 => `0`, normal chain id usage
    - Bit 0 => `0`, not chained
 2. We read:

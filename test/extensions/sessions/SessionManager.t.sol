@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import { Vm } from "forge-std/Vm.sol";
 import { SessionTestBase } from "test/extensions/sessions/SessionTestBase.sol";
 
-import { MockImplicitContract } from "test/mocks/MockImplicitContract.sol";
+import { Emitter } from "test/mocks/Emitter.sol";
 import { PrimitivesRPC } from "test/utils/PrimitivesRPC.sol";
 
 import { SessionErrors } from "src/extensions/sessions/SessionErrors.sol";
@@ -22,23 +22,16 @@ contract SessionManagerTest is SessionTestBase {
 
   SessionManager public sessionManager;
   address public explicitTarget;
-  address public implicitTarget;
   Vm.Wallet public sessionWallet;
   Vm.Wallet public identityWallet;
-  MockImplicitContract public mockImplicit;
+  Emitter public emitter;
 
   function setUp() public {
     sessionManager = new SessionManager();
     sessionWallet = vm.createWallet("session");
     identityWallet = vm.createWallet("identity");
     explicitTarget = address(0xBEEF);
-    // Deploy a mock implicit contract so that implicit calls do not revert.
-    mockImplicit = new MockImplicitContract();
-    implicitTarget = address(mockImplicit);
-  }
-
-  function testSupportsInterface() public view {
-    assertTrue(sessionManager.supportsInterface(type(ISapient).interfaceId));
+    emitter = new Emitter();
   }
 
   /// @notice Valid explicit session test.
@@ -46,7 +39,8 @@ contract SessionManagerTest is SessionTestBase {
     bytes4 selector,
     uint256 param,
     uint256 value,
-    address explicitTarget2
+    address explicitTarget2,
+    bool useChainId
   ) public {
     vm.assume(explicitTarget != explicitTarget2);
     vm.assume(value > 0);
@@ -57,8 +51,9 @@ contract SessionManagerTest is SessionTestBase {
     // Create a SessionPermissions struct granting permission for calls to explicitTarget.
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: sessionWallet.addr,
+      chainId: useChainId ? block.chainid : 0,
       valueLimit: value,
-      deadline: block.timestamp + 1 days,
+      deadline: uint64(block.timestamp + 1 days),
       permissions: new Permission[](2)
     });
     // Permission with an empty rules set allows all calls to the target.
@@ -195,6 +190,7 @@ contract SessionManagerTest is SessionTestBase {
   function testInvalidDelegateCallReverts(Attestation memory attestation, bytes memory data) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+    attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
 
     // Build a payload with one call that erroneously uses delegateCall.
     uint256 callCount = 1;
@@ -259,7 +255,7 @@ contract SessionManagerTest is SessionTestBase {
     SessionPermissions memory sessionPerms;
     sessionPerms.signer = sessionWallet.addr;
     sessionPerms.valueLimit = 0;
-    sessionPerms.deadline = block.timestamp + 1 days;
+    sessionPerms.deadline = uint64(block.timestamp + 1 days);
     sessionPerms.permissions = new Permission[](1);
     sessionPerms.permissions[0] = Permission({ target: explicitTarget, rules: new ParameterRule[](1) });
     sessionPerms.permissions[0].rules[0] = ParameterRule({
@@ -298,17 +294,20 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Valid implicit session test.
-  function testValidImplicitSessionSignature(Attestation memory attestation, bytes memory data) public {
+  function testValidImplicitSessionSignature(
+    Attestation memory attestation
+  ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+    attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
 
     // Build a payload with one call for implicit session.
     uint256 callCount = 1;
     Payload.Decoded memory payload = _buildPayload(callCount);
     payload.calls[0] = Payload.Call({
-      to: implicitTarget,
+      to: address(emitter),
       value: 0,
-      data: data,
+      data: abi.encodeWithSelector(Emitter.implicitEmit.selector),
       gasLimit: 0,
       delegateCall: false,
       onlyFallback: false,

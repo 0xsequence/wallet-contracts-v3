@@ -2,13 +2,16 @@
 pragma solidity ^0.8.27;
 
 import { Payload } from "../../modules/Payload.sol";
-import { IERC1271, IERC1271_MAGIC_VALUE } from "../../modules/interfaces/IERC1271.sol";
+import { IERC1271, IERC1271_MAGIC_VALUE_HASH } from "../../modules/interfaces/IERC1271.sol";
 import { ISapientCompact } from "../../modules/interfaces/ISapient.sol";
-import { LibBytesPointer } from "../../utils/LibBytesPointer.sol";
+import { LibBytes } from "../../utils/LibBytes.sol";
 import { LibOptim } from "../../utils/LibOptim.sol";
 
-using LibBytesPointer for bytes;
+using LibBytes for bytes;
 
+/// @title Recovery
+/// @author Agustin Aguilar, William Hua, Michael Standen
+/// @notice A recovery mode sapient signer
 contract Recovery is ISapientCompact {
 
   bytes32 private constant EIP712_DOMAIN_TYPEHASH =
@@ -22,11 +25,16 @@ contract Recovery is ISapientCompact {
   uint256 internal constant FLAG_NODE = 3;
   uint256 internal constant FLAG_BRANCH = 4;
 
+  /// @notice Emitted when a new payload is queued
   event NewQueuedPayload(address _wallet, address _signer, bytes32 _payloadHash, uint256 _timestamp);
 
+  /// @notice Error thrown when the signature is invalid
   error InvalidSignature(address _wallet, address _signer, Payload.Decoded _payload, bytes _signature);
+  /// @notice Error thrown when the payload is already queued
   error AlreadyQueued(address _wallet, address _signer, bytes32 _payloadHash);
+  /// @notice Error thrown when the queue is not ready
   error QueueNotReady(address _wallet, bytes32 _payloadHash);
+  /// @notice Error thrown when the signature flag is invalid
   error InvalidSignatureFlag(uint256 _flag);
 
   function domainSeparator(bool _noChainId, address _wallet) internal view returns (bytes32 _domainSeparator) {
@@ -41,13 +49,18 @@ contract Recovery is ISapientCompact {
     );
   }
 
-  // wallet -> signer -> payloadHash -> timestamp
+  /// @notice Mapping of queued timestamps
+  /// @dev wallet -> signer -> payloadHash -> timestamp
   mapping(address => mapping(address => mapping(bytes32 => uint256))) public timestampForQueuedPayload;
 
-  // (write once helper)
-  // wallet -> signer -> payloadHash[]
+  /// @notice Mapping of queued payload hashes
+  /// @dev wallet -> signer -> payloadHash[]
   mapping(address => mapping(address => bytes32[])) public queuedPayloadHashes;
 
+  /// @notice Get the total number of queued payloads
+  /// @param _wallet The wallet to get the total number of queued payloads for
+  /// @param _signer The signer to get the total number of queued payloads for
+  /// @return The total number of queued payloads
   function totalQueuedPayloads(address _wallet, address _signer) public view returns (uint256) {
     return queuedPayloadHashes[_wallet][_signer].length;
   }
@@ -123,12 +136,17 @@ contract Recovery is ISapientCompact {
     return (verified, root);
   }
 
+  /// @notice Get the recovery payload hash
+  /// @param _wallet The wallet to get the recovery payload hash for
+  /// @param _payload The payload to get the recovery payload hash for
+  /// @return The recovery payload hash
   function recoveryPayloadHash(address _wallet, Payload.Decoded calldata _payload) public view returns (bytes32) {
     bytes32 domain = domainSeparator(_payload.noChainId, _wallet);
     bytes32 structHash = Payload.toEIP712(_payload);
     return keccak256(abi.encodePacked("\x19\x01", domain, structHash));
   }
 
+  /// @inheritdoc ISapientCompact
   function recoverSapientSignatureCompact(
     bytes32 _payloadHash,
     bytes calldata _signature
@@ -141,6 +159,11 @@ contract Recovery is ISapientCompact {
     return root;
   }
 
+  /// @notice Queue a payload for recovery
+  /// @param _wallet The wallet to queue the payload for
+  /// @param _signer The signer to queue the payload for
+  /// @param _payload The payload to queue
+  /// @param _signature The signature to queue the payload for
   function queuePayload(
     address _wallet,
     address _signer,
@@ -170,17 +193,25 @@ contract Recovery is ISapientCompact {
   ) internal view returns (bool) {
     bytes32 rPayloadHash = recoveryPayloadHash(_wallet, _payload);
 
-    if (_signer.code.length != 0) {
-      return IERC1271(_signer).isValidSignature(rPayloadHash, _signature) == IERC1271_MAGIC_VALUE;
+    if (_signature.length == 64) {
+      // Try an ECDSA signature
+      bytes32 r;
+      bytes32 s;
+      uint8 v;
+      (r, s, v,) = _signature.readRSVCompact(0);
+
+      address addr = ecrecover(rPayloadHash, v, r, s);
+      if (addr == _signer) {
+        return true;
+      }
     }
 
-    (bytes32 r, bytes32 yParityAndS) = abi.decode(_signature, (bytes32, bytes32));
-    uint256 yParity = uint256(yParityAndS >> 255);
-    bytes32 s = bytes32(uint256(yParityAndS) & 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
-    uint8 v = uint8(yParity) + 27;
+    if (_signer.code.length != 0) {
+      // ERC1271
+      return IERC1271(_signer).isValidSignature(rPayloadHash, _signature) == IERC1271_MAGIC_VALUE_HASH;
+    }
 
-    address addr = ecrecover(rPayloadHash, v, r, s);
-    return addr == _signer;
+    return false;
   }
 
 }

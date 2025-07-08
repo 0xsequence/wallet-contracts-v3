@@ -25,22 +25,6 @@ abstract contract SessionTestBase is AdvTest {
     return string(abi.encodePacked(vm.toString(r), ":", vm.toString(s), ":", vm.toString(v)));
   }
 
-  /// @dev Encodes the explicit config.
-  function _encodeExplicitConfig(
-    address signer,
-    uint256 valueLimit,
-    uint256 deadline
-  ) internal pure returns (bytes memory) {
-    bytes memory node = abi.encodePacked(
-      uint8(SessionSig.FLAG_PERMISSIONS),
-      signer,
-      valueLimit,
-      deadline,
-      uint24(0) // empty permissions array length
-    );
-    return abi.encodePacked(uint24(node.length), node);
-  }
-
   /// @dev Helper to build a Payload.Decoded with a given number of calls.
   function _buildPayload(
     uint256 callCount
@@ -58,6 +42,8 @@ abstract contract SessionTestBase is AdvTest {
   ) internal pure returns (string memory) {
     string memory json = '{"signer":"';
     json = string.concat(json, vm.toString(sessionPerms.signer));
+    json = string.concat(json, '","chainId":"');
+    json = string.concat(json, vm.toString(sessionPerms.chainId));
     json = string.concat(json, '","valueLimit":"');
     json = string.concat(json, vm.toString(sessionPerms.valueLimit));
     json = string.concat(json, '","deadline":"');
@@ -119,6 +105,8 @@ abstract contract SessionTestBase is AdvTest {
     json = string.concat(json, vm.toString(attestation.audienceHash));
     json = string.concat(json, '","authData":{"redirectUrl":"');
     json = string.concat(json, attestation.authData.redirectUrl);
+    json = string.concat(json, '","issuedAt":"');
+    json = string.concat(json, vm.toString(attestation.authData.issuedAt));
     json = string.concat(json, '"},"applicationData":"');
     json = string.concat(json, vm.toString(attestation.applicationData));
     json = string.concat(json, '"}');
@@ -169,12 +157,14 @@ abstract contract SessionTestBase is AdvTest {
 
   function _createSessionPermissions(
     address target,
+    uint256 chainId,
     uint256 valueLimit,
-    uint256 deadline,
+    uint64 deadline,
     address signer
   ) internal pure returns (SessionPermissions memory) {
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: signer,
+      chainId: chainId,
       valueLimit: valueLimit,
       deadline: deadline,
       permissions: new Permission[](1)

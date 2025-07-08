@@ -7,6 +7,9 @@ import { Payload } from "./modules/Payload.sol";
 import { IDelegatedExtension } from "./modules/interfaces/IDelegatedExtension.sol";
 import { LibOptim } from "./utils/LibOptim.sol";
 
+/// @title Estimator
+/// @author William Hua
+/// @notice Helper for estimating the gas used for payload validation and execution
 contract Estimator is Stage2Module {
 
   function _isValidImage(
@@ -16,6 +19,10 @@ contract Estimator is Stage2Module {
     return true;
   }
 
+  /// @notice Estimate the gas used for payload validation and execution
+  /// @param _payload The payload to estimate the gas used for
+  /// @param _signature The signature to validate the payload with
+  /// @return gasUsed The gas used for payload validation and execution
   function estimate(
     bytes calldata _payload,
     bytes calldata _signature

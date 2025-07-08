@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
+/// @title Storage
+/// @author Agustin Aguilar
+/// @notice Library for storing data at certain storage slots
 library Storage {
 
   function writeBytes32(bytes32 _key, bytes32 _val) internal {

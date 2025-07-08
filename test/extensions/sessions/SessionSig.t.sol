@@ -44,7 +44,9 @@ contract SessionSigTest is SessionTestBase {
     identityWallet = vm.createWallet("identity");
   }
 
-  function testSingleExplicitSignature() public {
+  function testSingleExplicitSignature(
+    bool useChainId
+  ) public {
     Payload.Decoded memory payload = _buildPayload(1);
     {
       payload.calls[0] = Payload.Call({
@@ -59,6 +61,7 @@ contract SessionSigTest is SessionTestBase {
     }
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: sessionWallet.addr,
+      chainId: useChainId ? block.chainid : 0,
       valueLimit: 1000,
       deadline: 2000,
       permissions: new Permission[](1)
@@ -124,6 +127,7 @@ contract SessionSigTest is SessionTestBase {
   ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+    attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
 
     Payload.Decoded memory payload = _buildPayload(1);
     {
@@ -179,6 +183,7 @@ contract SessionSigTest is SessionTestBase {
   ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+    attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
 
     Payload.Decoded memory payload = _buildPayload(2);
     {
@@ -242,7 +247,9 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testMultipleExplicitSignatures() public {
+  function testMultipleExplicitSignatures(
+    bool useChainId
+  ) public {
     // Create a second session wallet
     Vm.Wallet memory sessionWallet2 = vm.createWallet("session2");
 
@@ -272,8 +279,10 @@ contract SessionSigTest is SessionTestBase {
     // Create session permissions for both calls with different signers
     SessionPermissions[] memory sessionPermsArray = new SessionPermissions[](2);
     {
-      sessionPermsArray[0] = _createSessionPermissions(address(0xBEEF), 1000, 2000, sessionWallet.addr);
-      sessionPermsArray[1] = _createSessionPermissions(address(0xCAFE), 1000, 2000, sessionWallet2.addr);
+      sessionPermsArray[0] =
+        _createSessionPermissions(address(0xBEEF), useChainId ? block.chainid : 0, 1000, 2000, sessionWallet.addr);
+      sessionPermsArray[1] =
+        _createSessionPermissions(address(0xCAFE), useChainId ? block.chainid : 0, 1000, 2000, sessionWallet2.addr);
     }
 
     // Create the topology from the CLI
@@ -344,6 +353,60 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
+  function testRecover_invalidSessionSigner(
+    bool useChainId
+  ) public {
+    Payload.Decoded memory payload = _buildPayload(1);
+    {
+      payload.calls[0] = Payload.Call({
+        to: address(0xBEEF),
+        value: 123,
+        data: "test",
+        gasLimit: 0,
+        delegateCall: false,
+        onlyFallback: false,
+        behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+      });
+    }
+    SessionPermissions memory sessionPerms = SessionPermissions({
+      signer: sessionWallet.addr,
+      chainId: useChainId ? block.chainid : 0,
+      valueLimit: 1000,
+      deadline: 2000,
+      permissions: new Permission[](1)
+    });
+    sessionPerms.permissions[0] = Permission({ target: address(0xBEEF), rules: new ParameterRule[](0) });
+
+    // Create the topology from the CLI.
+    string memory topology;
+    {
+      topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
+      string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms);
+      topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
+    }
+
+    // Generate an invalid session signature
+    string memory sessionSignature =
+      "0x0000000000000000000000000000000000000000000000000000000000000000:0x0000000000000000000000000000000000000000000000000000000000000000:0";
+    string memory callSignature = _explicitCallSignatureToJSON(0, sessionSignature);
+
+    // Construct the encoded signature.
+    bytes memory encoded;
+    {
+      string[] memory callSignatures = new string[](1);
+      callSignatures[0] = callSignature;
+      address[] memory explicitSigners = new address[](1);
+      explicitSigners[0] = sessionWallet.addr;
+      address[] memory implicitSigners = new address[](0);
+      encoded =
+        PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, explicitSigners, implicitSigners);
+    }
+
+    // Recover and validate.
+    vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidSessionSigner.selector, address(0)));
+    harness.recover(payload, encoded);
+  }
+
   function testRecover_invalidIdentitySigner_unset() public {
     // Create a topology with an invalid identity signer
     string memory topology = PrimitivesRPC.sessionEmpty(vm, address(0));
@@ -372,6 +435,7 @@ contract SessionSigTest is SessionTestBase {
   ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+    attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
 
     // Create a topology with an invalid identity signer
     string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
@@ -410,6 +474,7 @@ contract SessionSigTest is SessionTestBase {
   ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+    attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
 
     // Create a topology with an invalid identity signer
     string memory topology = PrimitivesRPC.sessionEmpty(vm, address(0));
@@ -446,6 +511,7 @@ contract SessionSigTest is SessionTestBase {
   ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
+    attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
 
     string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
     Payload.Decoded memory payload = _buildPayload(1);
@@ -855,10 +921,16 @@ contract SessionSigTest is SessionTestBase {
     );
   }
 
-  function testEmptyPermissionsStructSize_direct(address signer, uint256 valueLimit, uint256 deadline) public view {
+  function testEmptyPermissionsStructSize_direct(
+    address signer,
+    uint256 chainId,
+    uint256 valueLimit,
+    uint64 deadline
+  ) public view {
     // Create an empty permissions struct
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: signer,
+      chainId: chainId,
       valueLimit: valueLimit,
       deadline: deadline,
       permissions: new Permission[](0)
@@ -868,6 +940,7 @@ contract SessionSigTest is SessionTestBase {
     bytes memory encoded = abi.encodePacked(
       uint8(SessionSig.FLAG_PERMISSIONS),
       sessionPerms.signer,
+      sessionPerms.chainId,
       sessionPerms.valueLimit,
       sessionPerms.deadline,
       uint8(0) // empty permissions array length
@@ -880,6 +953,7 @@ contract SessionSigTest is SessionTestBase {
     (SessionSig.DecodedSignature memory sig,) = harness.recoverConfiguration(encoded);
     assertEq(sig.sessionPermissions.length, 1, "Should have one permissions struct");
     assertEq(sig.sessionPermissions[0].signer, signer, "Signer should match");
+    assertEq(sig.sessionPermissions[0].chainId, chainId, "Chain ID should match");
     assertEq(sig.sessionPermissions[0].valueLimit, valueLimit, "Value limit should match");
     assertEq(sig.sessionPermissions[0].deadline, deadline, "Deadline should match");
     assertEq(sig.sessionPermissions[0].permissions.length, 0, "Should have no permissions");
