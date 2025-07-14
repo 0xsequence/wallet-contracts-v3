@@ -11,13 +11,17 @@ contract Deploy is SingletonDeployer {
 
   function run() external {
     uint256 pk = vm.envUint("PRIVATE_KEY");
+    address entryPoint = vm.envAddress("ERC4337_ENTRY_POINT_V7");
+    if (entryPoint == address(0)) {
+      entryPoint = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
+    }
 
     bytes32 salt = bytes32(0);
 
     bytes memory initCode = abi.encodePacked(type(Factory).creationCode);
     address factory = _deployIfNotAlready("Factory", initCode, salt, pk);
 
-    initCode = abi.encodePacked(type(Stage1Module).creationCode, abi.encode(factory));
+    initCode = abi.encodePacked(type(Stage1Module).creationCode, abi.encode(factory, entryPoint));
     address stage1Module = _deployIfNotAlready("Stage1Module", initCode, salt, pk);
 
     console.log("Stage2Module for Stage1Module is", Stage1Module(payable(stage1Module)).STAGE_2_IMPLEMENTATION());
