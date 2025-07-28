@@ -132,7 +132,7 @@ abstract contract Calls is BaseAuth, Nonce {
    */
   function createContract(
     bytes memory _code
-  ) public payable virtual override onlySelf returns (address addr) {
+  ) public payable virtual onlySelf returns (address addr) {
     assembly {
       addr := create(callvalue(), add(_code, 32), mload(_code))
     }
@@ -148,10 +148,7 @@ abstract contract Calls is BaseAuth, Nonce {
    * @param _salt Salt for deterministic address derivation
    * @return addr The address of the created contract
    */
-  function create2Contract(
-    bytes memory _code,
-    bytes32 _salt
-  ) public payable virtual override onlySelf returns (address addr) {
+  function create2Contract(bytes memory _code, bytes32 _salt) public payable virtual onlySelf returns (address addr) {
     assembly {
       addr := create2(callvalue(), add(_code, 32), mload(_code), _salt)
     }
