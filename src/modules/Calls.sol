@@ -32,7 +32,7 @@ abstract contract Calls is BaseAuth, Nonce {
   /// @notice Error thrown when contract creation failed
   error CreateFailed(bytes _code);
   /// @notice Error thrown when contract creation failed
-  error Create2Failed(bytes _code, bytes _salt);
+  error Create2Failed(bytes _code, bytes32 _salt);
 
   /// @notice Execute a call
   /// @param _payload The payload
