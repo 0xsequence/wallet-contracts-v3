@@ -3,6 +3,9 @@ pragma solidity ^0.8.27;
 
 import { SelfAuth } from "./auth/SelfAuth.sol";
 
+/// @title Creator
+/// @author Agustin Aguilar, Michael Standen, William Hua
+/// @notice Contract for creating contracts
 abstract contract Creator is SelfAuth {
 
   /// @notice Emitted when a contract is created
@@ -13,11 +16,9 @@ abstract contract Creator is SelfAuth {
   /// @notice Error thrown when contract creation failed
   error Create2Failed(bytes _code, bytes32 _salt);
 
-  /**
-   * @notice Creates a contract forwarding eth value
-   * @param _code Creation code of the contract
-   * @return addr The address of the created contract
-   */
+  /// @notice Creates a contract forwarding eth value
+  /// @param _code Creation code of the contract
+  /// @return addr The address of the created contract
   function createContract(
     bytes memory _code
   ) public payable virtual onlySelf returns (address addr) {
@@ -30,12 +31,10 @@ abstract contract Creator is SelfAuth {
     emit CreatedContract(addr);
   }
 
-  /**
-   * @notice Creates a contract forwarding eth value via CREATE2
-   * @param _code Creation code of the contract
-   * @param _salt Salt for deterministic address derivation
-   * @return addr The address of the created contract
-   */
+  /// @notice Creates a contract forwarding eth value via CREATE2
+  /// @param _code Creation code of the contract
+  /// @param _salt Salt for deterministic address derivation
+  /// @return addr The address of the created contract
   function create2Contract(bytes memory _code, bytes32 _salt) public payable virtual onlySelf returns (address addr) {
     assembly {
       addr := create2(callvalue(), add(_code, 32), mload(_code), _salt)
