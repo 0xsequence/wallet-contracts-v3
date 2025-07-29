@@ -20,8 +20,6 @@ abstract contract Calls is BaseAuth, Nonce {
   event CallAborted(bytes32 _opHash, uint256 _index, bytes _returnData);
   /// @notice Emitted when a call is skipped
   event CallSkipped(bytes32 _opHash, uint256 _index);
-  /// @notice Emitted when a contract is created
-  event CreatedContract(address _contract);
 
   /// @notice Error thrown when a call reverts
   error Reverted(Payload.Decoded _payload, uint256 _index, bytes _returnData);
@@ -29,10 +27,6 @@ abstract contract Calls is BaseAuth, Nonce {
   error InvalidSignature(Payload.Decoded _payload, bytes _signature);
   /// @notice Error thrown when there is not enough gas
   error NotEnoughGas(Payload.Decoded _payload, uint256 _index, uint256 _gasLeft);
-  /// @notice Error thrown when contract creation failed
-  error CreateFailed(bytes _code);
-  /// @notice Error thrown when contract creation failed
-  error Create2Failed(bytes _code, bytes32 _salt);
 
   /// @notice Execute a call
   /// @param _payload The payload
@@ -123,39 +117,6 @@ abstract contract Calls is BaseAuth, Nonce {
 
       emit CallSucceeded(_opHash, i);
     }
-  }
-
-  /**
-   * @notice Creates a contract forwarding eth value
-   * @param _code Creation code of the contract
-   * @return addr The address of the created contract
-   */
-  function createContract(
-    bytes memory _code
-  ) public payable virtual onlySelf returns (address addr) {
-    assembly {
-      addr := create(callvalue(), add(_code, 32), mload(_code))
-    }
-    if (addr == address(0)) {
-      revert CreateFailed(_code);
-    }
-    emit CreatedContract(addr);
-  }
-
-  /**
-   * @notice Creates a contract forwarding eth value via CREATE2
-   * @param _code Creation code of the contract
-   * @param _salt Salt for deterministic address derivation
-   * @return addr The address of the created contract
-   */
-  function create2Contract(bytes memory _code, bytes32 _salt) public payable virtual onlySelf returns (address addr) {
-    assembly {
-      addr := create2(callvalue(), add(_code, 32), mload(_code), _salt)
-    }
-    if (addr == address(0)) {
-      revert Create2Failed(_code, _salt);
-    }
-    emit CreatedContract(addr);
   }
 
 }
