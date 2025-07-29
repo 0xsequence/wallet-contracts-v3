@@ -28,6 +28,10 @@ contract Simulator is Stage2Module {
     uint256 gasUsed;
   }
 
+  constructor(
+    address _entryPoint
+  ) Stage2Module(_entryPoint) { }
+
   /// @notice Simulate the execution of a payload
   /// @param _calls The calls to simulate
   /// @return results The results of the calls
