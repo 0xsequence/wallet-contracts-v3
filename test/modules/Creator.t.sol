@@ -53,6 +53,16 @@ contract CreatorTest is AdvTest {
     assertEq(deployed.balance, _value, "forwarded value mismatch");
   }
 
+  function test_createContract_invalidInitCode_reverts() external {
+    bytes memory invalidInitCode = hex"fe"; // 1‑byte, always reverts
+
+    vm.expectRevert(abi.encodeWithSelector(Creator.CreateFailed.selector, invalidInitCode));
+
+    // Only the contract itself is allowed to call createContract
+    vm.prank(address(creator));
+    creator.createContract(invalidInitCode);
+  }
+
   function test_create2Contract_duplicate(
     bytes32 _salt
   ) external {
