@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import { Stage2Module } from "./Stage2Module.sol";
 
 import { Payload } from "./modules/Payload.sol";
+import { SelfAuth } from "./modules/auth/SelfAuth.sol";
 import { IDelegatedExtension } from "./modules/interfaces/IDelegatedExtension.sol";
 import { LibOptim } from "./utils/LibOptim.sol";
 
@@ -104,6 +105,29 @@ contract Simulator is Stage2Module {
       results[i].status = Status.Succeeded;
       results[i].result = LibOptim.returnData();
     }
+  }
+
+  event CreatedContract(address _contract);
+
+  error CreateFailed(bytes _code);
+
+  /**
+   * @notice Creates a contract forwarding eth value
+   * @param _code Creation code of the contract
+   * @return addr The address of the created contract
+   */
+  function createContract(
+    bytes memory _code
+  ) public payable virtual onlySelf returns (address addr) {
+    assembly {
+      addr := create(callvalue(), add(_code, 32), mload(_code))
+    }
+
+    if (addr == address(0)) {
+      revert CreateFailed(_code);
+    }
+
+    emit CreatedContract(addr);
   }
 
 }
