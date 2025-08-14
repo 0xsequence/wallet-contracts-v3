@@ -24,7 +24,7 @@ contract TestStage1Module is AdvTest {
   event ImageHashUpdated(bytes32 newImageHash);
 
   Factory public factory = new Factory();
-  Stage1Module public stage1Module = new Stage1Module(address(factory));
+  Stage1Module public stage1Module = new Stage1Module(address(factory), address(0));
 
   event StaticSignatureSet(bytes32 _hash, address _address, uint96 _timestamp);
 

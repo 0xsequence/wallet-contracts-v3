@@ -48,7 +48,9 @@ contract BaseSigTest is AdvTest {
     assertEq(opHash, Payload.hashFor(payload, address(baseSigImp)));
   }
 
-  function test_recover_random_config_unsigned_skewed_left(uint256 _seed) external {
+  function test_recover_random_config_unsigned_skewed_left(
+    uint256 _seed
+  ) external {
     uint256 _maxDepth = 54;
 
     Payload.Decoded memory payload;
@@ -65,7 +67,9 @@ contract BaseSigTest is AdvTest {
     assertEq(opHash, Payload.hashFor(payload, address(baseSigImp)));
   }
 
-  function test_recover_random_config_unsigned_skewed_right(uint256 _seed) external {
+  function test_recover_random_config_unsigned_skewed_right(
+    uint256 _seed
+  ) external {
     uint256 _maxDepth = 54;
 
     Payload.Decoded memory payload;

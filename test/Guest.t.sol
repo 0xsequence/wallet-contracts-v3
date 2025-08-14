@@ -256,7 +256,7 @@ contract GuestTest is AdvTest {
 
     uint256 total = _value1 + _value2;
     vm.deal(address(this), total);
-    (bool ok,) = address(guest).call{value: total}(packed);
+    (bool ok,) = address(guest).call{ value: total }(packed);
     assertTrue(ok);
 
     assertEq(address(this).balance, 0);
@@ -264,4 +264,5 @@ contract GuestTest is AdvTest {
     assertEq(address(to1).balance, _value1);
     assertEq(address(to2).balance, _value2);
   }
+
 }

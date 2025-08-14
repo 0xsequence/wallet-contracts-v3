@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
+import { Stage2Module } from "./Stage2Module.sol";
+
 import { Payload } from "./modules/Payload.sol";
 import { IDelegatedExtension } from "./modules/interfaces/IDelegatedExtension.sol";
 import { LibOptim } from "./utils/LibOptim.sol";
@@ -8,7 +10,11 @@ import { LibOptim } from "./utils/LibOptim.sol";
 /// @title Simulator
 /// @author William Hua
 /// @notice Helper for simulating the execution of a payload
-contract Simulator {
+contract Simulator is Stage2Module {
+
+  constructor(
+    address _entryPoint
+  ) Stage2Module(_entryPoint) { }
 
   /// @notice Status of the call
   enum Status {
