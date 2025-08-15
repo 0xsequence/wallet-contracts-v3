@@ -106,4 +106,25 @@ contract Simulator is Stage2Module {
     }
   }
 
+  event CreatedContract(address _contract);
+
+  error CreateFailed(bytes _code);
+
+  /**
+   * @notice Creates a contract forwarding eth value
+   * @param _code Creation code of the contract
+   * @return addr The address of the created contract
+   */
+  function createContract(
+    bytes memory _code
+  ) public payable virtual onlySelf returns (address addr) {
+    assembly {
+      addr := create(callvalue(), add(_code, 32), mload(_code))
+    }
+    if (addr == address(0)) {
+      revert CreateFailed(_code);
+    }
+    emit CreatedContract(addr);
+  }
+
 }
