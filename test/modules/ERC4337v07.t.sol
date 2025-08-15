@@ -11,27 +11,12 @@ import { IEntryPoint } from "../../src/modules/interfaces/IEntryPoint.sol";
 import { Emitter } from "../mocks/Emitter.sol";
 import { PrimitivesRPC } from "../utils/PrimitivesRPC.sol";
 import { AdvTest } from "../utils/TestUtils.sol";
-
-// Mock EntryPoint for testing purposes.
-contract MockEntryPoint is IEntryPoint {
-
-  event Deposited(address indexed account, uint256 totalDeposited);
-
-  mapping(address => uint256) public deposits;
-
-  function depositTo(
-    address account
-  ) external payable {
-    deposits[account] += msg.value;
-    emit Deposited(account, msg.value);
-  }
-
-}
+import { EntryPoint, IStakeManager } from "account-abstraction/core/EntryPoint.sol";
 
 contract ERC4337v07Test is AdvTest {
 
   Factory public factory;
-  MockEntryPoint public entryPoint;
+  EntryPoint public entryPoint;
   Stage1Module public stage1Module;
   address payable public wallet;
   string public walletConfig;
@@ -41,7 +26,7 @@ contract ERC4337v07Test is AdvTest {
 
   function setUp() public {
     factory = new Factory();
-    entryPoint = new MockEntryPoint();
+    entryPoint = new EntryPoint();
     stage1Module = new Stage1Module(address(factory), address(entryPoint));
 
     // Basic wallet setup for most tests.
@@ -112,13 +97,13 @@ contract ERC4337v07Test is AdvTest {
     vm.prank(address(entryPoint));
 
     vm.expectEmit(true, true, false, true, address(entryPoint));
-    emit MockEntryPoint.Deposited(wallet, missingFunds);
+    emit IStakeManager.Deposited(wallet, missingFunds);
 
     // Call validateUserOp without sending value. The wallet will use its own balance to deposit.
     uint256 validationData = Stage1Module(wallet).validateUserOp(userOp, userOpHash, missingFunds);
 
     assertEq(validationData, 1, "Should return 1 for signature failure");
-    assertEq(entryPoint.deposits(wallet), missingFunds, "Missing funds were not deposited correctly");
+    assertEq(entryPoint.balanceOf(wallet), missingFunds, "Missing funds were not deposited correctly");
     assertEq(address(wallet).balance, 0, "Wallet should have used its balance for the deposit");
   }
 

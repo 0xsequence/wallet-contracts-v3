@@ -8,6 +8,9 @@ optimizer_runs = 4294967295
 fs_permissions = [{ access = "read-write", path = "/tmp"}]
 solc = "0.8.28"
 evm_version = "paris"
+remappings = [
+  "account-abstraction/=lib/account-abstraction/contracts/"
+]
 
 [fmt]
 # Explicitly define all formatting rules
