@@ -391,11 +391,11 @@ When the **cumulative** flag is set on a permission rule:
 2. **Threshold Comparison:**  
    The cumulative total (current value plus previous usage) is compared against the threshold defined by the rule.
 
-3. **Follow-up Update:**  
-   Because cumulative values persist across multiple calls, a follow-up call to `incrementUsageLimit` is required. This call updates the on-chain storage with the new cumulative total, ensuring that future validations reflect the updated usage.
+3. **Preceding Update:**  
+   Because cumulative values persist across multiple calls, a preceding call to `incrementUsageLimit` is required. This call updates the on-chain storage with the new cumulative total, ensuring that future validations reflect the updated usage.
 
 > [!WARNING]
-> Cumulative Usage Requires Follow-up: Always ensure that an `incrementUsageLimit` call is made after processing a cumulative permission rule to update the stored cumulative usage. Failure to do so may result in incorrect validations on subsequent calls.
+> Cumulative Usage Requires Preceding Call: Always ensure that an `incrementUsageLimit` call is made at the start of the batch when processing a cumulative permission rule to update the stored cumulative usage. Failure to do so may result in incorrect validations on subsequent calls.
 
 ### Example: ERC20.transfer
 

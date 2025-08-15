@@ -321,7 +321,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     usage.limits = new UsageLimit[](0);
     usage.totalValueUsed = 0;
 
-    vm.expectRevert(SessionErrors.InvalidSelfCall.selector);
+    vm.expectRevert(SessionErrors.InvalidValue.selector);
     harness.validateExplicitCall(payload, 0, wallet, sessionWallet.addr, permsArr, 0, usage);
   }
 
@@ -583,6 +583,32 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     SessionUsageLimits[] memory usageArr = new SessionUsageLimits[](1);
     usageArr[0] = usage;
 
+    vm.expectRevert(SessionErrors.InvalidLimitUsageIncrement.selector);
+    vm.prank(wallet);
+    harness.validateLimitUsageIncrement(incCall, usageArr);
+  }
+
+  function test_validateLimitUsageIncrement_OnlyFallbackAllowed() public {
+    // Prepare a call with correct target and behaviorOnError but onlyFallback = true
+    // This should revert because increment calls cannot be skippable
+    Payload.Call memory incCall = Payload.Call({
+      to: address(harness),
+      value: 0,
+      data: "invalid", // data is not checked because onlyFallback is wrong
+      gasLimit: 0,
+      delegateCall: false,
+      onlyFallback: true, // This should cause the increment call to be skipped
+      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+    });
+
+    SessionUsageLimits memory usage;
+    usage.signer = sessionWallet.addr;
+    usage.limits = new UsageLimit[](0);
+    usage.totalValueUsed = 100;
+    SessionUsageLimits[] memory usageArr = new SessionUsageLimits[](1);
+    usageArr[0] = usage;
+
+    // This should revert because increment calls cannot have onlyFallback = true
     vm.expectRevert(SessionErrors.InvalidLimitUsageIncrement.selector);
     vm.prank(wallet);
     harness.validateLimitUsageIncrement(incCall, usageArr);

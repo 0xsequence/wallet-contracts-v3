@@ -50,10 +50,16 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
     SessionUsageLimits[] memory sessionUsageLimits = new SessionUsageLimits[](payload.calls.length);
 
     for (uint256 i = 0; i < payload.calls.length; i++) {
-      // General validation
       Payload.Call calldata call = payload.calls[i];
+
+      // Ban delegate calls
       if (call.delegateCall) {
         revert SessionErrors.InvalidDelegateCall();
+      }
+
+      // Check if this call could cause usage limits to be skipped
+      if (call.behaviorOnError == Payload.BEHAVIOR_ABORT_ON_ERROR) {
+        revert SessionErrors.InvalidBehavior();
       }
 
       // Validate call signature
@@ -110,8 +116,8 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
       }
 
       // Bulk validate the updated usage limits
-      Payload.Call calldata lastCall = payload.calls[payload.calls.length - 1];
-      _validateLimitUsageIncrement(lastCall, actualSessionUsageLimits);
+      Payload.Call calldata firstCall = payload.calls[0];
+      _validateLimitUsageIncrement(firstCall, actualSessionUsageLimits);
     }
 
     // Return the image hash

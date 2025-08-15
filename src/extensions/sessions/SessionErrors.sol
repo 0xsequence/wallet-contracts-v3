@@ -14,6 +14,8 @@ library SessionErrors {
   error InvalidSelfCall();
   /// @notice Invalid delegate call
   error InvalidDelegateCall();
+  /// @notice Invalid call behavior
+  error InvalidBehavior();
   /// @notice Invalid value
   error InvalidValue();
   /// @notice Invalid node type in session configuration
