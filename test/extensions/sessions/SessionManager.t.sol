@@ -704,9 +704,7 @@ contract SessionManagerTest is SessionTestBase {
   /// @notice Test that calls with BEHAVIOR_IGNORE_ERROR in explicit sessions are allowed
   function testExplicitSessionBehaviorIgnoreErrorAllowed(address target, bytes memory data) public {
     vm.assume(target != address(sessionManager));
-    // Build a payload with two calls: explicit call with IGNORE_ERROR + increment call
-    uint256 callCount = 2;
-    Payload.Decoded memory payload = _buildPayload(callCount);
+    Payload.Decoded memory payload = _buildPayload(1);
 
     // First call with BEHAVIOR_IGNORE_ERROR (should be allowed)
     payload.calls[0] = Payload.Call({
@@ -719,17 +717,6 @@ contract SessionManagerTest is SessionTestBase {
       behaviorOnError: Payload.BEHAVIOR_IGNORE_ERROR
     });
 
-    // Second call (increment call)
-    payload.calls[1] = Payload.Call({
-      to: address(sessionManager),
-      value: 0,
-      data: abi.encodeWithSelector(sessionManager.incrementUsageLimit.selector, new UsageLimit[](0)),
-      gasLimit: 0,
-      delegateCall: false,
-      onlyFallback: false,
-      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
-    });
-
     // Session permissions
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: sessionWallet.addr,
@@ -740,11 +727,7 @@ contract SessionManagerTest is SessionTestBase {
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });
 
-    uint8[] memory permissionIdxs = new uint8[](2);
-    permissionIdxs[0] = 0; // Call 0
-    permissionIdxs[1] = 0; // Call 1
-
-    (bytes32 imageHash, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, permissionIdxs);
+    (bytes32 imageHash, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, new uint8[](1));
 
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     assertEq(imageHash, actualImageHash);
@@ -753,9 +736,7 @@ contract SessionManagerTest is SessionTestBase {
   /// @notice Test that calls with BEHAVIOR_ABORT_ON_ERROR in explicit sessions revert
   function testExplicitSessionBehaviorAbortOnErrorReverts(address target, bytes memory data) public {
     vm.assume(target != address(sessionManager));
-    // Build a payload with two calls: explicit call with ABORT_ON_ERROR + increment call
-    uint256 callCount = 2;
-    Payload.Decoded memory payload = _buildPayload(callCount);
+    Payload.Decoded memory payload = _buildPayload(1);
 
     // First call with BEHAVIOR_ABORT_ON_ERROR (should revert)
     payload.calls[0] = Payload.Call({
@@ -768,17 +749,6 @@ contract SessionManagerTest is SessionTestBase {
       behaviorOnError: Payload.BEHAVIOR_ABORT_ON_ERROR // This should revert
      });
 
-    // Second call (increment call)
-    payload.calls[1] = Payload.Call({
-      to: address(sessionManager),
-      value: 0,
-      data: abi.encodeWithSelector(sessionManager.incrementUsageLimit.selector, new UsageLimit[](0)),
-      gasLimit: 0,
-      delegateCall: false,
-      onlyFallback: false,
-      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
-    });
-
     // Session permissions
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: sessionWallet.addr,
@@ -789,11 +759,7 @@ contract SessionManagerTest is SessionTestBase {
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });
 
-    uint8[] memory permissionIdxs = new uint8[](2);
-    permissionIdxs[0] = 0; // Call 0
-    permissionIdxs[1] = 0; // Call 1
-
-    (, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, permissionIdxs);
+    (, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, new uint8[](1));
 
     vm.expectRevert(SessionErrors.InvalidBehavior.selector);
     sessionManager.recoverSapientSignature(payload, encodedSig);
@@ -802,9 +768,7 @@ contract SessionManagerTest is SessionTestBase {
   /// @notice Test that valid linear execution still works
   function testValidLinearExecution(address target, bytes memory data) public {
     vm.assume(target != address(sessionManager));
-    // Build a payload with two calls: explicit call + increment call (both with valid flags)
-    uint256 callCount = 2;
-    Payload.Decoded memory payload = _buildPayload(callCount);
+    Payload.Decoded memory payload = _buildPayload(1);
 
     // First call (normal explicit call)
     payload.calls[0] = Payload.Call({
@@ -817,17 +781,6 @@ contract SessionManagerTest is SessionTestBase {
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR // Valid behavior
      });
 
-    // Second call (increment call with valid flags)
-    payload.calls[1] = Payload.Call({
-      to: address(sessionManager),
-      value: 0,
-      data: abi.encodeWithSelector(sessionManager.incrementUsageLimit.selector, new UsageLimit[](0)),
-      gasLimit: 0,
-      delegateCall: false,
-      onlyFallback: false, // Valid flag
-      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR // Valid behavior
-     });
-
     // Session permissions
     SessionPermissions memory sessionPerms = SessionPermissions({
       signer: sessionWallet.addr,
@@ -838,11 +791,7 @@ contract SessionManagerTest is SessionTestBase {
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });
 
-    uint8[] memory permissionIdxs = new uint8[](2);
-    permissionIdxs[0] = 0; // Call 0
-    permissionIdxs[1] = 0; // Call 1
-
-    (bytes32 imageHash, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, permissionIdxs);
+    (bytes32 imageHash, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, new uint8[](1));
 
     // This should succeed since all flags are valid for linear execution
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);

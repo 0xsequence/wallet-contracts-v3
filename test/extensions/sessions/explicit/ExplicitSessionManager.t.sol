@@ -325,42 +325,6 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     harness.validateExplicitCall(payload, 0, wallet, sessionWallet.addr, permsArr, 0, usage);
   }
 
-  function test_validateExplicitCall_InvalidSelfCall_Selector(
-    uint64 chainId
-  ) public supportChainId(chainId) {
-    // Self-call with zero value but incorrect selector.
-    bytes4 wrongSelector = bytes4(0xdeadbeef);
-    Payload.Decoded memory payload = _buildPayload(1);
-    payload.calls[0] = Payload.Call({
-      to: address(harness),
-      value: 0,
-      data: abi.encodePacked(wrongSelector),
-      gasLimit: 0,
-      delegateCall: false,
-      onlyFallback: false,
-      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
-    });
-
-    // Need valid session permissions for the test to reach self-call validation
-    SessionPermissions memory perms = SessionPermissions({
-      signer: sessionWallet.addr, // Match the session signer
-      chainId: chainId,
-      valueLimit: 100,
-      deadline: uint64(block.timestamp + 1 days),
-      permissions: new Permission[](1)
-    });
-    perms.permissions[0] = Permission({ target: address(harness), rules: new ParameterRule[](0) });
-
-    SessionPermissions[] memory permsArr = _toArray(perms);
-    SessionUsageLimits memory usage;
-    usage.signer = sessionWallet.addr;
-    usage.limits = new UsageLimit[](0);
-    usage.totalValueUsed = 0;
-
-    vm.expectRevert(SessionErrors.InvalidSelfCall.selector);
-    harness.validateExplicitCall(payload, 0, wallet, sessionWallet.addr, permsArr, 0, usage);
-  }
-
   function test_validateExplicitCall_MissingPermission(
     uint64 chainId
   ) public supportChainId(chainId) {

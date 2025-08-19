@@ -78,14 +78,14 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
 
     // Calls to incrementUsageLimit are the only allowed calls to this contract
     if (call.to == address(this)) {
+      if (callIdx != 0) {
+        // IncrementUsageLimit call is only allowed as the first call
+        revert SessionErrors.InvalidLimitUsageIncrement();
+      }
       if (call.value > 0) {
         revert SessionErrors.InvalidValue();
       }
-      bytes4 selector = bytes4(call.data[0:4]);
-      if (selector != IExplicitSessionManager.incrementUsageLimit.selector) {
-        revert SessionErrors.InvalidSelfCall();
-      }
-      // No permissions required
+      // No permissions required for the increment call
       return sessionUsageLimits;
     }
 
@@ -158,6 +158,11 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
       bytes32 expectedDataHash = keccak256(expectedData);
       bytes32 actualDataHash = keccak256(call.data);
       if (actualDataHash != expectedDataHash) {
+        revert SessionErrors.InvalidLimitUsageIncrement();
+      }
+    } else {
+      // Do not allow self calls if there are no usage limits
+      if (call.to == address(this)) {
         revert SessionErrors.InvalidLimitUsageIncrement();
       }
     }

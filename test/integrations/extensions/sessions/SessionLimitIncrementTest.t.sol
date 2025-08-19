@@ -50,41 +50,27 @@ contract IntegrationSessionLimitIncrementTest is ExtendedSessionTestBase {
     // Create the wallet
     (Stage1Module wallet, string memory config,) = _createWallet(topology);
 
-    // Create a valid payload for session signer 2
+    // Create a valid payload
     UsageLimit[] memory usageLimits = new UsageLimit[](1);
     usageLimits[0] = UsageLimit({
       usageHash: keccak256(abi.encode(signer2.addr, signer2Perms.permissions[0], uint256(0))),
       usageAmount: uint256(1)
     });
-    Payload.Decoded memory signer2Payload = _buildPayload(2);
-    signer2Payload.space++; // Prevent nonce collision
-    signer2Payload.calls[0].to = address(sessionManager);
-    signer2Payload.calls[0].data = abi.encodeWithSelector(sessionManager.incrementUsageLimit.selector, usageLimits);
-    signer2Payload.calls[0].behaviorOnError = Payload.BEHAVIOR_REVERT_ON_ERROR;
-    signer2Payload.calls[1].to = address(mockTarget);
-    signer2Payload.calls[1].data = abi.encodePacked(bytes32(uint256(1)));
-    // Sign it
-    bytes memory signer2Signature = _validExplicitSignature(signer2Payload, signer2, config, topology, new uint8[](2));
-
-    //FIXME Check it would work
-    bytes memory packedSigner2Payload = PrimitivesRPC.toPackedPayload(vm, signer2Payload);
-    // wallet.execute(packedSigner2Payload, signer2Signature);
 
     // Make the increment call with signer1
     Payload.Decoded memory signer1Payload = _buildPayload(1);
-    signer1Payload.calls[0] = signer2Payload.calls[0];
+    signer1Payload.calls[0].to = address(sessionManager);
+    signer1Payload.calls[0].data = abi.encodeWithSelector(sessionManager.incrementUsageLimit.selector, usageLimits);
+    signer1Payload.calls[0].behaviorOnError = Payload.BEHAVIOR_REVERT_ON_ERROR;
 
     // Sign it
     bytes memory signer1Signature =
       _validExplicitSignature(signer1Payload, sessionWallet, config, topology, new uint8[](1));
 
-    // Execute it
+    // Validate we can't DoS it
     bytes memory packedSigner1Payload = PrimitivesRPC.toPackedPayload(vm, signer1Payload);
+    vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidLimitUsageIncrement.selector));
     wallet.execute(packedSigner1Payload, signer1Signature);
-
-    // Check for DoS
-    vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidPermission.selector));
-    wallet.execute(packedSigner2Payload, signer2Signature);
   }
 
 }
