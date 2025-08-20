@@ -151,4 +151,41 @@ contract IntegrationSessionDenialOfServiceTest is ExtendedSessionTestBase {
     wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload1), staticSignature);
   }
 
+  function test_DOS_Wallet_SpaceBlockedHighRange(
+    uint160 space
+  ) public {
+    space = uint160(bound(space, sessionManager.MAX_SPACE() + 1, type(uint160).max));
+
+    // Create wallet with sessions.
+    string memory topology = _createDefaultTopology();
+    (Stage1Module wallet, string memory config,) = _createWallet(topology);
+
+    // Sign a payload with the same nonce to race execution
+    Payload.Decoded memory payload = _buildPayload(1);
+    payload.calls = new Payload.Call[](1);
+    payload.calls[0].to = address(mockTarget);
+    payload.calls[0].data = "0x87654321";
+    payload.space = space;
+
+    string[] memory callSignatures = new string[](1);
+    bytes32 callHash = SessionSig.hashCallWithReplayProtection(payload, 0);
+    string memory callSignature = _signAndEncodeRSV(callHash, sessionWallet);
+    callSignatures[0] = _explicitCallSignatureToJSON(0, callSignature);
+
+    address[] memory explicitSigners = new address[](1);
+    explicitSigners[0] = sessionWallet.addr;
+    address[] memory implicitSigners = new address[](0);
+
+    // Construct signature
+    bytes memory sessionSignatures =
+      PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, explicitSigners, implicitSigners);
+    string memory signatures =
+      string(abi.encodePacked(vm.toString(address(sessionManager)), ":sapient:", vm.toString(sessionSignatures)));
+    bytes memory sessionSignature = PrimitivesRPC.toEncodedSignature(vm, config, signatures, !payload.noChainId);
+
+    // Execute blocked
+    vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidSpace.selector, space));
+    wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload), sessionSignature);
+  }
+
 }
