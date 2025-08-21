@@ -283,7 +283,7 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     uint8[] memory permsUsed = new uint8[](1);
     permsUsed[0] = 1; // Uses mockTarget permission
     signature = _validExplicitSignature(payload, sessionWallet, config, topology, permsUsed);
-    wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload), signature); //FIXME Fails!
+    wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload), signature);
   }
 
 }

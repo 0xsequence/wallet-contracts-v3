@@ -103,8 +103,13 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
     }
     sessionUsageLimits.limits = limits;
 
-    // Increment the total value used
+    // Increment and check the total value used
     if (call.value > 0) {
+      if (sessionUsageLimits.totalValueUsed == 0) {
+        // Add the current stored value to the total value used
+        bytes32 usageHash = keccak256(abi.encode(sessionSigner, VALUE_TRACKING_ADDRESS));
+        sessionUsageLimits.totalValueUsed = getLimitUsage(wallet, usageHash);
+      }
       sessionUsageLimits.totalValueUsed += call.value;
     }
     if (sessionUsageLimits.totalValueUsed > sessionPermissions.valueLimit) {

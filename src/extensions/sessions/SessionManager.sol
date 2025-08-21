@@ -80,8 +80,6 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
             // Initialize new session usage limits
             limits.signer = callSignature.sessionSigner;
             limits.limits = new UsageLimit[](0);
-            bytes32 usageHash = keccak256(abi.encode(callSignature.sessionSigner, VALUE_TRACKING_ADDRESS));
-            limits.totalValueUsed = getLimitUsage(wallet, usageHash);
             break;
           }
           if (sessionUsageLimits[limitsIdx].signer == callSignature.sessionSigner) {
