@@ -26,7 +26,7 @@ contract ExtendedSessionTestBase is SessionTestBase {
   Vm.Wallet public identityWallet;
   AcceptAll public mockTarget;
 
-  function setUp() public {
+  function setUp() public virtual {
     sessionWallet = vm.createWallet("session");
     identityWallet = vm.createWallet("identity");
     sessionManager = new SessionManager();
