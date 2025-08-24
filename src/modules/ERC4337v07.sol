@@ -27,20 +27,22 @@ abstract contract ERC4337v07 is IAccount, IAccountExecute, Calls {
     entrypoint = _entrypoint;
   }
 
+  modifier onlyEntrypoint() {
+    if (entrypoint == address(0)) {
+      revert ERC4337Disabled();
+    }
+    if (msg.sender != entrypoint) {
+      revert InvalidEntryPoint(msg.sender);
+    }
+    _;
+  }
+
   /// @inheritdoc IAccount
   function validateUserOp(
     PackedUserOperation calldata userOp,
     bytes32 userOpHash,
     uint256 missingAccountFunds
-  ) external returns (uint256 validationData) {
-    if (entrypoint == address(0)) {
-      revert ERC4337Disabled();
-    }
-
-    if (msg.sender != entrypoint) {
-      revert InvalidEntryPoint(msg.sender);
-    }
-
+  ) external onlyEntrypoint returns (uint256 validationData) {
     // userOp.nonce is validated by the entrypoint
 
     if (missingAccountFunds != 0) {
@@ -55,15 +57,7 @@ abstract contract ERC4337v07 is IAccount, IAccountExecute, Calls {
   }
 
   /// @inheritdoc IAccountExecute
-  function executeUserOp(PackedUserOperation calldata userOp, bytes32) external {
-    if (entrypoint == address(0)) {
-      revert ERC4337Disabled();
-    }
-
-    if (msg.sender != entrypoint) {
-      revert InvalidEntryPoint(msg.sender);
-    }
-
+  function executeUserOp(PackedUserOperation calldata userOp, bytes32) external onlyEntrypoint {
     this.selfExecute(userOp.callData);
   }
 
