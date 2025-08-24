@@ -58,7 +58,9 @@ abstract contract ERC4337v07 is IAccount, IAccountExecute, Calls {
 
   /// @inheritdoc IAccountExecute
   function executeUserOp(PackedUserOperation calldata userOp, bytes32) external onlyEntrypoint {
-    this.selfExecute(userOp.callData);
+    // Skip the first 4 bytes (executeUserOp selector) and pass only the actual payload
+    bytes calldata payload = userOp.callData[4:];
+    this.selfExecute(payload);
   }
 
 }
