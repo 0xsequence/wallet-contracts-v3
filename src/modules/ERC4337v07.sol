@@ -2,17 +2,23 @@
 pragma solidity ^0.8.18;
 
 import { Calls } from "./Calls.sol";
-import { IAccount, PackedUserOperation } from "./interfaces/IAccount.sol";
+import { IAccount, IAccountExecute, PackedUserOperation } from "./interfaces/IAccount.sol";
 import { IERC1271_MAGIC_VALUE_HASH } from "./interfaces/IERC1271.sol";
 import { IEntryPoint } from "./interfaces/IEntryPoint.sol";
 
-abstract contract ERC4337v07 is IAccount, Calls {
+/// @title ERC4337v07
+/// @author Agustin Aguilar, Michael Standen
+/// @notice ERC4337 v7 support
+abstract contract ERC4337v07 is IAccount, IAccountExecute, Calls {
 
   uint256 internal constant SIG_VALIDATION_FAILED = 1;
 
+  /// @notice The entrypoint address
   address public immutable entrypoint;
 
+  /// @notice Error thrown when the entrypoint is invalid
   error InvalidEntryPoint(address _entrypoint);
+  /// @notice Error thrown when the ERC4337 is disabled
   error ERC4337Disabled();
 
   constructor(
@@ -21,19 +27,22 @@ abstract contract ERC4337v07 is IAccount, Calls {
     entrypoint = _entrypoint;
   }
 
+  modifier onlyEntrypoint() {
+    if (entrypoint == address(0)) {
+      revert ERC4337Disabled();
+    }
+    if (msg.sender != entrypoint) {
+      revert InvalidEntryPoint(msg.sender);
+    }
+    _;
+  }
+
+  /// @inheritdoc IAccount
   function validateUserOp(
     PackedUserOperation calldata userOp,
     bytes32 userOpHash,
     uint256 missingAccountFunds
-  ) external returns (uint256 validationData) {
-    if (entrypoint == address(0)) {
-      revert ERC4337Disabled();
-    }
-
-    if (msg.sender != entrypoint) {
-      revert InvalidEntryPoint(msg.sender);
-    }
-
+  ) external onlyEntrypoint returns (uint256 validationData) {
     // userOp.nonce is validated by the entrypoint
 
     if (missingAccountFunds != 0) {
@@ -47,18 +56,11 @@ abstract contract ERC4337v07 is IAccount, Calls {
     return 0;
   }
 
-  function executeUserOp(
-    bytes calldata _payload
-  ) external {
-    if (entrypoint == address(0)) {
-      revert ERC4337Disabled();
-    }
-
-    if (msg.sender != entrypoint) {
-      revert InvalidEntryPoint(msg.sender);
-    }
-
-    this.selfExecute(_payload);
+  /// @inheritdoc IAccountExecute
+  function executeUserOp(PackedUserOperation calldata userOp, bytes32) external onlyEntrypoint {
+    // Skip the first 4 bytes (executeUserOp selector) and pass only the actual payload
+    bytes calldata payload = userOp.callData[4:];
+    this.selfExecute(payload);
   }
 
 }
