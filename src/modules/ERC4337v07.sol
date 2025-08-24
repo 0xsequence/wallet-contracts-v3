@@ -6,13 +6,19 @@ import { IAccount, IAccountExecute, PackedUserOperation } from "./interfaces/IAc
 import { IERC1271_MAGIC_VALUE_HASH } from "./interfaces/IERC1271.sol";
 import { IEntryPoint } from "./interfaces/IEntryPoint.sol";
 
+/// @title ERC4337v07
+/// @author Agustin Aguilar, Michael Standen
+/// @notice ERC4337 v7 support
 abstract contract ERC4337v07 is IAccount, IAccountExecute, Calls {
 
   uint256 internal constant SIG_VALIDATION_FAILED = 1;
 
+  /// @notice The entrypoint address
   address public immutable entrypoint;
 
+  /// @notice Error thrown when the entrypoint is invalid
   error InvalidEntryPoint(address _entrypoint);
+  /// @notice Error thrown when the ERC4337 is disabled
   error ERC4337Disabled();
 
   constructor(
@@ -21,6 +27,7 @@ abstract contract ERC4337v07 is IAccount, IAccountExecute, Calls {
     entrypoint = _entrypoint;
   }
 
+  /// @inheritdoc IAccount
   function validateUserOp(
     PackedUserOperation calldata userOp,
     bytes32 userOpHash,
@@ -47,6 +54,7 @@ abstract contract ERC4337v07 is IAccount, IAccountExecute, Calls {
     return 0;
   }
 
+  /// @inheritdoc IAccountExecute
   function executeUserOp(PackedUserOperation calldata userOp, bytes32) external {
     if (entrypoint == address(0)) {
       revert ERC4337Disabled();
