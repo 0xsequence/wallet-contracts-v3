@@ -2,11 +2,11 @@
 pragma solidity ^0.8.18;
 
 import { Calls } from "./Calls.sol";
-import { IAccount, PackedUserOperation } from "./interfaces/IAccount.sol";
+import { IAccount, IAccountExecute, PackedUserOperation } from "./interfaces/IAccount.sol";
 import { IERC1271_MAGIC_VALUE_HASH } from "./interfaces/IERC1271.sol";
 import { IEntryPoint } from "./interfaces/IEntryPoint.sol";
 
-abstract contract ERC4337v07 is IAccount, Calls {
+abstract contract ERC4337v07 is IAccount, IAccountExecute, Calls {
 
   uint256 internal constant SIG_VALIDATION_FAILED = 1;
 
@@ -47,9 +47,7 @@ abstract contract ERC4337v07 is IAccount, Calls {
     return 0;
   }
 
-  function executeUserOp(
-    bytes calldata _payload
-  ) external {
+  function executeUserOp(PackedUserOperation calldata userOp, bytes32) external {
     if (entrypoint == address(0)) {
       revert ERC4337Disabled();
     }
@@ -58,7 +56,7 @@ abstract contract ERC4337v07 is IAccount, Calls {
       revert InvalidEntryPoint(msg.sender);
     }
 
-    this.selfExecute(_payload);
+    this.selfExecute(userOp.callData);
   }
 
 }

@@ -142,24 +142,30 @@ contract ERC4337v07Test is AdvTest {
 
   // --- executeUserOp Tests ---
 
-  function test_executeUserOp_reverts_if_disabled(
-    bytes calldata payload
-  ) public {
+  function test_executeUserOp_reverts_if_disabled(bytes calldata payload, bytes32 userOpHash) public {
     // Deploy a new wallet with 4337 disabled.
     Stage1Module moduleDisabled = new Stage1Module(address(factory), address(0));
     address payable walletDisabled = payable(factory.deploy(address(moduleDisabled), walletImageHash));
 
     vm.prank(address(entryPoint));
     vm.expectRevert(ERC4337v07.ERC4337Disabled.selector);
-    Stage1Module(walletDisabled).executeUserOp(payload);
+    PackedUserOperation memory userOp;
+    userOp.callData = payload;
+    Stage1Module(walletDisabled).executeUserOp(userOp, userOpHash);
   }
 
-  function test_executeUserOp_reverts_invalidEntryPoint(bytes calldata payload, address randomCaller) public {
+  function test_executeUserOp_reverts_invalidEntryPoint(
+    bytes calldata payload,
+    bytes32 userOpHash,
+    address randomCaller
+  ) public {
     vm.assume(randomCaller != address(entryPoint));
 
     vm.prank(randomCaller);
     vm.expectRevert(abi.encodeWithSelector(ERC4337v07.InvalidEntryPoint.selector, randomCaller));
-    Stage1Module(wallet).executeUserOp(payload);
+    PackedUserOperation memory userOp;
+    userOp.callData = payload;
+    Stage1Module(wallet).executeUserOp(userOp, userOpHash);
   }
 
   function test_executeUserOp_executes_payload() external {
@@ -188,7 +194,9 @@ contract ERC4337v07Test is AdvTest {
 
     // Execute the userOp via the entrypoint.
     vm.prank(address(entryPoint));
-    Stage1Module(wallet).executeUserOp(packedPayload);
+    PackedUserOperation memory userOp;
+    userOp.callData = packedPayload;
+    Stage1Module(wallet).executeUserOp(userOp, bytes32(0));
   }
 
 }
