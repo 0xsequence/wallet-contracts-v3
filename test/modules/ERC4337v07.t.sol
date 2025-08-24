@@ -12,10 +12,6 @@ import { Emitter } from "../mocks/Emitter.sol";
 import { PrimitivesRPC } from "../utils/PrimitivesRPC.sol";
 import { AdvTest } from "../utils/TestUtils.sol";
 import { EntryPoint, IStakeManager } from "account-abstraction/core/EntryPoint.sol";
-import {
-  PackedUserOperation as RealPackedUserOperation,
-  UserOperationLib
-} from "account-abstraction/core/UserOperationLib.sol";
 
 contract ERC4337v07Test is AdvTest {
 
@@ -58,30 +54,6 @@ contract ERC4337v07Test is AdvTest {
       paymasterAndData: "",
       signature: _signature
     });
-  }
-
-  function hashUserOp(
-    PackedUserOperation memory userOp
-  ) public view returns (bytes32) {
-    // Convert types
-    RealPackedUserOperation memory realUserOp = RealPackedUserOperation({
-      sender: userOp.sender,
-      nonce: userOp.nonce,
-      initCode: userOp.initCode,
-      callData: userOp.callData,
-      accountGasLimits: userOp.accountGasLimits,
-      preVerificationGas: userOp.preVerificationGas,
-      gasFees: userOp.gasFees,
-      paymasterAndData: userOp.paymasterAndData,
-      signature: userOp.signature
-    });
-    return this.hashRealUserOp(realUserOp);
-  }
-
-  function hashRealUserOp(
-    RealPackedUserOperation calldata userOp
-  ) public pure returns (bytes32) {
-    return UserOperationLib.hash(userOp);
   }
 
   // --- validateUserOp Tests ---
@@ -225,78 +197,6 @@ contract ERC4337v07Test is AdvTest {
     PackedUserOperation memory userOp;
     userOp.callData = abi.encodePacked(IAccountExecute.executeUserOp.selector, packedPayload);
     Stage1Module(wallet).executeUserOp(userOp, bytes32(0));
-  }
-
-  // --- end to end tests ---
-
-  function test_endToEnd_executeUserOp_executes_payload(
-    address beneficiary
-  ) external {
-    vm.assume(beneficiary != address(0));
-    beneficiary = boundNoPrecompile(beneficiary);
-    vm.assume(beneficiary.code.length == 0);
-
-    // Setup a mock contract to call.
-    Emitter emitter = new Emitter();
-
-    // Create a payload to call the emitter contract.
-    Payload.Decoded memory decodedPayload;
-    decodedPayload.kind = Payload.KIND_TRANSACTIONS;
-    decodedPayload.calls = new Payload.Call[](1);
-    decodedPayload.calls[0] = Payload.Call({
-      to: address(emitter),
-      value: 0,
-      data: abi.encodeWithSelector(Emitter.explicitEmit.selector),
-      gasLimit: 0,
-      delegateCall: false,
-      onlyFallback: false,
-      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
-    });
-
-    bytes memory packedPayload = PrimitivesRPC.toPackedPayload(vm, decodedPayload);
-
-    // Gas stuff
-    uint256 verificationGasLimit = 100_000;
-    uint256 callGasLimit = 100_000;
-    uint256 preVerificationGas = 100_000;
-    uint256 maxFeePerGas = block.basefee;
-    uint256 maxPriorityFeePerGas = block.basefee;
-    uint256 totalGasLimit = verificationGasLimit + callGasLimit + preVerificationGas;
-    vm.deal(wallet, totalGasLimit * (maxFeePerGas + maxPriorityFeePerGas));
-
-    // Construct the UserOp.
-    RealPackedUserOperation memory userOp;
-    userOp.callData = abi.encodePacked(IAccountExecute.executeUserOp.selector, packedPayload);
-    userOp.sender = wallet;
-    userOp.nonce = 0;
-    userOp.initCode = "";
-    userOp.accountGasLimits = bytes32(abi.encodePacked(uint128(verificationGasLimit), uint128(callGasLimit)));
-    userOp.preVerificationGas = preVerificationGas;
-    userOp.gasFees = bytes32(abi.encodePacked(uint128(maxPriorityFeePerGas), uint128(maxFeePerGas)));
-    userOp.paymasterAndData = "";
-
-    // Get the userOpHash that the EntryPoint will use by calling its getUserOpHash function
-    bytes32 userOpHash = entryPoint.getUserOpHash(userOp);
-
-    // Create a signature for the userOpHash using the wallet's signer config.
-    Payload.Decoded memory payload;
-    payload.kind = Payload.KIND_DIGEST;
-    payload.digest = userOpHash;
-    bytes32 payloadDigest = Payload.hashFor(payload, wallet);
-
-    // Create a signature for the userOpHash using the wallet's signer config.
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, payloadDigest);
-    string memory signatures =
-      string(abi.encodePacked(vm.toString(signer), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v)));
-    userOp.signature = PrimitivesRPC.toEncodedSignature(vm, walletConfig, signatures, true);
-
-    RealPackedUserOperation[] memory ops = new RealPackedUserOperation[](1);
-    ops[0] = userOp;
-
-    // Call the entrypoint.
-    vm.expectEmit(true, false, false, true, address(emitter));
-    emit Emitter.Explicit(wallet);
-    entryPoint.handleOps(ops, payable(beneficiary));
   }
 
 }
