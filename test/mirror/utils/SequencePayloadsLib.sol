@@ -5,7 +5,7 @@ import { Payload } from "src/modules/Payload.sol";
 
 // Implementation of the Sequence SDK to encode payloads, signatures and configurations directly in solidity
 // meant mostly for testing purposes
-library SequenceLib {
+library SequencePayloadsLib {
   /// @notice Error thrown when the kind is invalid
   error InvalidKind(uint8 _kind);
 

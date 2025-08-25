@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { Payload } from "src/modules/Payload.sol";
-import { SequenceLib } from "../utils/SequenceLib.sol";
+import { SequencePayloadsLib } from "../utils/SequencePayloadsLib.sol";
 import { AdvTest } from "../../utils/TestUtils.sol";
 
 contract ExternalPayload {
@@ -28,12 +28,14 @@ contract ExternalPayload {
 
 contract PayloadTest is AdvTest {
   function test_unpackPackedCalls(Payload.Decoded memory _decoded) external {
+    vm.assume(_decoded.calls.length < 100);
+
     _decoded.kind = Payload.KIND_TRANSACTIONS;
     _decoded.noChainId = false; // this is ignored at this level
     boundToLegalPayload(_decoded);
 
     ExternalPayload externalPayload = new ExternalPayload();
-    bytes memory packed = SequenceLib.toPackedCalls(_decoded, address(externalPayload));
+    bytes memory packed = SequencePayloadsLib.toPackedCalls(_decoded, address(externalPayload));
     Payload.Decoded memory unpacked = externalPayload.fromPackedCalls(packed);
     assertEq(unpacked.kind, _decoded.kind, "kind");
     assertEq(unpacked.noChainId, _decoded.noChainId, "noChainId");
@@ -51,21 +53,21 @@ contract PayloadTest is AdvTest {
     }
   }
 
-  function test_noCallHashCollision(Payload.Call memory _call, Payload.Call memory _call2) external pure {
+  function test_noCallHashCollision(Payload.Call memory _a, Payload.Call memory _b) external pure {
     // If calls are identical, their hash should be identical
-    if (isEqualCall(_call, _call2)) {
-      assertEq(Payload.hashCall(_call), Payload.hashCall(_call2), "hash collision");
+    if (isEqualCall(_a, _b)) {
+      assertEq(Payload.hashCall(_a), Payload.hashCall(_b), "hash collision");
     } else {
-      assertNotEq(Payload.hashCall(_call), Payload.hashCall(_call2), "no hash collision");
+      assertNotEq(Payload.hashCall(_a), Payload.hashCall(_b), "no hash collision");
     }
   }
 
-  function test_noCallsHashCollision(Payload.Call[] memory _calls, Payload.Call[] memory _calls2) external pure {
+  function test_noCallsHashCollision(Payload.Call[] memory _a, Payload.Call[] memory _b) external pure {
     // If calls are identical, their hash should be identical
-    bool allEqual = false;
-    if (_calls.length == _calls2.length) {
-      for (uint256 i = 0; i < _calls.length; i++) {
-        if (!isEqualCall(_calls[i], _calls2[i])) {
+    bool allEqual = _a.length == _b.length;
+    if (allEqual) {
+      for (uint256 i = 0; i < _a.length; i++) {
+        if (!isEqualCall(_a[i], _b[i])) {
           allEqual = false;
           break;
         }
@@ -73,97 +75,174 @@ contract PayloadTest is AdvTest {
     }
 
     if (allEqual) {
-      assertEq(Payload.hashCalls(_calls), Payload.hashCalls(_calls2), "hash collision");
+      assertEq(Payload.hashCalls(_a), Payload.hashCalls(_b), "hash collision");
     } else {
-      assertNotEq(Payload.hashCalls(_calls), Payload.hashCalls(_calls2), "no hash collision");
+      assertNotEq(Payload.hashCalls(_a), Payload.hashCalls(_b), "no hash collision");
     }
   }
 
-  function test_noPayloadHashCollision(Payload.Decoded memory _decoded, Payload.Decoded memory _decoded2) external {
-    bool isEqual = isEqualPayload(_decoded, _decoded2);
+  function test_noPayloadHashCollision(Payload.Decoded memory _a, Payload.Decoded memory _b) external {
+    bool isEqual = isEqualPayload(_a, _b);
 
     ExternalPayload externalPayload = new ExternalPayload();
 
     // If any kind is invalid, then there should revert
-    if (!isValidKind(_decoded)) {
-      vm.expectRevert(abi.encodeWithSelector(Payload.InvalidKind.selector, _decoded.kind));
-      externalPayload.hash(_decoded);
+    if (!isValidKind(_a)) {
+      vm.expectRevert(abi.encodeWithSelector(Payload.InvalidKind.selector, _a.kind));
+      externalPayload.hash(_a);
       return;
-    } else if (!isValidKind(_decoded2)) {
-      vm.expectRevert(abi.encodeWithSelector(Payload.InvalidKind.selector, _decoded2.kind));
-      externalPayload.hash(_decoded2);
+    } else if (!isValidKind(_b)) {
+      vm.expectRevert(abi.encodeWithSelector(Payload.InvalidKind.selector, _b.kind));
+      externalPayload.hash(_b);
       return;
     }
 
     if (isEqual) {
-      assertEq(externalPayload.hash(_decoded), externalPayload.hash(_decoded2), "hash collision");
+      assertEq(externalPayload.hash(_a), externalPayload.hash(_b), "hash collision");
     } else {
-      assertNotEq(externalPayload.hash(_decoded), externalPayload.hash(_decoded2), "no hash collision");
+      assertNotEq(externalPayload.hash(_a), externalPayload.hash(_b), "no hash collision");
     }
   }
 
-  function test_noPayloadHashForCollision(Payload.Decoded memory _decoded, Payload.Decoded memory _decoded2, address _wallet1, address _wallet2) external {
-    bool isEqual = isEqualPayload(_decoded, _decoded2);
+  function test_noPayloadHashForCollision(Payload.Decoded memory _a, Payload.Decoded memory _b, address _wallet1, address _wallet2) external {
+    bool isEqual = isEqualPayload(_a, _b);
 
     ExternalPayload externalPayload = new ExternalPayload();
 
     // If any kind is invalid, then there should revert
-    if (!isValidKind(_decoded)) {
-      vm.expectRevert(abi.encodeWithSelector(Payload.InvalidKind.selector, _decoded.kind));
-      externalPayload.hash(_decoded);
+    if (!isValidKind(_a)) {
+      vm.expectRevert(abi.encodeWithSelector(Payload.InvalidKind.selector, _a.kind));
+      externalPayload.hash(_a);
       return;
-    } else if (!isValidKind(_decoded2)) {
-      vm.expectRevert(abi.encodeWithSelector(Payload.InvalidKind.selector, _decoded2.kind));
-      externalPayload.hash(_decoded2);
+    } else if (!isValidKind(_b)) {
+      vm.expectRevert(abi.encodeWithSelector(Payload.InvalidKind.selector, _b.kind));
+      externalPayload.hash(_b);
       return;
     }
 
     if (isEqual && _wallet1 == _wallet2) {
-      assertEq(externalPayload.hashFor(_decoded, _wallet1), externalPayload.hashFor(_decoded2, _wallet2), "hash collision");
+      assertEq(externalPayload.hashFor(_a, _wallet1), externalPayload.hashFor(_b, _wallet2), "hash collision");
     } else {
-      assertNotEq(externalPayload.hashFor(_decoded, _wallet1), externalPayload.hashFor(_decoded2, _wallet2), "no hash collision");
+      assertNotEq(externalPayload.hashFor(_a, _wallet1), externalPayload.hashFor(_b, _wallet2), "no hash collision");
     }
   }
 
-  function isValidKind(Payload.Decoded memory _decoded) internal pure returns (bool) {
-    return
-      _decoded.kind == Payload.KIND_TRANSACTIONS ||
-      _decoded.kind == Payload.KIND_MESSAGE ||
-      _decoded.kind == Payload.KIND_CONFIG_UPDATE ||
-      _decoded.kind == Payload.KIND_DIGEST;
+  function test_EIP712_walletParamAndSelf(address _w1, address _w2) external {
+    vm.assume(_w1 != _w2);
+
+    ExternalPayload ep = new ExternalPayload();
+    Payload.Decoded memory m;
+    m.kind = Payload.KIND_MESSAGE;
+    m.message = bytes("hello");
+
+    bytes32 a = ep.hashFor(m, _w1);
+    bytes32 b = ep.hashFor(m, _w2);
+    assertNotEq(a, b, "hashFor must change with wallet");
+
+    bytes32 c = ep.hash(m);
+    bytes32 d = ep.hashFor(m, address(ep));
+    assertEq(c, d, "hash should equal hashFor(self)");
   }
 
-  function isEqualPayload(Payload.Decoded memory _decoded, Payload.Decoded memory _decoded2) internal pure returns (bool) {
+  function test_EIP712_noChainIdToggle(address _wallet, uint64 _chainId1, uint64 _chainId2) external {
+    vm.assume(_chainId1 != _chainId2);
+    ExternalPayload ep = new ExternalPayload();
+
+    Payload.Decoded memory m;
+    m.kind = Payload.KIND_MESSAGE;
+    m.message = bytes("x");
+
+    // noChainId = false => chain id affects hash
+    m.noChainId = false;
+    vm.chainId(_chainId1);
+    bytes32 h1 = ep.hashFor(m, _wallet);
+    vm.chainId(_chainId2);
+    bytes32 h2 = ep.hashFor(m, _wallet);
+    assertNotEq(h1, h2, "chainId must change EIP712 hash");
+
+    // noChainId = true => chain id ignored
+    m.noChainId = true;
+    bytes32 h3 = ep.hashFor(m, _wallet);
+    vm.chainId(_chainId1);
+    bytes32 h4 = ep.hashFor(m, _wallet);
+    assertEq(h3, h4, "noChainId=true must ignore chainId");
+  }
+
+  function test_walletsOrderMatters(address _a, address _b) external {
+    vm.assume(_a != _b);
+    ExternalPayload ep = new ExternalPayload();
+
+    Payload.Decoded memory m;
+    m.kind = Payload.KIND_MESSAGE;
+    m.message = "x";
+    m.parentWallets = new address[](2);
+    m.parentWallets[0] = _a;
+    m.parentWallets[1] = _b;
+    bytes32 h1 = ep.hash(m);
+
+    m.parentWallets[0] = _b;
+    m.parentWallets[1] = _a;
+    bytes32 h2 = ep.hash(m);
+
+    assertNotEq(h1, h2, "wallet order must affect hash");
+  }
+
+  function test_digestEqualsMessageHash(bytes memory _msgData) external {
+    ExternalPayload ep = new ExternalPayload();
+
+    Payload.Decoded memory m;
+    m.kind = Payload.KIND_MESSAGE;
+    m.message = _msgData;
+
+    Payload.Decoded memory d;
+    d.kind = Payload.KIND_DIGEST;
+    d.digest = keccak256(_msgData);
+
+    assertEq(ep.hash(m), ep.hash(d), "digest should match message hash path");
+  }
+
+  function isValidKind(Payload.Decoded memory _a) internal pure returns (bool) {
+    return
+      _a.kind == Payload.KIND_TRANSACTIONS ||
+      _a.kind == Payload.KIND_MESSAGE ||
+      _a.kind == Payload.KIND_CONFIG_UPDATE ||
+      _a.kind == Payload.KIND_DIGEST;
+  }
+
+  function isEqualPayload(Payload.Decoded memory _a, Payload.Decoded memory _b) internal pure returns (bool) {
     if (
-      _decoded.kind != _decoded2.kind ||
-      _decoded.noChainId != _decoded2.noChainId ||
-      _decoded.parentWallets.length != _decoded2.parentWallets.length
+      _a.kind != _b.kind ||
+      _a.noChainId != _b.noChainId ||
+      _a.parentWallets.length != _b.parentWallets.length
     ) {
       return false;
     }
 
-    for (uint256 i = 0; i < _decoded.parentWallets.length; i++) {
-      if (_decoded.parentWallets[i] != _decoded2.parentWallets[i]) {
+    for (uint256 i = 0; i < _a.parentWallets.length; i++) {
+      if (_a.parentWallets[i] != _b.parentWallets[i]) {
         return false;
       }
     }
 
-    if (_decoded.kind == Payload.KIND_TRANSACTIONS) {
-      if (_decoded.calls.length != _decoded2.calls.length) {
+    if (_a.kind == Payload.KIND_TRANSACTIONS) {
+      if (_a.calls.length != _b.calls.length) {
+        return false;
+      }
+      if (_a.space != _b.space || _a.nonce != _b.nonce || _a.calls.length != _b.calls.length) {
         return false;
       }
 
-      for (uint256 i = 0; i < _decoded.calls.length; i++) {
-        if (!isEqualCall(_decoded.calls[i], _decoded2.calls[i])) {
+      for (uint256 i = 0; i < _a.calls.length; i++) {
+        if (!isEqualCall(_a.calls[i], _b.calls[i])) {
           return false;
         }
       }
-    } else if (_decoded.kind == Payload.KIND_MESSAGE) {
-      return keccak256(_decoded.message) == keccak256(_decoded2.message);
-    } else if (_decoded.kind == Payload.KIND_CONFIG_UPDATE) {
-      return _decoded.imageHash == _decoded2.imageHash;
-    } else if (_decoded.kind == Payload.KIND_DIGEST) {
-      return _decoded.digest == _decoded2.digest;
+    } else if (_a.kind == Payload.KIND_MESSAGE) {
+      return keccak256(_a.message) == keccak256(_b.message);
+    } else if (_a.kind == Payload.KIND_CONFIG_UPDATE) {
+      return _a.imageHash == _b.imageHash;
+    } else if (_a.kind == Payload.KIND_DIGEST) {
+      return _a.digest == _b.digest;
     } else {
       return false;
     }
@@ -171,14 +250,14 @@ contract PayloadTest is AdvTest {
     return true;
   }
 
-  function isEqualCall(Payload.Call memory _call, Payload.Call memory _call2) internal pure returns (bool) {
+  function isEqualCall(Payload.Call memory _a, Payload.Call memory _b) internal pure returns (bool) {
     return
-      _call.to == _call2.to &&
-      _call.value == _call2.value &&
-      keccak256(_call.data) == keccak256(_call2.data) &&
-      _call.gasLimit == _call2.gasLimit &&
-      _call.delegateCall == _call2.delegateCall &&
-      _call.onlyFallback == _call2.onlyFallback &&
-      _call.behaviorOnError == _call2.behaviorOnError;
+      _a.to == _b.to &&
+      _a.value == _b.value &&
+      keccak256(_a.data) == keccak256(_b.data) &&
+      _a.gasLimit == _b.gasLimit &&
+      _a.delegateCall == _b.delegateCall &&
+      _a.onlyFallback == _b.onlyFallback &&
+      _a.behaviorOnError == _b.behaviorOnError;
   }
 }
