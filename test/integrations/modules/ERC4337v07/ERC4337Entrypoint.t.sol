@@ -3,8 +3,8 @@ pragma solidity ^0.8.27;
 
 import { Factory, Wallet } from "src/Factory.sol";
 import { Stage1Module } from "src/Stage1Module.sol";
+import { ERC4337v07 } from "src/modules/ERC4337v07.sol";
 import { Payload } from "src/modules/Payload.sol";
-import { IAccountExecute } from "src/modules/interfaces/IAccount.sol";
 
 import { Emitter } from "test/mocks/Emitter.sol";
 import { PrimitivesRPC } from "test/utils/PrimitivesRPC.sol";
@@ -94,7 +94,7 @@ contract IntegrationERC4337v07Test is AdvTest {
 
     // Construct the UserOp.
     PackedUserOperation memory userOp;
-    userOp.callData = abi.encodePacked(IAccountExecute.executeUserOp.selector, packedPayload);
+    userOp.callData = abi.encodeWithSelector(ERC4337v07.executeUserOp.selector, packedPayload);
     userOp.sender = wallet;
     userOp.nonce = 0;
     userOp.initCode = "";
@@ -167,7 +167,7 @@ contract IntegrationERC4337v07Test is AdvTest {
 
     // Construct the UserOp.
     PackedUserOperation memory userOp;
-    userOp.callData = abi.encodePacked(IAccountExecute.executeUserOp.selector, packedPayload);
+    userOp.callData = abi.encodeWithSelector(ERC4337v07.executeUserOp.selector, packedPayload);
     userOp.sender = predictedWallet;
     userOp.nonce = 0;
     userOp.initCode = abi.encodePacked(

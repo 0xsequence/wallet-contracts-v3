@@ -6,8 +6,7 @@ import { Stage1Module } from "../../src/Stage1Module.sol";
 
 import { ERC4337v07 } from "../../src/modules/ERC4337v07.sol";
 import { Payload } from "../../src/modules/Payload.sol";
-import { IAccount, IAccountExecute, PackedUserOperation } from "../../src/modules/interfaces/IAccount.sol";
-import { IEntryPoint } from "../../src/modules/interfaces/IEntryPoint.sol";
+import { PackedUserOperation } from "../../src/modules/interfaces/IAccount.sol";
 import { Emitter } from "../mocks/Emitter.sol";
 import { PrimitivesRPC } from "../utils/PrimitivesRPC.sol";
 import { AdvTest } from "../utils/TestUtils.sol";
@@ -142,30 +141,24 @@ contract ERC4337v07Test is AdvTest {
 
   // --- executeUserOp Tests ---
 
-  function test_executeUserOp_reverts_if_disabled(bytes calldata payload, bytes32 userOpHash) public {
+  function test_executeUserOp_reverts_if_disabled(
+    bytes calldata payload
+  ) public {
     // Deploy a new wallet with 4337 disabled.
     Stage1Module moduleDisabled = new Stage1Module(address(factory), address(0));
     address payable walletDisabled = payable(factory.deploy(address(moduleDisabled), walletImageHash));
 
     vm.prank(address(entryPoint));
     vm.expectRevert(ERC4337v07.ERC4337Disabled.selector);
-    PackedUserOperation memory userOp;
-    userOp.callData = abi.encodePacked(IAccountExecute.executeUserOp.selector, payload);
-    Stage1Module(walletDisabled).executeUserOp(userOp, userOpHash);
+    Stage1Module(walletDisabled).executeUserOp(payload);
   }
 
-  function test_executeUserOp_reverts_invalidEntryPoint(
-    bytes calldata payload,
-    bytes32 userOpHash,
-    address randomCaller
-  ) public {
+  function test_executeUserOp_reverts_invalidEntryPoint(bytes calldata payload, address randomCaller) public {
     vm.assume(randomCaller != address(entryPoint));
 
     vm.prank(randomCaller);
     vm.expectRevert(abi.encodeWithSelector(ERC4337v07.InvalidEntryPoint.selector, randomCaller));
-    PackedUserOperation memory userOp;
-    userOp.callData = abi.encodePacked(IAccountExecute.executeUserOp.selector, payload);
-    Stage1Module(wallet).executeUserOp(userOp, userOpHash);
+    Stage1Module(wallet).executeUserOp(payload);
   }
 
   function test_executeUserOp_executes_payload() external {
@@ -194,9 +187,7 @@ contract ERC4337v07Test is AdvTest {
 
     // Execute the userOp via the entrypoint.
     vm.prank(address(entryPoint));
-    PackedUserOperation memory userOp;
-    userOp.callData = abi.encodePacked(IAccountExecute.executeUserOp.selector, packedPayload);
-    Stage1Module(wallet).executeUserOp(userOp, bytes32(0));
+    Stage1Module(wallet).executeUserOp(packedPayload);
   }
 
 }
