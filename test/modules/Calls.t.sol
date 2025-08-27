@@ -77,8 +77,9 @@ contract MockDelegatecall { // extends IDelegatedExtension  (but we make it paya
     emit Data(_data);
   }
 
-  receive() external payable {}
-  fallback() external payable {}
+  receive() external payable { }
+  fallback() external payable { }
+
 }
 
 struct CallsPayload {

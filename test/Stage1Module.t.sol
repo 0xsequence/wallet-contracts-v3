@@ -1183,7 +1183,6 @@ contract TestStage1Module is AdvTest {
     _innerPayload.kind = Payload.KIND_TRANSACTIONS;
     boundToLegalPayload(_innerPayload);
 
-
     // Sign the inner payload
     (uint256 v, bytes32 r, bytes32 s) = vm.sign(_signerPk, Payload.hashFor(_innerPayload, address(wallet)));
     bytes memory innerSignature = PrimitivesRPC.toEncodedSignature(
@@ -1252,7 +1251,7 @@ contract TestStage1Module is AdvTest {
     string memory ce;
     ce = string(abi.encodePacked(ce, "signer:", vm.toString(signer), ":", vm.toString(_weight)));
     string memory config = PrimitivesRPC.newConfig(vm, _threshold, _checkpoint, ce);
-    
+
     address payable wallet = payable(factory.deploy(address(stage1Module), PrimitivesRPC.getImageHash(vm, config)));
 
     // Send (i + 1) wei amount of ETH to address(100 + i)
@@ -1281,7 +1280,9 @@ contract TestStage1Module is AdvTest {
       bytes memory signature = PrimitivesRPC.toEncodedSignature(
         vm,
         config,
-        string(abi.encodePacked(vm.toString(signer), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))),
+        string(
+          abi.encodePacked(vm.toString(signer), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))
+        ),
         !_noChainId
       );
 
@@ -1289,7 +1290,9 @@ contract TestStage1Module is AdvTest {
       bytes memory packedPayload = PrimitivesRPC.toPackedPayload(vm, payload);
 
       // Execute the payload
-      (bool success, ) = wallet.call{value: i + 1}(abi.encodeWithSelector(Stage1Module(wallet).execute.selector, packedPayload, signature));
+      (bool success,) = wallet.call{ value: i + 1 }(
+        abi.encodeWithSelector(Stage1Module(wallet).execute.selector, packedPayload, signature)
+      );
       assertTrue(success);
 
       // Verify the balance of address(100 + i)

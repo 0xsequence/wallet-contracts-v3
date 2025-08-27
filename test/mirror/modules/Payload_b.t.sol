@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { Payload } from "src/modules/Payload.sol";
-import { SequencePayloadsLib } from "../utils/SequencePayloadsLib.sol";
 import { AdvTest } from "../../utils/TestUtils.sol";
+import { SequencePayloadsLib } from "../utils/SequencePayloadsLib.sol";
+import { Payload } from "src/modules/Payload.sol";
 
 contract ExternalPayload {
+
   function fromPackedCalls(
     bytes calldata packed
   ) external view returns (Payload.Decoded memory _decoded) {
@@ -18,16 +19,17 @@ contract ExternalPayload {
     return Payload.hash(_decoded);
   }
 
-  function hashFor(
-    Payload.Decoded memory _decoded,
-    address _wallet
-  ) external view returns (bytes32) {
+  function hashFor(Payload.Decoded memory _decoded, address _wallet) external view returns (bytes32) {
     return Payload.hashFor(_decoded, _wallet);
   }
+
 }
 
 contract PayloadTest is AdvTest {
-  function test_unpackPackedCalls(Payload.Decoded memory _decoded) external {
+
+  function test_unpackPackedCalls(
+    Payload.Decoded memory _decoded
+  ) external {
     vm.assume(_decoded.calls.length < 100);
 
     _decoded.kind = Payload.KIND_TRANSACTIONS;
@@ -104,7 +106,12 @@ contract PayloadTest is AdvTest {
     }
   }
 
-  function test_noPayloadHashForCollision(Payload.Decoded memory _a, Payload.Decoded memory _b, address _wallet1, address _wallet2) external {
+  function test_noPayloadHashForCollision(
+    Payload.Decoded memory _a,
+    Payload.Decoded memory _b,
+    address _wallet1,
+    address _wallet2
+  ) external {
     bool isEqual = isEqualPayload(_a, _b);
 
     ExternalPayload externalPayload = new ExternalPayload();
@@ -187,7 +194,9 @@ contract PayloadTest is AdvTest {
     assertNotEq(h1, h2, "wallet order must affect hash");
   }
 
-  function test_digestEqualsMessageHash(bytes memory _msgData) external {
+  function test_digestEqualsMessageHash(
+    bytes memory _msgData
+  ) external {
     ExternalPayload ep = new ExternalPayload();
 
     Payload.Decoded memory m;
@@ -201,20 +210,15 @@ contract PayloadTest is AdvTest {
     assertEq(ep.hash(m), ep.hash(d), "digest should match message hash path");
   }
 
-  function isValidKind(Payload.Decoded memory _a) internal pure returns (bool) {
-    return
-      _a.kind == Payload.KIND_TRANSACTIONS ||
-      _a.kind == Payload.KIND_MESSAGE ||
-      _a.kind == Payload.KIND_CONFIG_UPDATE ||
-      _a.kind == Payload.KIND_DIGEST;
+  function isValidKind(
+    Payload.Decoded memory _a
+  ) internal pure returns (bool) {
+    return _a.kind == Payload.KIND_TRANSACTIONS || _a.kind == Payload.KIND_MESSAGE
+      || _a.kind == Payload.KIND_CONFIG_UPDATE || _a.kind == Payload.KIND_DIGEST;
   }
 
   function isEqualPayload(Payload.Decoded memory _a, Payload.Decoded memory _b) internal pure returns (bool) {
-    if (
-      _a.kind != _b.kind ||
-      _a.noChainId != _b.noChainId ||
-      _a.parentWallets.length != _b.parentWallets.length
-    ) {
+    if (_a.kind != _b.kind || _a.noChainId != _b.noChainId || _a.parentWallets.length != _b.parentWallets.length) {
       return false;
     }
 
@@ -251,13 +255,9 @@ contract PayloadTest is AdvTest {
   }
 
   function isEqualCall(Payload.Call memory _a, Payload.Call memory _b) internal pure returns (bool) {
-    return
-      _a.to == _b.to &&
-      _a.value == _b.value &&
-      keccak256(_a.data) == keccak256(_b.data) &&
-      _a.gasLimit == _b.gasLimit &&
-      _a.delegateCall == _b.delegateCall &&
-      _a.onlyFallback == _b.onlyFallback &&
-      _a.behaviorOnError == _b.behaviorOnError;
+    return _a.to == _b.to && _a.value == _b.value && keccak256(_a.data) == keccak256(_b.data)
+      && _a.gasLimit == _b.gasLimit && _a.delegateCall == _b.delegateCall && _a.onlyFallback == _b.onlyFallback
+      && _a.behaviorOnError == _b.behaviorOnError;
   }
+
 }

@@ -4,9 +4,10 @@ pragma solidity ^0.8.27;
 import { LibOptim } from "../utils/LibOptim.sol";
 import { Nonce } from "./Nonce.sol";
 import { Payload } from "./Payload.sol";
+
+import { ReentrancyGuard } from "./ReentrancyGuard.sol";
 import { BaseAuth } from "./auth/BaseAuth.sol";
 import { IDelegatedExtension } from "./interfaces/IDelegatedExtension.sol";
-import { ReentrancyGuard } from "./ReentrancyGuard.sol";
 
 /// @title Calls
 /// @author Agustin Aguilar, Michael Standen, William Hua

@@ -33,6 +33,15 @@ contract AdvTest is Test {
     }
   }
 
+  function assumeSmallPayload(
+    Payload.Decoded memory _payload
+  ) internal pure {
+    vm.assume(_payload.calls.length <= 4);
+    for (uint256 i = 0; i < _payload.calls.length; i++) {
+      vm.assume(_payload.calls[i].data.length <= 100);
+    }
+  }
+
   function assumeNotPrecompile2(
     address _addr
   ) internal view {

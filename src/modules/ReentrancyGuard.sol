@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { Storage } from "./Storage.sol";
 
 abstract contract ReentrancyGuard {
+
   bytes32 private constant _INITIAL_VALUE = bytes32(0);
   bytes32 private constant _NOT_ENTERED = bytes32(uint256(1));
   bytes32 private constant _ENTERED = bytes32(uint256(2));
@@ -33,4 +34,5 @@ abstract contract ReentrancyGuard {
     // we always start with _INITIAL_VALUE, not _NOT_ENTERED
     Storage.writeBytes32(STATUS_KEY, _NOT_ENTERED);
   }
+
 }

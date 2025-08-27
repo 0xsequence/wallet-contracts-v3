@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
+import { SequenceHelpers } from "./SequenceHelpers.sol";
 import { Payload } from "src/modules/Payload.sol";
 
 // Implementation of the Sequence SDK to encode payloads, signatures and configurations directly in solidity
 // meant mostly for testing purposes
 library SequencePayloadsLib {
+
   /// @notice Error thrown when the kind is invalid
   error InvalidKind(uint8 _kind);
 
@@ -53,8 +55,10 @@ library SequencePayloadsLib {
 
     // Nonce
     uint256 nonce = _decoded.nonce;
-    uint256 nonceSize = _byteLen(nonce); // 0..32
-    if (nonceSize > 7) revert NonceTooLarge(nonce);
+    uint256 nonceSize = SequenceHelpers._byteLen(nonce); // 0..32
+    if (nonceSize > 7) {
+      revert NonceTooLarge(nonce);
+    }
     // place into bits [3:1]
     globalFlag |= uint8(nonceSize << 1);
 
@@ -88,7 +92,7 @@ library SequencePayloadsLib {
 
     // Optional: nonce (nonceSize bytes, big-endian)
     if (nonceSize > 0) {
-      out = bytes.concat(out, _uN(nonce, nonceSize));
+      out = bytes.concat(out, SequenceHelpers._uN(nonce, nonceSize));
     }
 
     // Optional: number of calls
@@ -122,24 +126,36 @@ library SequencePayloadsLib {
       }
 
       // value
-      if (c.value > 0) flags |= 0x02;
+      if (c.value > 0) {
+        flags |= 0x02;
+      }
 
       // data
       uint256 dlen = c.data.length;
       if (dlen > 0) {
-        if (dlen > type(uint24).max) revert DataTooLong(i, dlen);
+        if (dlen > type(uint24).max) {
+          revert DataTooLong(i, dlen);
+        }
         flags |= 0x04;
       }
 
       // gasLimit
-      if (c.gasLimit > 0) flags |= 0x08;
+      if (c.gasLimit > 0) {
+        flags |= 0x08;
+      }
 
       // delegateCall / onlyFallback
-      if (c.delegateCall) flags |= 0x10;
-      if (c.onlyFallback) flags |= 0x20;
+      if (c.delegateCall) {
+        flags |= 0x10;
+      }
+      if (c.onlyFallback) {
+        flags |= 0x20;
+      }
 
       // behaviorOnError
-      if (c.behaviorOnError > 3) revert InvalidBehaviorOnError(c.behaviorOnError);
+      if (c.behaviorOnError > 3) {
+        revert InvalidBehaviorOnError(c.behaviorOnError);
+      }
       flags |= uint8((c.behaviorOnError & 0x03) << 6);
 
       // Write flags first
@@ -157,7 +173,7 @@ library SequencePayloadsLib {
 
       // data: uint24 length (big-endian) + bytes
       if ((flags & 0x04) != 0) {
-        out = bytes.concat(out, _uN(dlen, 3), c.data);
+        out = bytes.concat(out, SequenceHelpers._uN(dlen, 3), c.data);
       }
 
       // gasLimit (uint256)
@@ -169,22 +185,4 @@ library SequencePayloadsLib {
     return out;
   }
 
-  // -------------------------------------------------------------------------
-  // Helpers (simple & explicit for correctness in tests)
-  // -------------------------------------------------------------------------
-
-  /// @dev Returns the minimal number of bytes to represent `x` (big-endian).
-  function _byteLen(uint256 x) private pure returns (uint256 n) {
-    while (x != 0) { n++; x >>= 8; }
-  }
-
-  /// @dev Encodes `value` as exactly `len` big-endian bytes.
-  function _uN(uint256 value, uint256 len) private pure returns (bytes memory out) {
-    out = new bytes(len);
-    for (uint256 i = 0; i < len; i++) {
-      out[len - 1 - i] = bytes1(uint8(value & 0xFF));
-      value >>= 8;
-    }
-    // If value != 0 here, it did not fit; callers guard lengths.
-  }
 }
