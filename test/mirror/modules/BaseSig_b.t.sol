@@ -228,7 +228,11 @@ contract BaseSigTest is AdvTest {
     bytes memory sig = abi.encodePacked(r, s, v);
 
     SequenceConfigLib.SignatureForNode[] memory signaturesForNode = new SequenceConfigLib.SignatureForNode[](1);
-    signaturesForNode[0] = SequenceConfigLib.SignatureForNode({ node: node, signature: sig });
+    signaturesForNode[0] = SequenceConfigLib.SignatureForNode({
+      node: node,
+      signature: sig,
+      flag: uint8(SequenceConfigLib.FLAG_SIGNATURE_HASH)
+    });
 
     // Encode empty signature
     (, bytes memory signature) = SequenceConfigLib.encodeSignature(node, signaturesForNode, _trim);
@@ -307,8 +311,7 @@ contract BaseSigTest is AdvTest {
     SequenceConfigLib.EncodedNode memory encoded = nodes[0];
     bytes32 nodeHash = SequenceConfigLib.hashEncodedNode(encoded);
 
-    SequenceConfigLib.SignatureForNodeEx[] memory signaturesForNode =
-      new SequenceConfigLib.SignatureForNodeEx[](signCount);
+    SequenceConfigLib.SignatureForNode[] memory signaturesForNode = new SequenceConfigLib.SignatureForNode[](signCount);
     uint256 signatureIndex = 0;
     for (uint256 i = 0; i < _signers.length; i++) {
       if (_signers[i].signs) {
@@ -321,7 +324,7 @@ contract BaseSigTest is AdvTest {
           (uint8 v, bytes32 r, bytes32 s) = vm.sign(_signers[i].pk, _opHash);
           sig = abi.encodePacked(r, s, v);
         }
-        signaturesForNode[signatureIndex] = SequenceConfigLib.SignatureForNodeEx({
+        signaturesForNode[signatureIndex] = SequenceConfigLib.SignatureForNode({
           node: originalNodes[i],
           signature: sig,
           flag: _signers[i].useEthSign
@@ -334,7 +337,7 @@ contract BaseSigTest is AdvTest {
     assertEq(signatureIndex, signCount);
 
     // Encode signatures
-    (, bytes memory signature) = SequenceConfigLib.encodeSignatureEx(encoded, signaturesForNode, _trim);
+    (, bytes memory signature) = SequenceConfigLib.encodeSignature(encoded, signaturesForNode, _trim);
 
     ExternalBaseSig externalBaseSig = new ExternalBaseSig();
     (uint256 weight, bytes32 root) = externalBaseSig.recoverBranch(
@@ -405,12 +408,11 @@ contract BaseSigTest is AdvTest {
     bytes32 nodeHash = SequenceConfigLib.hashEncodedNode(encoded);
 
     // Encode signatures
-    SequenceConfigLib.SignatureForNodeEx[] memory signaturesForNode =
-      new SequenceConfigLib.SignatureForNodeEx[](signCount);
+    SequenceConfigLib.SignatureForNode[] memory signaturesForNode = new SequenceConfigLib.SignatureForNode[](signCount);
     uint256 signatureIndex = 0;
     for (uint256 i = 0; i < _signers.length; i++) {
       if (_signers[i].maySign) {
-        signaturesForNode[signatureIndex] = SequenceConfigLib.SignatureForNodeEx({
+        signaturesForNode[signatureIndex] = SequenceConfigLib.SignatureForNode({
           node: originalNodes[i],
           signature: _signers[i].signature,
           flag: uint8(SequenceConfigLib.FLAG_SIGNATURE_ERC1271)
@@ -425,7 +427,7 @@ contract BaseSigTest is AdvTest {
     }
 
     // Encode signatures
-    (, bytes memory signature) = SequenceConfigLib.encodeSignatureEx(encoded, signaturesForNode, _trim);
+    (, bytes memory signature) = SequenceConfigLib.encodeSignature(encoded, signaturesForNode, _trim);
 
     ExternalBaseSig externalBaseSig = new ExternalBaseSig();
     (uint256 weight, bytes32 root) = externalBaseSig.recoverBranch(
@@ -445,7 +447,7 @@ contract BaseSigTest is AdvTest {
   ) external {
     boundToLegalPayload(_payload);
 
-    vm.assume(_subdigests.length > 0 && _subdigests.length <= 8);
+    vm.assume(_subdigests.length > 0 && _subdigests.length <= 64);
 
     bool hasOpHashAmongSubdigests = false;
     SequenceConfigLib.EncodedNode[] memory nodes = new SequenceConfigLib.EncodedNode[](_subdigests.length);
@@ -480,12 +482,12 @@ contract BaseSigTest is AdvTest {
     bytes32 nodeHash = SequenceConfigLib.hashEncodedNode(encoded);
 
     // Encode signatures
-    SequenceConfigLib.SignatureForNodeEx[] memory signaturesForNode = new SequenceConfigLib.SignatureForNodeEx[](1);
+    SequenceConfigLib.SignatureForNode[] memory signaturesForNode = new SequenceConfigLib.SignatureForNode[](1);
     signaturesForNode[0] =
-      SequenceConfigLib.SignatureForNodeEx({ node: opHashNode, signature: new bytes(0), flag: uint8(0) });
+      SequenceConfigLib.SignatureForNode({ node: opHashNode, signature: new bytes(0), flag: uint8(0) });
 
     // Encode signatures
-    (, bytes memory signature) = SequenceConfigLib.encodeSignatureEx(encoded, signaturesForNode, _trim);
+    (, bytes memory signature) = SequenceConfigLib.encodeSignature(encoded, signaturesForNode, _trim);
 
     ExternalBaseSig externalBaseSig = new ExternalBaseSig();
     (uint256 weight, bytes32 root) = externalBaseSig.recoverBranch(

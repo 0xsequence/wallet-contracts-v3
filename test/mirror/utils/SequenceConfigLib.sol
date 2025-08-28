@@ -87,20 +87,12 @@ library SequenceConfigLib {
     EncodedNode right;
   }
 
-  /// @notice Backwards-compatible "simple" signature mapping used by older tests.
-  ///         This assumes address-leaf ECDSA over opHash (FLAG_SIGNATURE_HASH).
-  struct SignatureForNode {
-    EncodedNode node;
-    bytes signature; // EIP-2098 (64 bytes) or {r,s,v} (65 bytes); 65 will be packed
-  }
-
-  /// @notice Extended signature descriptor which allows selecting the FLAG to use
-  ///         for a given leaf.
+  /// @notice Signature descriptor for leaves. The `flag` selects which FLAG_SIGNATURE_* is used.
   ///         - For address leaves (KIND_ADDRESS) allowed flags: 0, 2, 7
   ///         - For sapient leaves (KIND_SAPIENT): 9
   ///         - For sapient-compact leaves (KIND_SAPIENT_COMPACT): 10
   ///         - For subdigest kinds, no signature entry is required (data lives in the node)
-  struct SignatureForNodeEx {
+  struct SignatureForNode {
     EncodedNode node;
     bytes signature;
     uint8 flag; // one of FLAG_SIGNATURE_* matching the node
@@ -249,7 +241,7 @@ library SequenceConfigLib {
   }
 
   // -------------------------------------------------------------------------
-  // Signature branch encoding
+  // Signature branch encoding (full-featured)
   // -------------------------------------------------------------------------
 
   /// @dev Internal: write 4-bit weight into low nibble for flags that use 1..15 inline, 0 => dynamic uint8 follows.
@@ -308,37 +300,16 @@ library SequenceConfigLib {
     return n;
   }
 
-  // -- PUBLIC/EXPOSED encoders ------------------------------------------------
-
-  /// @notice Backwards-compatible encoding function (treats all provided signatures as ECDSA over opHash).
-  ///         For richer encodings (ERC1271, ETH_SIGN, Sapient, Nested, etc.) use `encodeSignatureEx`.
+  /// @notice Full-featured encoder that supports all branch flags.
   function encodeSignature(
     EncodedNode memory _node,
     SignatureForNode[] memory _signatures,
     bool _trim
   ) internal pure returns (bool hasSig, bytes memory out) {
-    // Map "simple" signatures into "Ex" with FLAG_SIGNATURE_HASH
-    SignatureForNodeEx[] memory sigs = new SignatureForNodeEx[](_signatures.length);
-    for (uint256 i = 0; i < _signatures.length; i++) {
-      sigs[i] = SignatureForNodeEx({
-        node: _signatures[i].node,
-        signature: _signatures[i].signature,
-        flag: uint8(FLAG_SIGNATURE_HASH)
-      });
-    }
-    return encodeSignatureEx(_node, sigs, _trim);
-  }
-
-  /// @notice Full-featured encoder that supports all branch flags.
-  function encodeSignatureEx(
-    EncodedNode memory _node,
-    SignatureForNodeEx[] memory _signatures,
-    bool _trim
-  ) internal pure returns (bool hasSig, bytes memory out) {
     // --- Address leaf (can encode: HASH (0), ETH_SIGN(7), ERC1271(2), or placeholders/NODE) ---
     if (_node.kind == KIND_ADDRESS) {
       (address addr, uint256 weight) = abi.decode(_node.data, (address, uint256));
-      (bool found, bytes memory sig, uint8 chosenFlag) = findSignatureEx(_signatures, _node);
+      (bool found, bytes memory sig, uint8 chosenFlag) = findSignature(_signatures, _node);
 
       if (found) {
         // Normalize 65-byte {r,s,v} to EIP-2098 when using HASH/ETH_SIGN flags.
@@ -398,8 +369,8 @@ library SequenceConfigLib {
     // --- Internal binary node: emit left, then BRANCH(right) ---
     if (_node.kind == KIND_NODE) {
       (EncodedNode memory left, EncodedNode memory right) = abi.decode(_node.data, (EncodedNode, EncodedNode));
-      (bool hasL, bytes memory encL) = encodeSignatureEx(left, _signatures, _trim);
-      (bool hasR, bytes memory encR) = encodeSignatureEx(right, _signatures, _trim);
+      (bool hasL, bytes memory encL) = encodeSignature(left, _signatures, _trim);
+      (bool hasR, bytes memory encR) = encodeSignature(right, _signatures, _trim);
 
       if (!hasL && !hasR && _trim) {
         // collapse subtree to FLAG_NODE
@@ -425,7 +396,7 @@ library SequenceConfigLib {
       // Search for a signature
       // it is a signal that the subdigest
       // should be considered signed
-      (bool found,,) = findSignatureEx(_signatures, _node);
+      (bool found,,) = findSignature(_signatures, _node);
       return (found, enc);
     }
 
@@ -441,7 +412,7 @@ library SequenceConfigLib {
       (EncodedNode memory inner, uint256 internalThreshold, uint256 externalWeight) =
         abi.decode(_node.data, (EncodedNode, uint256, uint256));
 
-      (bool hasInner, bytes memory encInner) = encodeSignatureEx(inner, _signatures, _trim);
+      (bool hasInner, bytes memory encInner) = encodeSignature(inner, _signatures, _trim);
 
       // first byte:
       //   top nibble = 6 (FLAG_NESTED)
@@ -465,7 +436,7 @@ library SequenceConfigLib {
     if (_node.kind == KIND_SAPIENT) {
       (address sapient, uint256 weight, bytes32 imageHash) = abi.decode(_node.data, (address, uint256, bytes32));
       // Find a sapient signature explicitly flagged with FLAG_SIGNATURE_SAPIENT
-      (bool found, bytes memory sig, uint8 selected) = findSignatureEx(_signatures, _node);
+      (bool found, bytes memory sig, uint8 selected) = findSignature(_signatures, _node);
       if (found) {
         if (selected != FLAG_SIGNATURE_SAPIENT) {
           revert InvalidFlag(selected);
@@ -493,7 +464,7 @@ library SequenceConfigLib {
     // --- SAPIENT COMPACT ---
     if (_node.kind == KIND_SAPIENT_COMPACT) {
       (address sapientCompact, uint256 weight, bytes32 imageHash) = abi.decode(_node.data, (address, uint256, bytes32));
-      (bool found, bytes memory sig, uint8 selected) = findSignatureEx(_signatures, _node);
+      (bool found, bytes memory sig, uint8 selected) = findSignature(_signatures, _node);
       if (found) {
         if (selected != FLAG_SIGNATURE_SAPIENT_COMPACT) {
           revert InvalidFlag(selected);
@@ -523,22 +494,9 @@ library SequenceConfigLib {
   // Lookups
   // -------------------------------------------------------------------------
 
-  /// @dev Backwards-compatible lookup (assumes FLAG_SIGNATURE_HASH for address leaves).
+  /// @dev Lookup that must also match the intended FLAG for the node.
   function findSignature(
     SignatureForNode[] memory _signatures,
-    EncodedNode memory _node
-  ) internal pure returns (bool, bytes memory) {
-    for (uint256 i = 0; i < _signatures.length; i++) {
-      if (_signatures[i].node.kind == _node.kind && keccak256(_signatures[i].node.data) == keccak256(_node.data)) {
-        return (true, _signatures[i].signature);
-      }
-    }
-    return (false, "");
-  }
-
-  /// @dev Extended lookup that must also match the intended FLAG for the node.
-  function findSignatureEx(
-    SignatureForNodeEx[] memory _signatures,
     EncodedNode memory _node
   ) internal pure returns (bool, bytes memory, uint8) {
     for (uint256 i = 0; i < _signatures.length; i++) {
