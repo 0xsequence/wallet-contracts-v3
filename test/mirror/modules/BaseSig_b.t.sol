@@ -246,6 +246,7 @@ contract BaseSigTest is AdvTest {
     uint256 pk;
     uint8 weight;
     bool signs;
+    bool useEthSign;
   }
 
   function test_recoverMixedECDSASignaturesAndAddress(
@@ -256,7 +257,6 @@ contract BaseSigTest is AdvTest {
   ) external {
     vm.assume(_signers.length > 0 && _signers.length <= 64);
 
-    ExternalBaseSig externalBaseSig = new ExternalBaseSig();
     address[] memory addresses = new address[](_signers.length);
     boundToLegalPayload(_payload);
 
@@ -307,28 +307,193 @@ contract BaseSigTest is AdvTest {
     SequenceConfigLib.EncodedNode memory encoded = nodes[0];
     bytes32 nodeHash = SequenceConfigLib.hashEncodedNode(encoded);
 
-    SequenceConfigLib.SignatureForNode[] memory signaturesForNode = new SequenceConfigLib.SignatureForNode[](signCount);
+    SequenceConfigLib.SignatureForNodeEx[] memory signaturesForNode =
+      new SequenceConfigLib.SignatureForNodeEx[](signCount);
     uint256 signatureIndex = 0;
     for (uint256 i = 0; i < _signers.length; i++) {
       if (_signers[i].signs) {
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_signers[i].pk, _opHash);
-        bytes memory sig = abi.encodePacked(r, s, v);
-        signaturesForNode[signatureIndex] =
-          SequenceConfigLib.SignatureForNode({ node: originalNodes[i], signature: sig });
+        bytes memory sig;
+        if (_signers[i].useEthSign) {
+          (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(_signers[i].pk, keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _opHash)));
+          sig = abi.encodePacked(r, s, v);
+        } else {
+          (uint8 v, bytes32 r, bytes32 s) = vm.sign(_signers[i].pk, _opHash);
+          sig = abi.encodePacked(r, s, v);
+        }
+        signaturesForNode[signatureIndex] = SequenceConfigLib.SignatureForNodeEx({
+          node: originalNodes[i],
+          signature: sig,
+          flag: _signers[i].useEthSign
+            ? uint8(SequenceConfigLib.FLAG_SIGNATURE_ETH_SIGN)
+            : uint8(SequenceConfigLib.FLAG_SIGNATURE_HASH)
+        });
         signatureIndex++;
       }
     }
     assertEq(signatureIndex, signCount);
 
     // Encode signatures
-    (, bytes memory signature) = SequenceConfigLib.encodeSignature(encoded, signaturesForNode, _trim);
+    (, bytes memory signature) = SequenceConfigLib.encodeSignatureEx(encoded, signaturesForNode, _trim);
 
+    ExternalBaseSig externalBaseSig = new ExternalBaseSig();
     (uint256 weight, bytes32 root) = externalBaseSig.recoverBranch(
       _payload, // In this case the payload and the hash do not neccesarily need to match
       _opHash,
       signature
     );
     assertEq(weight, expectedRecoveredWeight);
+    assertEq(root, nodeHash);
+  }
+
+  struct SignerWeightMaySignERC1271 {
+    uint8 weight;
+    bytes signature;
+    bool maySign;
+  }
+
+  function test_recoverERC1271Signatures_balanced(
+    Payload.Decoded memory _payload,
+    bytes32 _opHash,
+    SignerWeightMaySignERC1271[] memory _signers,
+    bool _trim,
+    bytes32 _addressSalt
+  ) external {
+    vm.assume(_signers.length > 0 && _signers.length <= 64);
+    boundToLegalPayload(_payload);
+
+    address[] memory addresses = new address[](_signers.length);
+
+    uint256 signCount = 0;
+    uint256 expectedRecoveredWeight = 0;
+    // Assume no duplicate ERC1271 signers
+    for (uint256 i = 0; i < _signers.length; i++) {
+      addresses[i] = makeAddr(vm.toString(abi.encodePacked(_addressSalt, i)));
+      if (_signers[i].maySign) {
+        signCount++;
+        expectedRecoveredWeight += _signers[i].weight;
+      }
+    }
+
+    // Build the binary tree
+    SequenceConfigLib.EncodedNode[] memory nodes = new SequenceConfigLib.EncodedNode[](_signers.length);
+    for (uint256 i = 0; i < _signers.length; i++) {
+      nodes[i] = SequenceConfigLib.addressLeaf(addresses[i], _signers[i].weight);
+    }
+
+    SequenceConfigLib.EncodedNode[] memory originalNodes = nodes;
+
+    while (nodes.length > 1) {
+      uint256 nextLength = (nodes.length + 1) / 2;
+      SequenceConfigLib.EncodedNode[] memory nextNodes = new SequenceConfigLib.EncodedNode[](nextLength);
+
+      for (uint256 i = 0; i < nextLength; i++) {
+        uint256 leftIdx = i * 2;
+        uint256 rightIdx = leftIdx + 1;
+
+        if (rightIdx < nodes.length) {
+          nextNodes[i] = SequenceConfigLib.node(nodes[leftIdx], nodes[rightIdx]);
+        } else {
+          nextNodes[i] = nodes[leftIdx];
+        }
+      }
+
+      nodes = nextNodes;
+    }
+
+    SequenceConfigLib.EncodedNode memory encoded = nodes[0];
+    bytes32 nodeHash = SequenceConfigLib.hashEncodedNode(encoded);
+
+    // Encode signatures
+    SequenceConfigLib.SignatureForNodeEx[] memory signaturesForNode =
+      new SequenceConfigLib.SignatureForNodeEx[](signCount);
+    uint256 signatureIndex = 0;
+    for (uint256 i = 0; i < _signers.length; i++) {
+      if (_signers[i].maySign) {
+        signaturesForNode[signatureIndex] = SequenceConfigLib.SignatureForNodeEx({
+          node: originalNodes[i],
+          signature: _signers[i].signature,
+          flag: uint8(SequenceConfigLib.FLAG_SIGNATURE_ERC1271)
+        });
+        signatureIndex++;
+        vm.mockCall(
+          addresses[i],
+          abi.encodeWithSelector(bytes4(0x1626ba7e), _opHash, _signers[i].signature),
+          abi.encode(bytes4(0x1626ba7e))
+        );
+      }
+    }
+
+    // Encode signatures
+    (, bytes memory signature) = SequenceConfigLib.encodeSignatureEx(encoded, signaturesForNode, _trim);
+
+    ExternalBaseSig externalBaseSig = new ExternalBaseSig();
+    (uint256 weight, bytes32 root) = externalBaseSig.recoverBranch(
+      _payload, // In this case the payload and the hash do not neccesarily need to match
+      _opHash,
+      signature
+    );
+    assertEq(weight, expectedRecoveredWeight);
+    assertEq(root, nodeHash);
+  }
+
+  function test_recoverSubdigest(
+    Payload.Decoded memory _payload,
+    bytes32[] memory _subdigests,
+    bytes32 _opHash,
+    bool _trim
+  ) external {
+    boundToLegalPayload(_payload);
+
+    vm.assume(_subdigests.length > 0 && _subdigests.length <= 8);
+
+    bool hasOpHashAmongSubdigests = false;
+    SequenceConfigLib.EncodedNode[] memory nodes = new SequenceConfigLib.EncodedNode[](_subdigests.length);
+    SequenceConfigLib.EncodedNode memory opHashNode;
+    for (uint256 i = 0; i < _subdigests.length; i++) {
+      nodes[i] = SequenceConfigLib.subdigestLeaf(_subdigests[i]);
+      if (_subdigests[i] == _opHash) {
+        hasOpHashAmongSubdigests = true;
+        opHashNode = nodes[i];
+      }
+    }
+
+    while (nodes.length > 1) {
+      uint256 nextLength = (nodes.length + 1) / 2;
+      SequenceConfigLib.EncodedNode[] memory nextNodes = new SequenceConfigLib.EncodedNode[](nextLength);
+
+      for (uint256 i = 0; i < nextLength; i++) {
+        uint256 leftIdx = i * 2;
+        uint256 rightIdx = leftIdx + 1;
+
+        if (rightIdx < nodes.length) {
+          nextNodes[i] = SequenceConfigLib.node(nodes[leftIdx], nodes[rightIdx]);
+        } else {
+          nextNodes[i] = nodes[leftIdx];
+        }
+      }
+
+      nodes = nextNodes;
+    }
+
+    SequenceConfigLib.EncodedNode memory encoded = nodes[0];
+    bytes32 nodeHash = SequenceConfigLib.hashEncodedNode(encoded);
+
+    // Encode signatures
+    SequenceConfigLib.SignatureForNodeEx[] memory signaturesForNode = new SequenceConfigLib.SignatureForNodeEx[](1);
+    signaturesForNode[0] =
+      SequenceConfigLib.SignatureForNodeEx({ node: opHashNode, signature: new bytes(0), flag: uint8(0) });
+
+    // Encode signatures
+    (, bytes memory signature) = SequenceConfigLib.encodeSignatureEx(encoded, signaturesForNode, _trim);
+
+    ExternalBaseSig externalBaseSig = new ExternalBaseSig();
+    (uint256 weight, bytes32 root) = externalBaseSig.recoverBranch(
+      _payload, // In this case the payload and the hash do not neccesarily need to match
+      _opHash,
+      signature
+    );
+    assertEq(weight, hasOpHashAmongSubdigests ? type(uint256).max : 0);
     assertEq(root, nodeHash);
   }
 
