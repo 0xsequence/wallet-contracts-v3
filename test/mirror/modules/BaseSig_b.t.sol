@@ -2,6 +2,8 @@
 pragma solidity ^0.8.27;
 
 import { AdvTest } from "../../utils/TestUtils.sol";
+
+import { BytesToBooleanMap } from "../utils/Mappings.sol";
 import { SequenceConfigLib } from "../utils/SequenceConfigLib.sol";
 import { Payload } from "src/modules/Payload.sol";
 import { BaseSig } from "src/modules/auth/BaseSig.sol";
@@ -14,38 +16,6 @@ contract ExternalBaseSig {
     bytes calldata _signature
   ) external view returns (uint256, bytes32) {
     return BaseSig.recoverBranch(_payload, _opHash, _signature);
-  }
-
-}
-
-contract AddressToBooleanMap {
-
-  mapping(address => bool) private _values;
-
-  function set(address _addr, bool _val) external {
-    _values[_addr] = _val;
-  }
-
-  function get(
-    address _addr
-  ) external view returns (bool) {
-    return _values[_addr];
-  }
-
-}
-
-contract BytesToBooleanMap {
-
-  mapping(bytes => bool) private _values;
-
-  function set(bytes calldata _bytes, bool _val) external {
-    _values[_bytes] = _val;
-  }
-
-  function get(
-    bytes calldata _bytes
-  ) external view returns (bool) {
-    return _values[_bytes];
   }
 
 }
