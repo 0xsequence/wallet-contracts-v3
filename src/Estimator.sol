@@ -30,7 +30,7 @@ contract Estimator is Stage2Module {
   function estimate(
     bytes calldata _payload,
     bytes calldata _signature
-  ) external payable virtual returns (uint256 gasUsed) {
+  ) external payable virtual nonReentrant returns (uint256 gasUsed) {
     uint256 startingGas = gasleft();
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
 
