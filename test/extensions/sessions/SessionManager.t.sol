@@ -51,6 +51,9 @@ contract SessionManagerTest is SessionTestBase {
     vm.assume(param > 0);
     vm.assume(explicitTarget != address(sessionManager));
     vm.assume(explicitTarget2 != address(sessionManager));
+    vm.assume(explicitTarget != address(sessionWallet.addr));
+    vm.assume(explicitTarget2 != address(sessionWallet.addr));
+
     bytes memory callData = abi.encodeWithSelector(selector, param);
 
     // --- Session Permissions ---
@@ -588,6 +591,8 @@ contract SessionManagerTest is SessionTestBase {
   /// @notice Test that calls with BEHAVIOR_ABORT_ON_ERROR will revert with InvalidBehavior
   function testBehaviorAbortOnErrorCallsRevert(address target, bytes memory data) public {
     vm.assume(target != address(sessionManager));
+    vm.assume(target != address(sessionWallet.addr));
+
     // Build a payload with one call that has BEHAVIOR_ABORT_ON_ERROR
     uint256 callCount = 1;
     Payload.Decoded memory payload = _buildPayload(callCount);
@@ -610,6 +615,8 @@ contract SessionManagerTest is SessionTestBase {
   /// @notice Test that calls with onlyFallback = true in explicit sessions are allowed
   function testExplicitSessionOnlyFallbackAllowed(address target, bytes memory data) public {
     vm.assume(target != address(sessionManager));
+    vm.assume(target != address(sessionWallet.addr));
+
     // Build a payload with one call: explicit call
     Payload.Decoded memory payload = _buildPayload(1);
 
@@ -648,6 +655,8 @@ contract SessionManagerTest is SessionTestBase {
   /// @notice Test that the increment call cannot have onlyFallback = true
   function testIncrementCallOnlyFallbackReverts(address target, bytes memory data) public {
     vm.assume(target != address(sessionManager));
+    vm.assume(target != address(sessionWallet.addr));
+
     // Build a payload with two calls: explicit call + increment call with onlyFallback
     uint256 callCount = 2;
     Payload.Decoded memory payload = _buildPayload(callCount);
@@ -697,6 +706,8 @@ contract SessionManagerTest is SessionTestBase {
   /// @notice Test that calls with BEHAVIOR_IGNORE_ERROR in explicit sessions are allowed
   function testExplicitSessionBehaviorIgnoreErrorAllowed(address target, bytes memory data) public {
     vm.assume(target != address(sessionManager));
+    vm.assume(target != address(sessionWallet.addr));
+
     Payload.Decoded memory payload = _buildPayload(1);
 
     // First call with BEHAVIOR_IGNORE_ERROR (should be allowed)
@@ -729,6 +740,8 @@ contract SessionManagerTest is SessionTestBase {
   /// @notice Test that calls with BEHAVIOR_ABORT_ON_ERROR in explicit sessions revert
   function testExplicitSessionBehaviorAbortOnErrorReverts(address target, bytes memory data) public {
     vm.assume(target != address(sessionManager));
+    vm.assume(target != address(sessionWallet.addr));
+
     Payload.Decoded memory payload = _buildPayload(1);
 
     // First call with BEHAVIOR_ABORT_ON_ERROR (should revert)
@@ -761,6 +774,8 @@ contract SessionManagerTest is SessionTestBase {
   /// @notice Test that valid linear execution still works
   function testValidLinearExecution(address target, bytes memory data) public {
     vm.assume(target != address(sessionManager));
+    vm.assume(target != address(sessionWallet.addr));
+
     Payload.Decoded memory payload = _buildPayload(1);
 
     // First call (normal explicit call)
