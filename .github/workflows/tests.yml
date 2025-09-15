@@ -37,7 +37,7 @@ jobs:
             clone_url: https://github.com/0xsequence/go-sequence.git
             repo_url: https://github.com/0xsequence/go-sequence.git
             ssh_url: git@github.com:0xsequence/go-sequence.git
-            default_branch: v3-core
+            default_branch: master
             setup_tool: go
             setup_version: '1.23'
             build_cmd: go mod tidy && go build -o sequence-server ./cmd/sequence
