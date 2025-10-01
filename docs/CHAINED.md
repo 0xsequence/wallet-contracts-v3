@@ -1,4 +1,4 @@
-# Sequence chained signatures
+# Sequence Chained Signatures Documentation
 
 This document provides an overview of the rationale behind the “chained” signatures of the Sequence wallet contracts.
 

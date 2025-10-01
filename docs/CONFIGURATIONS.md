@@ -1,4 +1,4 @@
-# Sequence chained signatures
+# Sequence Wallet Configuration Documentation
 
 This document provides a description on how the Sequence wallet contracts define and handle sets of signers, checkpoints, extensions and other parameters that fall within the scope of its "configuration".
 
