@@ -55,13 +55,16 @@ Within these configuration bytes, the data is structured as a series of tagged n
 The following flags are defined:
 
 - **0x00: Permissions Node**
-- **0x01: Node (Pre-hashed 32-byte value)**
-- **0x02: Branch (Nested encoding)**
-- **0x03: Blacklist**
-- **0x04: Identity Signer**
+- **0x01: Hash Node (Pre-hashed 32-byte value)**
+- **0x02: Branch Node (Nested encoding)**
+- **0x03: Blacklist Node**
+- **0x04: Identity Signer Node**
 
 > [!IMPORTANT]
-> There must be exactly **one** Identity Signer and at most one Blacklist node. Multiple entries will trigger a validation error. If there are any implicit sessions (attestations), a blacklist is mandatory.
+> During validation there must be **exactly one** Identity Signer and **at most one** Blacklist node. Multiple entries will trigger a validation error. If there are any implicit sessions (attestations), a blacklist is mandatory.
+
+> [!TIP]
+> Unused nodes may be hashed into hash nodes to recover the correct image hash with reduced processing. A complete configuration may have multiple Identity Signers but must only include one unhashed Identity Signer node for validation.
 
 #### Permissions Node (FLAG 0x00)
 
@@ -121,7 +124,7 @@ Parameter Rule Encoding:
 > [!TIP]
 > A permission with an empty rules array is treated as _open_, granting unrestricted access to the target, subject only to other constraints such as value limits and deadlines.
 
-#### Node (FLAG 0x01)
+#### Hash Node (FLAG 0x01)
 
 This node includes a 32-byte pre-hashed value:
 
@@ -218,7 +221,10 @@ Identity Signer Layout:
 ```
 
 > [!IMPORTANT]
-> The configuration must include exactly one identity signer. Duplicate or missing entries trigger an error.
+> The configuration must include exactly one identity signer during validation. Duplicate or missing entries trigger an error.
+
+> [!NOTE]
+> An Identity Signer can be any address capable or authorizing an implicit session. This should not be confused with other uses of the term Identity outside the sessions extension.
 
 ---
 
