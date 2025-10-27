@@ -73,6 +73,7 @@ contract ExtendedSessionTestBase is SessionTestBase {
   }
 
   function _validExplicitSignature(
+    address wallet,
     Payload.Decoded memory payload,
     Vm.Wallet memory signer,
     string memory config,
@@ -81,7 +82,7 @@ contract ExtendedSessionTestBase is SessionTestBase {
   ) internal returns (bytes memory signature) {
     string[] memory callSignatures = new string[](payload.calls.length);
     for (uint256 i = 0; i < payload.calls.length; i++) {
-      bytes32 callHash = SessionSig.hashCallWithReplayProtection(payload, i);
+      bytes32 callHash = SessionSig.hashCallWithReplayProtection(wallet, payload, i);
       string memory sessionSignature = _signAndEncodeRSV(callHash, signer);
       callSignatures[i] = _explicitCallSignatureToJSON(permissionIdxs[i], sessionSignature);
     }
@@ -106,6 +107,7 @@ contract ExtendedSessionTestBase is SessionTestBase {
   }
 
   function _validImplicitSignature(
+    address wallet,
     Payload.Decoded memory payload,
     Vm.Wallet memory signer,
     string memory config,
@@ -115,7 +117,7 @@ contract ExtendedSessionTestBase is SessionTestBase {
     string[] memory callSignatures = new string[](callCount);
     Attestation memory attestation = _createValidAttestation(signer);
     for (uint256 i; i < callCount; i++) {
-      callSignatures[i] = _createImplicitCallSignature(payload, i, signer, identityWallet, attestation);
+      callSignatures[i] = _createImplicitCallSignature(wallet, payload, i, signer, identityWallet, attestation);
     }
 
     address[] memory explicitSigners = new address[](0);

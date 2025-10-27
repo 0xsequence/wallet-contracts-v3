@@ -44,9 +44,8 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
     }
 
     // Decode signature
-    SessionSig.DecodedSignature memory sig = SessionSig.recoverSignature(payload, encodedSignature);
-
     address wallet = msg.sender;
+    SessionSig.DecodedSignature memory sig = SessionSig.recoverSignature(wallet, payload, encodedSignature);
 
     // Initialize session usage limits for explicit session
     SessionUsageLimits[] memory sessionUsageLimits = new SessionUsageLimits[](payload.calls.length);

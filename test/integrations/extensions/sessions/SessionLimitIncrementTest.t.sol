@@ -65,7 +65,7 @@ contract IntegrationSessionLimitIncrementTest is ExtendedSessionTestBase {
 
     // Sign it
     bytes memory signer1Signature =
-      _validExplicitSignature(signer1Payload, sessionWallet, config, topology, new uint8[](1));
+      _validExplicitSignature(address(wallet), signer1Payload, sessionWallet, config, topology, new uint8[](1));
 
     // Validate we can't DoS it
     bytes memory packedSigner1Payload = PrimitivesRPC.toPackedPayload(vm, signer1Payload);

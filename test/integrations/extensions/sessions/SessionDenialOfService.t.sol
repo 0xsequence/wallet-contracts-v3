@@ -69,7 +69,7 @@ contract IntegrationSessionDenialOfServiceTest is ExtendedSessionTestBase {
     payload2.nonce = payload1.nonce;
 
     string[] memory callSignatures = new string[](1);
-    bytes32 callHash = SessionSig.hashCallWithReplayProtection(payload2, 0);
+    bytes32 callHash = SessionSig.hashCallWithReplayProtection(address(wallet), payload2, 0);
     string memory callSignature = _signAndEncodeRSV(callHash, sessionWallet);
     callSignatures[0] = _explicitCallSignatureToJSON(0, callSignature);
 
@@ -127,7 +127,7 @@ contract IntegrationSessionDenialOfServiceTest is ExtendedSessionTestBase {
     payload2.nonce = payload1.nonce;
 
     string[] memory callSignatures = new string[](1);
-    bytes32 callHash = SessionSig.hashCallWithReplayProtection(payload2, 0);
+    bytes32 callHash = SessionSig.hashCallWithReplayProtection(address(wallet), payload2, 0);
     string memory callSignature = _signAndEncodeRSV(callHash, sessionWallet);
     callSignatures[0] = _explicitCallSignatureToJSON(0, callSignature);
 
@@ -168,7 +168,7 @@ contract IntegrationSessionDenialOfServiceTest is ExtendedSessionTestBase {
     payload.space = space;
 
     string[] memory callSignatures = new string[](1);
-    bytes32 callHash = SessionSig.hashCallWithReplayProtection(payload, 0);
+    bytes32 callHash = SessionSig.hashCallWithReplayProtection(address(wallet), payload, 0);
     string memory callSignature = _signAndEncodeRSV(callHash, sessionWallet);
     callSignatures[0] = _explicitCallSignatureToJSON(0, callSignature);
 

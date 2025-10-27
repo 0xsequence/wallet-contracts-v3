@@ -13,16 +13,16 @@ import { ParameterOperation, ParameterRule, Permission } from "src/extensions/se
 import { Attestation, AuthData, LibAttestation } from "src/extensions/sessions/implicit/Attestation.sol";
 import { Payload } from "src/modules/Payload.sol";
 
-
 using LibAttestation for Attestation;
 
 contract SessionSigHarness {
 
   function recover(
+    address wallet,
     Payload.Decoded calldata payload,
     bytes calldata signature
   ) external view returns (SessionSig.DecodedSignature memory) {
-    return SessionSig.recoverSignature(payload, signature);
+    return SessionSig.recoverSignature(wallet, payload, signature);
   }
 
   function recoverConfiguration(
@@ -46,6 +46,7 @@ contract SessionSigTest is SessionTestBase {
   }
 
   function testHashCallCollision(
+    address wallet,
     uint256 chainId,
     Payload.Decoded memory payload1,
     Payload.Decoded memory payload2
@@ -89,16 +90,14 @@ contract SessionSigTest is SessionTestBase {
           continue;
         }
 
-        bytes32 callHash1 = SessionSig.hashCallWithReplayProtection(payload1, i);
-        bytes32 callHash2 = SessionSig.hashCallWithReplayProtection(payload2, j);
+        bytes32 callHash1 = SessionSig.hashCallWithReplayProtection(wallet, payload1, i);
+        bytes32 callHash2 = SessionSig.hashCallWithReplayProtection(wallet, payload2, j);
         assertNotEq(callHash1, callHash2, "Call hashes should be different");
       }
     }
   }
 
-  function testSingleExplicitSignature(
-    bool useChainId
-  ) public {
+  function testSingleExplicitSignature(address wallet, bool useChainId) public {
     Payload.Decoded memory payload = _buildPayload(1);
     {
       payload.calls[0] = Payload.Call({
@@ -141,7 +140,7 @@ contract SessionSigTest is SessionTestBase {
     string memory callSignature;
     {
       uint8 permissionIdx = 0;
-      bytes32 callHash = SessionSig.hashCallWithReplayProtection(payload, 0);
+      bytes32 callHash = SessionSig.hashCallWithReplayProtection(wallet, payload, 0);
       string memory sessionSignature = _signAndEncodeRSV(callHash, sessionWallet);
       callSignature = _explicitCallSignatureToJSON(permissionIdx, sessionSignature);
     }
@@ -160,7 +159,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover and validate.
     {
-      SessionSig.DecodedSignature memory sig = harness.recover(payload, encoded);
+      SessionSig.DecodedSignature memory sig = harness.recover(wallet, payload, encoded);
       assertEq(sig.callSignatures.length, 1, "Call signatures length");
       SessionSig.CallSignature memory callSig = sig.callSignatures[0];
       assertFalse(callSig.isImplicit, "Call should be explicit");
@@ -174,9 +173,7 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testSingleImplicitSignature(
-    Attestation memory attestation
-  ) public {
+  function testSingleImplicitSignature(address wallet, Attestation memory attestation) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
     attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
@@ -195,7 +192,8 @@ contract SessionSigTest is SessionTestBase {
     }
 
     // Sign the payload.
-    string memory callSignature = _createImplicitCallSignature(payload, 0, sessionWallet, identityWallet, attestation);
+    string memory callSignature =
+      _createImplicitCallSignature(wallet, payload, 0, sessionWallet, identityWallet, attestation);
 
     // Create the topology from the CLI.
     string memory topology;
@@ -217,7 +215,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover and validate.
     {
-      SessionSig.DecodedSignature memory sig = harness.recover(payload, encoded);
+      SessionSig.DecodedSignature memory sig = harness.recover(wallet, payload, encoded);
       assertEq(sig.callSignatures.length, 1, "Call signatures length");
       SessionSig.CallSignature memory callSig = sig.callSignatures[0];
       assertTrue(callSig.isImplicit, "Call should be implicit");
@@ -230,9 +228,7 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testMultipleImplicitSignatures(
-    Attestation memory attestation
-  ) public {
+  function testMultipleImplicitSignatures(address wallet, Attestation memory attestation) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
     attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
@@ -263,8 +259,8 @@ contract SessionSigTest is SessionTestBase {
     // Create attestations and signatures for both calls
     string[] memory callSignatures = new string[](2);
     {
-      callSignatures[0] = _createImplicitCallSignature(payload, 0, sessionWallet, identityWallet, attestation);
-      callSignatures[1] = _createImplicitCallSignature(payload, 1, sessionWallet, identityWallet, attestation);
+      callSignatures[0] = _createImplicitCallSignature(wallet, payload, 0, sessionWallet, identityWallet, attestation);
+      callSignatures[1] = _createImplicitCallSignature(wallet, payload, 1, sessionWallet, identityWallet, attestation);
     }
 
     // Create the topology
@@ -282,7 +278,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover and validate
     {
-      SessionSig.DecodedSignature memory sig = harness.recover(payload, encoded);
+      SessionSig.DecodedSignature memory sig = harness.recover(wallet, payload, encoded);
       assertEq(sig.callSignatures.length, 2, "Call signatures length");
 
       for (uint256 i = 0; i < sig.callSignatures.length; i++) {
@@ -299,9 +295,7 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testMultipleExplicitSignatures(
-    bool useChainId
-  ) public {
+  function testMultipleExplicitSignatures(address wallet, bool useChainId) public {
     // Create a second session wallet
     Vm.Wallet memory sessionWallet2 = vm.createWallet("session2");
 
@@ -351,12 +345,12 @@ contract SessionSigTest is SessionTestBase {
     string[] memory callSignatures = new string[](2);
     {
       // First call signed by sessionWallet
-      bytes32 callHash = SessionSig.hashCallWithReplayProtection(payload, 0);
+      bytes32 callHash = SessionSig.hashCallWithReplayProtection(wallet, payload, 0);
       string memory sessionSignature1 = _signAndEncodeRSV(callHash, sessionWallet);
       callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature1);
 
       // Second call signed by sessionWallet2
-      callHash = SessionSig.hashCallWithReplayProtection(payload, 1);
+      callHash = SessionSig.hashCallWithReplayProtection(wallet, payload, 1);
       string memory sessionSignature2 = _signAndEncodeRSV(callHash, sessionWallet2);
       callSignatures[1] = _explicitCallSignatureToJSON(1, sessionSignature2);
     }
@@ -374,7 +368,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover and validate
     {
-      SessionSig.DecodedSignature memory sig = harness.recover(payload, encoded);
+      SessionSig.DecodedSignature memory sig = harness.recover(wallet, payload, encoded);
       assertEq(sig.callSignatures.length, 2, "Call signatures length");
 
       // Verify first signature
@@ -405,9 +399,7 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testRecover_invalidSessionSigner(
-    bool useChainId
-  ) public {
+  function testRecover_invalidSessionSigner(address wallet, bool useChainId) public {
     Payload.Decoded memory payload = _buildPayload(1);
     {
       payload.calls[0] = Payload.Call({
@@ -456,10 +448,12 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover and validate.
     vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidSessionSigner.selector, address(0)));
-    harness.recover(payload, encoded);
+    harness.recover(wallet, payload, encoded);
   }
 
-  function testRecover_invalidIdentitySigner_unset() public {
+  function testRecover_invalidIdentitySigner_unset(
+    address wallet
+  ) public {
     // Create a topology with an invalid identity signer
     string memory topology = PrimitivesRPC.sessionEmpty(vm, address(0));
     Payload.Decoded memory payload = _buildPayload(1);
@@ -479,10 +473,11 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the signature
     vm.expectRevert(SessionErrors.InvalidIdentitySigner.selector);
-    harness.recover(payload, encoded);
+    harness.recover(wallet, payload, encoded);
   }
 
   function testRecover_invalidIdentitySigner_noMatchAttestationSigner(
+    address wallet,
     Attestation memory attestation
   ) public {
     attestation.approvedSigner = sessionWallet.addr;
@@ -506,7 +501,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Sign the payload.
     string memory callSignature =
-      _createImplicitCallSignature(payload, 0, sessionWallet, attestationWallet, attestation);
+      _createImplicitCallSignature(wallet, payload, 0, sessionWallet, attestationWallet, attestation);
 
     // Create a call signature
     string[] memory callSignatures = new string[](1);
@@ -518,12 +513,10 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the signature
     vm.expectRevert(SessionErrors.InvalidIdentitySigner.selector);
-    harness.recover(payload, encoded);
+    harness.recover(wallet, payload, encoded);
   }
 
-  function testRecover_invalidIdentitySigner_noSignersEncoded(
-    Attestation memory attestation
-  ) public {
+  function testRecover_invalidIdentitySigner_noSignersEncoded(address wallet, Attestation memory attestation) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
     attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
@@ -545,7 +538,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Sign the payload.
     string memory callSignature =
-      _createImplicitCallSignature(payload, 0, sessionWallet, attestationWallet, attestation);
+      _createImplicitCallSignature(wallet, payload, 0, sessionWallet, attestationWallet, attestation);
 
     // Create a call signature
     string[] memory callSignatures = new string[](1);
@@ -555,10 +548,11 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the signature
     vm.expectRevert(SessionErrors.InvalidIdentitySigner.selector);
-    harness.recover(payload, encoded);
+    harness.recover(wallet, payload, encoded);
   }
 
   function testRecover_invalidBlacklist_requiredForImplicitSigner(
+    address wallet,
     Attestation memory attestation
   ) public {
     attestation.approvedSigner = sessionWallet.addr;
@@ -597,10 +591,15 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the signature
     vm.expectRevert(SessionErrors.InvalidBlacklist.selector);
-    harness.recover(payload, encoded);
+    harness.recover(wallet, payload, encoded);
   }
 
-  function testRecover_invalidAttestationIndex(Attestation memory attestation, uint256 count, uint256 index) public {
+  function testRecover_invalidAttestationIndex(
+    address wallet,
+    Attestation memory attestation,
+    uint256 count,
+    uint256 index
+  ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
     count = bound(count, 1, 10);
@@ -646,7 +645,7 @@ contract SessionSigTest is SessionTestBase {
 
     // Recover the signature
     vm.expectRevert(SessionErrors.InvalidAttestation.selector);
-    harness.recover(payload, encoded);
+    harness.recover(wallet, payload, encoded);
   }
 
   function testConfiguration_largeBlacklist(
@@ -705,10 +704,7 @@ contract SessionSigTest is SessionTestBase {
     assertEq(hasBlacklist, true, "Blacklist should be present");
   }
 
-  function testConfiguration_duplicateBlacklistNodes(
-    address[5] memory fiveBlacklists,
-    uint8 size
-  ) public {
+  function testConfiguration_duplicateBlacklistNodes(address[5] memory fiveBlacklists, uint8 size) public {
     size = uint8(bound(size, 0, 5));
     address[] memory blacklist = new address[](size);
     for (uint256 i = 0; i < size; i++) {
@@ -732,10 +728,7 @@ contract SessionSigTest is SessionTestBase {
     harness.recoverConfiguration(encoded);
   }
 
-  function testConfiguration_duplicateBlacklistNodes_inBranch(
-    address[5] memory fiveBlacklists,
-    uint8 size
-  ) public {
+  function testConfiguration_duplicateBlacklistNodes_inBranch(address[5] memory fiveBlacklists, uint8 size) public {
     size = uint8(bound(size, 0, 5));
     address[] memory blacklist = new address[](size);
     for (uint256 i = 0; i < size; i++) {
@@ -910,7 +903,11 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testAttestationOptimisation(Attestation memory attestation1, Attestation memory attestation2) public {
+  function testAttestationOptimisation(
+    address wallet,
+    Attestation memory attestation1,
+    Attestation memory attestation2
+  ) public {
     // Create a second session wallet
     Vm.Wallet memory sessionWallet2 = vm.createWallet("session2");
 
@@ -944,12 +941,14 @@ contract SessionSigTest is SessionTestBase {
     }
 
     // Create 2 call signatures for the same session wallet and attestation
-    string memory callSignatureA = _createImplicitCallSignature(payload, 0, sessionWallet, identityWallet, attestation1);
-    string memory callSignatureB = _createImplicitCallSignature(payload, 1, sessionWallet, identityWallet, attestation1);
+    string memory callSignatureA =
+      _createImplicitCallSignature(wallet, payload, 0, sessionWallet, identityWallet, attestation1);
+    string memory callSignatureB =
+      _createImplicitCallSignature(wallet, payload, 1, sessionWallet, identityWallet, attestation1);
 
     // Create the second call signature for the second session wallet and attestation
     string memory callSignatureC =
-      _createImplicitCallSignature(payload, 1, sessionWallet2, identityWallet, attestation2);
+      _createImplicitCallSignature(wallet, payload, 1, sessionWallet2, identityWallet, attestation2);
 
     // Create a topology
     string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
