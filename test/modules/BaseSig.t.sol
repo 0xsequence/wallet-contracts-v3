@@ -18,7 +18,8 @@ contract BaseSigImp {
     bool _ignoreCheckpointer,
     address _checkpointer
   ) external view returns (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) {
-    return BaseSig.recover(_payload, _signature, _ignoreCheckpointer, _checkpointer);
+    BaseSig.RecoverVars memory vars = BaseSig.recover(_payload, _signature, _ignoreCheckpointer, _checkpointer);
+    return (vars.threshold, vars.weight, vars.imageHash, vars.checkpoint, vars.opHash);
   }
 
 }

@@ -64,12 +64,20 @@ library BaseSig {
     return keccak256(abi.encodePacked("Sequence any address subdigest:\n", _anyAddressSubdigest));
   }
 
+  struct RecoverVars {
+    uint256 threshold;
+    uint256 weight;
+    bytes32 imageHash;
+    uint256 checkpoint;
+    bytes32 opHash;
+  }
+
   function recover(
     Payload.Decoded memory _payload,
     bytes calldata _signature,
     bool _ignoreCheckpointer,
     address _checkpointer
-  ) internal view returns (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) {
+  ) internal view returns (RecoverVars memory vars) {
     // First byte is the signature flag
     (uint256 signatureFlag, uint256 rindex) = _signature.readFirstUint8();
 
@@ -116,26 +124,28 @@ library BaseSig {
     {
       // Recover the checkpoint using the size defined by the flag
       uint256 checkpointSize = (signatureFlag & 0x1c) >> 2;
-      (checkpoint, rindex) = _signature.readUintX(rindex, checkpointSize);
+      (vars.checkpoint, rindex) = _signature.readUintX(rindex, checkpointSize);
     }
 
     // Recover the threshold, using the flag for the size
     {
       uint256 thresholdSize = ((signatureFlag & 0x20) >> 5) + 1;
-      (threshold, rindex) = _signature.readUintX(rindex, thresholdSize);
+      (vars.threshold, rindex) = _signature.readUintX(rindex, thresholdSize);
     }
 
     // Recover the tree
-    opHash = _payload.hash();
-    (weight, imageHash) = recoverBranch(_payload, opHash, _signature[rindex:]);
+    vars.opHash = _payload.hash();
+    (vars.weight, vars.imageHash) = recoverBranch(_payload, vars.opHash, _signature[rindex:]);
 
-    imageHash = LibOptim.fkeccak256(imageHash, bytes32(threshold));
-    imageHash = LibOptim.fkeccak256(imageHash, bytes32(checkpoint));
-    imageHash = LibOptim.fkeccak256(imageHash, bytes32(uint256(uint160(_checkpointer))));
+    vars.imageHash = LibOptim.fkeccak256(vars.imageHash, bytes32(vars.threshold));
+    vars.imageHash = LibOptim.fkeccak256(vars.imageHash, bytes32(vars.checkpoint));
+    vars.imageHash = LibOptim.fkeccak256(vars.imageHash, bytes32(uint256(uint160(_checkpointer))));
 
     // If the snapshot is used, either the imageHash must match
     // or the checkpoint must be greater than the snapshot checkpoint
-    if (snapshot.imageHash != bytes32(0) && snapshot.imageHash != imageHash && checkpoint <= snapshot.checkpoint) {
+    if (
+      snapshot.imageHash != bytes32(0) && snapshot.imageHash != vars.imageHash && vars.checkpoint <= snapshot.checkpoint
+    ) {
       revert UnusedSnapshot(snapshot);
     }
   }
@@ -145,7 +155,7 @@ library BaseSig {
     address _checkpointer,
     Snapshot memory _snapshot,
     bytes calldata _signature
-  ) internal view returns (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) {
+  ) internal view returns (RecoverVars memory vars) {
     Payload.Decoded memory linkedPayload;
     linkedPayload.kind = Payload.KIND_CONFIG_UPDATE;
 
@@ -164,31 +174,31 @@ library BaseSig {
       address checkpointer = nrindex == _signature.length ? _checkpointer : address(0);
 
       if (prevCheckpoint == type(uint256).max) {
-        (threshold, weight, imageHash, checkpoint, opHash) =
-          recover(_payload, _signature[rindex:nrindex], true, checkpointer);
+        vars = recover(_payload, _signature[rindex:nrindex], true, checkpointer);
       } else {
-        (threshold, weight, imageHash, checkpoint,) =
-          recover(linkedPayload, _signature[rindex:nrindex], true, checkpointer);
+        bytes32 opHash = vars.opHash;
+        vars = recover(linkedPayload, _signature[rindex:nrindex], true, checkpointer);
+        vars.opHash = opHash;
       }
 
-      if (weight < threshold) {
-        revert LowWeightChainedSignature(_signature[rindex:nrindex], threshold, weight);
+      if (vars.weight < vars.threshold) {
+        revert LowWeightChainedSignature(_signature[rindex:nrindex], vars.threshold, vars.weight);
       }
       rindex = nrindex;
 
-      if (_snapshot.imageHash == imageHash) {
+      if (_snapshot.imageHash == vars.imageHash) {
         _snapshot.imageHash = bytes32(0);
       }
 
-      if (checkpoint >= prevCheckpoint) {
-        revert WrongChainedCheckpointOrder(checkpoint, prevCheckpoint);
+      if (vars.checkpoint >= prevCheckpoint) {
+        revert WrongChainedCheckpointOrder(vars.checkpoint, prevCheckpoint);
       }
 
-      linkedPayload.imageHash = imageHash;
-      prevCheckpoint = checkpoint;
+      linkedPayload.imageHash = vars.imageHash;
+      prevCheckpoint = vars.checkpoint;
     }
 
-    if (_snapshot.imageHash != bytes32(0) && checkpoint <= _snapshot.checkpoint) {
+    if (_snapshot.imageHash != bytes32(0) && vars.checkpoint <= _snapshot.checkpoint) {
       revert UnusedSnapshot(_snapshot);
     }
   }
