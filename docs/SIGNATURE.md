@@ -358,6 +358,26 @@ This yields a `Snapshot { imageHash, checkpoint }`. If the final signature’s c
 
 ---
 
+## **9. Wallet as a Sapient Signer**
+
+If a wallet is added a Sapient Signer, the wallet signature must be prepended with an additional flag byte.
+
+This flag has a single purpose, deciding whether to return the derived image hash, or a static value of `bytes32(1)`.
+This allows a parent wallet to determine if they will accept a child wallet with any configuration, or only a predetermined configuration.
+
+```
+    ┌──────── Bits 7..1 (0xFE) : Unused
+    │    ┌─── Bit 0 (0x01) : Any image hash flag
+[7654321 0]
+```
+
+`0x00<signature>` will result in the wallet's image hash being returned.
+`0x01<signature>` will result in `bytes32(1)` being returned.
+
+Note that as chain signatures may still enable a wallet to use an updated configuration without the image hash changing, chain signatures are banned when the "Any image hash" flag is unset.
+
+---
+
 ## **9. Summary**
 
 1. **Top-level “signatureFlag”** byte sets the “checkpointer usage,” “signature type,” “checkpoint size,” “threshold size,” etc.
