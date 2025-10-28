@@ -89,9 +89,9 @@ contract SessionManagerTest is SessionTestBase {
     sessionPerms.permissions[1] = Permission({ target: explicitTarget2, rules: new ParameterRule[](0) }); // Unlimited access
 
     // Build a payload with two calls:
-    //   Call 0: call not requiring incrementUsageLimit
-    //   Call 1: call requiring incrementUsageLimit
-    //   Call 2: the required incrementUsageLimit call (self–call)
+    //   Call 1: call not requiring incrementUsageLimit
+    //   Call 2: call requiring incrementUsageLimit
+    //   Call 0: the required incrementUsageLimit call (self–call)
     Payload.Decoded memory payload = _buildPayload(3);
 
     // --- Explicit Call 1 ---
@@ -143,6 +143,151 @@ contract SessionManagerTest is SessionTestBase {
 
     (bytes32 imageHash, bytes memory encodedSig) =
       _validExplicitSessionSignature(wallet, payload, sessionPerms, permissionIdxs);
+
+    vm.prank(wallet);
+    bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
+    assertEq(imageHash, actualImageHash);
+  }
+
+  /// @notice Valid explicit session test with multiple signers.
+  function testValidExplicitSessionMixing(
+    address wallet,
+    bytes4 selector,
+    uint256 param,
+    address explicitTarget,
+    bool useChainId
+  ) public {
+    Vm.Wallet memory sessionWallet2 = vm.createWallet("session2");
+    vm.assume(param > 0);
+    vm.assume(explicitTarget != wallet);
+    vm.assume(explicitTarget != address(sessionManager));
+    vm.assume(explicitTarget != address(sessionWallet.addr));
+    vm.assume(explicitTarget != address(sessionWallet2.addr));
+
+    bytes memory callData = abi.encodeWithSelector(selector, param);
+
+    // --- Session Permissions ---
+    // Create a SessionPermissions struct granting permission for calls to explicitTarget.
+    SessionPermissions memory sessionPerms2 = SessionPermissions({
+      signer: sessionWallet2.addr,
+      chainId: useChainId ? block.chainid : 0,
+      valueLimit: 0,
+      deadline: uint64(block.timestamp + 1 days),
+      permissions: new Permission[](1)
+    });
+    // Permission with an empty rules set allows all calls to the target.
+    ParameterRule[] memory rules2 = new ParameterRule[](2);
+    // Rules for explicitTarget in call 1.
+    rules2[0] = ParameterRule({
+      cumulative: false,
+      operation: ParameterOperation.EQUAL,
+      value: bytes32(uint256(uint32(selector)) << 224),
+      offset: 0,
+      mask: bytes32(uint256(uint32(0xffffffff)) << 224)
+    });
+    rules2[1] = ParameterRule({
+      cumulative: true,
+      operation: ParameterOperation.LESS_THAN_OR_EQUAL,
+      value: bytes32(param),
+      offset: 4,
+      mask: bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    });
+    sessionPerms2.permissions[0] = Permission({ target: explicitTarget, rules: rules2 });
+
+    // Create a SessionPermissions struct granting permission for calls to explicitTarget.
+    SessionPermissions memory sessionPerms1 = SessionPermissions({
+      signer: sessionWallet.addr,
+      chainId: useChainId ? block.chainid : 0,
+      valueLimit: 0,
+      deadline: uint64(block.timestamp + 1 days),
+      permissions: new Permission[](1)
+    });
+    // Permission with an empty rules set allows all calls to the target.
+    ParameterRule[] memory rules1 = new ParameterRule[](2);
+    // Rules for explicitTarget in call 1.
+    rules1[0] = ParameterRule({
+      cumulative: false,
+      operation: ParameterOperation.EQUAL,
+      value: bytes32(uint256(uint32(selector)) << 224),
+      offset: 0,
+      mask: bytes32(uint256(uint32(0xffffffff)) << 224)
+    });
+    rules1[1] = ParameterRule({
+      cumulative: false, // Not cumulative
+      operation: ParameterOperation.LESS_THAN_OR_EQUAL,
+      value: bytes32(param),
+      offset: 4,
+      mask: bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    });
+    sessionPerms1.permissions[0] = Permission({ target: explicitTarget, rules: rules1 });
+
+    // Build a payload with two calls:
+    //   Call 1: using session 1 (non cumulative signer)
+    //   Call 2: using session 2 (cumulative signer)
+    //   Call 0: the required incrementUsageLimit call (self–call)
+    Payload.Decoded memory payload = _buildPayload(3);
+
+    // --- Explicit Call 1 ---
+    payload.calls[1] = Payload.Call({
+      to: explicitTarget,
+      value: 0,
+      data: callData,
+      gasLimit: 0,
+      delegateCall: false,
+      onlyFallback: false,
+      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+    });
+    payload.calls[2] = payload.calls[1]; // Reuse
+
+    // --- Increment Usage Limit ---
+    {
+      UsageLimit[] memory limits = new UsageLimit[](1);
+      limits[0] = UsageLimit({
+        usageHash: keccak256(abi.encode(sessionWallet2.addr, sessionPerms2.permissions[0], uint256(1))),
+        usageAmount: param
+      });
+      payload.calls[0] = Payload.Call({
+        to: address(sessionManager),
+        value: 0,
+        data: abi.encodeWithSelector(sessionManager.incrementUsageLimit.selector, limits),
+        gasLimit: 0,
+        delegateCall: false,
+        onlyFallback: false,
+        behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+      });
+    }
+
+    // All signers use permission at index 0
+    uint8[] memory permissionIdxs = new uint8[](3);
+
+    // Configuration
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
+    string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms1);
+    topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
+    sessionPermsJson = _sessionPermissionsToJSON(sessionPerms2);
+    topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
+    bytes32 imageHash = PrimitivesRPC.sessionImageHash(vm, topology);
+
+    string[] memory callSignatures = new string[](3);
+    // Sign call 1 with signer 1
+    string memory sessionSignature =
+      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(address(wallet), payload, 1), sessionWallet);
+    callSignatures[1] = _explicitCallSignatureToJSON(permissionIdxs[1], sessionSignature);
+    // Sign call 2 with signer 2
+    sessionSignature =
+      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(address(wallet), payload, 2), sessionWallet2);
+    callSignatures[2] = _explicitCallSignatureToJSON(permissionIdxs[2], sessionSignature);
+    // Sign call 0 (incrementUsageLimit) with signer 1
+    sessionSignature =
+      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(address(wallet), payload, 0), sessionWallet);
+    callSignatures[0] = _explicitCallSignatureToJSON(permissionIdxs[0], sessionSignature);
+
+    address[] memory explicitSigners = new address[](2);
+    explicitSigners[0] = sessionWallet.addr;
+    explicitSigners[1] = sessionWallet2.addr;
+    address[] memory implicitSigners = new address[](0);
+    bytes memory encodedSig =
+      PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, explicitSigners, implicitSigners);
 
     vm.prank(wallet);
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
