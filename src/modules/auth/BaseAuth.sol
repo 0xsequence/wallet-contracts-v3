@@ -81,7 +81,7 @@ abstract contract BaseAuth is IAuth, IPartialAuth, ISapient, IERC1271, SelfAuth 
   function signatureValidation(
     Payload.Decoded memory _payload,
     bytes calldata _signature
-  ) internal view virtual returns (bool isValid, bytes32 opHash) {
+  ) internal view virtual returns (bool isValid, bytes32 opHash, bytes32 imageHash) {
     // Read first bit to determine if static signature is used
     bytes1 signatureFlag = _signature[0];
 
@@ -97,15 +97,15 @@ abstract contract BaseAuth is IAuth, IPartialAuth, ISapient, IERC1271, SelfAuth 
         revert InvalidStaticSignatureWrongCaller(opHash, msg.sender, addr);
       }
 
-      return (true, opHash);
+      // Return the static signature flag as the image hash since the image hash cannot be recovered
+      imageHash = bytes32(bytes1(0x80));
+      return (true, opHash, imageHash);
     }
 
     // Static signature is not used, recover and validate imageHash
 
     uint256 threshold;
     uint256 weight;
-    bytes32 imageHash;
-
     (threshold, weight, imageHash,, opHash) = BaseSig.recover(_payload, _signature, false, address(0));
 
     // Validate the weight
@@ -120,7 +120,20 @@ abstract contract BaseAuth is IAuth, IPartialAuth, ISapient, IERC1271, SelfAuth 
   function recoverSapientSignature(
     Payload.Decoded memory _payload,
     bytes calldata _signature
-  ) external view returns (bytes32) {
+  ) external view returns (bytes32 imageHash) {
+    // Sapient signers encode a flag in the first byte
+    bytes1 sapientSignatureFlag = _signature[0];
+    bool anyImageHash = sapientSignatureFlag & 0x01 == 0x01;
+
+    if (!anyImageHash) {
+      // Check the inner flag
+      bytes1 signatureFlag = _signature[1];
+      if (signatureFlag & 0x01 == 0x01) {
+        // Do not allow chain signatures when the "Any image hash" flag is unset
+        revert InvalidSapientSignature(_payload, _signature);
+      }
+    }
+
     // Copy parent wallets + add caller at the end
     address[] memory parentWallets = new address[](_payload.parentWallets.length + 1);
 
@@ -131,19 +144,24 @@ abstract contract BaseAuth is IAuth, IPartialAuth, ISapient, IERC1271, SelfAuth 
     parentWallets[_payload.parentWallets.length] = msg.sender;
     _payload.parentWallets = parentWallets;
 
-    (bool isValid,) = signatureValidation(_payload, _signature);
+    bool isValid;
+    (isValid,, imageHash) = signatureValidation(_payload, _signature[1:]);
     if (!isValid) {
       revert InvalidSapientSignature(_payload, _signature);
     }
 
-    return bytes32(uint256(1));
+    // Static image hash
+    if (anyImageHash) {
+      return bytes32(uint256(1));
+    }
+    return imageHash;
   }
 
   /// @inheritdoc IERC1271
   function isValidSignature(bytes32 _hash, bytes calldata _signature) external view returns (bytes4) {
     Payload.Decoded memory payload = Payload.fromDigest(_hash);
 
-    (bool isValid,) = signatureValidation(payload, _signature);
+    (bool isValid,,) = signatureValidation(payload, _signature);
     if (!isValid) {
       return bytes4(0);
     }

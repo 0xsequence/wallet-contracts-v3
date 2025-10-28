@@ -34,8 +34,8 @@ contract CallsImp is Calls {
   function signatureValidation(
     Payload.Decoded memory,
     bytes calldata _signature
-  ) internal view override returns (bool isValid, bytes32 opHash) {
-    return (keccak256(_signature) == keccak256(expectedSignature), expectedOpHash);
+  ) internal view override returns (bool isValid, bytes32 opHash, bytes32 imageHash) {
+    return (keccak256(_signature) == keccak256(expectedSignature), expectedOpHash, bytes32(0));
   }
 
   function _isValidImage(

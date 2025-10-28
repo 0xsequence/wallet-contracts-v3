@@ -35,7 +35,7 @@ contract Estimator is Stage2Module {
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
 
     _consumeNonce(decoded.space, readNonce(decoded.space));
-    (bool isValid, bytes32 opHash) = signatureValidation(decoded, _signature);
+    (bool isValid, bytes32 opHash,) = signatureValidation(decoded, _signature);
 
     if (!isValid) {
       revert InvalidSignature(decoded, _signature);

@@ -1050,7 +1050,7 @@ contract TestStage1Module is AdvTest {
     bytes parentedSignature;
   }
 
-  function test_recover_sapient_as_if_nested(
+  function test_recover_sapient_as_if_nested_fixed(
     nested_sapient_test_params memory params
   ) public {
     boundToLegalPayload(params.payload);
@@ -1089,6 +1089,8 @@ contract TestStage1Module is AdvTest {
       ),
       !params.payload.noChainId
     );
+    // Apply the sapient signature flag (fixed)
+    vars.parentedSignature = abi.encodePacked(bytes1(0x01), vars.parentedSignature);
 
     // Restore the original parentWallets
     params.payload.parentWallets = prevParentWallets;
@@ -1097,6 +1099,58 @@ contract TestStage1Module is AdvTest {
     vm.prank(params.parentWallet);
     bytes32 recovered = Stage1Auth(vars.wallet).recoverSapientSignature(params.payload, vars.parentedSignature);
     assertEq(recovered, bytes32(uint256(1)));
+  }
+
+  function test_recover_sapient_as_if_nested_image_hash(
+    nested_sapient_test_params memory params
+  ) public {
+    boundToLegalPayload(params.payload);
+    params.threshold = uint16(bound(params.threshold, 0, params.weight));
+    params.pk = boundPk(params.pk);
+
+    nested_sapient_test_vars memory vars;
+
+    vars.signer = vm.addr(params.pk);
+
+    {
+      string memory ce;
+      ce = string(abi.encodePacked(ce, "signer:", vm.toString(vars.signer), ":", vm.toString(params.weight)));
+      vars.config = PrimitivesRPC.newConfig(vm, params.threshold, params.checkpoint, ce);
+    }
+    vars.configHash = PrimitivesRPC.getImageHash(vm, vars.config);
+
+    vars.wallet = payable(factory.deploy(address(stage1Module), vars.configHash));
+
+    address[] memory nextParentWallets = new address[](params.payload.parentWallets.length + 1);
+    for (uint256 i = 0; i < params.payload.parentWallets.length; i++) {
+      nextParentWallets[i] = params.payload.parentWallets[i];
+    }
+    nextParentWallets[params.payload.parentWallets.length] = params.parentWallet;
+
+    address[] memory prevParentWallets = params.payload.parentWallets;
+    params.payload.parentWallets = nextParentWallets;
+
+    // Sign the parented payload
+    bytes32 payloadHash = Payload.hashFor(params.payload, vars.wallet);
+    (uint256 v, bytes32 r, bytes32 s) = vm.sign(params.pk, payloadHash);
+    vars.parentedSignature = PrimitivesRPC.toEncodedSignature(
+      vm,
+      vars.config,
+      string(
+        abi.encodePacked(vm.toString(vars.signer), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))
+      ),
+      !params.payload.noChainId
+    );
+    // Apply the sapient signature flag (dynamic)
+    vars.parentedSignature = abi.encodePacked(bytes1(0x00), vars.parentedSignature);
+
+    // Restore the original parentWallets
+    params.payload.parentWallets = prevParentWallets;
+
+    // Recover the parented payload
+    vm.prank(params.parentWallet);
+    bytes32 recovered = Stage1Auth(vars.wallet).recoverSapientSignature(params.payload, vars.parentedSignature);
+    assertEq(recovered, vars.configHash);
   }
 
   function test_recover_sapient_as_if_nested_wrong_signature_fail(
@@ -1142,6 +1196,8 @@ contract TestStage1Module is AdvTest {
       ),
       !params.payload.noChainId
     );
+    // Apply the sapient signature flag (fixed)
+    vars.parentedSignature = abi.encodePacked(bytes1(0x01), vars.parentedSignature);
 
     vm.expectRevert(
       abi.encodeWithSelector(BaseAuth.InvalidSapientSignature.selector, params.payload, vars.parentedSignature)
@@ -1153,6 +1209,26 @@ contract TestStage1Module is AdvTest {
     // Recover the parented payload
     vm.prank(params.parentWallet);
     Stage1Auth(vars.wallet).recoverSapientSignature(params.payload, vars.parentedSignature);
+  }
+
+  function test_recover_sapient_as_if_nested_chained_signature_fail(
+    address _parentWallet,
+    bytes memory _signatureSuffix,
+    Payload.Decoded memory _payload,
+    bytes32 configHash
+  ) public {
+    boundToLegalPayload(_payload);
+    bytes memory signature = abi.encodePacked(
+      bytes1(0x00), // NOT any image hash flag
+      bytes1(0x01), // Chained signature
+      _signatureSuffix // Rest of signature not read
+    );
+
+    address payable wallet = payable(factory.deploy(address(stage1Module), configHash));
+
+    vm.expectRevert(abi.encodeWithSelector(BaseAuth.InvalidSapientSignature.selector, _payload, signature));
+    vm.prank(_parentWallet);
+    Stage1Auth(wallet).recoverSapientSignature(_payload, signature);
   }
 
   function test_forbid_reentrancy(
