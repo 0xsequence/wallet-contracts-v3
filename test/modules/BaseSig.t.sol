@@ -2548,4 +2548,71 @@ contract BaseSigTest is AdvTest {
     }
   }
 
+  function test_checkpointer_bypass() external {
+    (address alice, uint256 aliceKey) = makeAddrAndKey("alice");
+    (address bob,) = makeAddrAndKey("bob");
+
+    address checkpointer = address(0xBEEF);
+
+    uint256 checkpoint1 = 1;
+    uint256 checkpoint2 = 2;
+
+    // Let's assume config1 is currently where the wallet contract is at, while the checkpointer is ahead at config2
+    string memory config1 = PrimitivesRPC.newConfigWithCheckpointer(
+      vm, checkpointer, 1, checkpoint1, string(abi.encodePacked("signer:", vm.toString(alice), ":1"))
+    );
+    // bytes32 imageHash1 = PrimitivesRPC.getImageHash(vm, config1); // Unused
+    // In config2 Alice is no longer a signer so she shouldn't be able to authorise any more transactions
+    string memory config2 = PrimitivesRPC.newConfigWithCheckpointer(
+      vm, checkpointer, 1, checkpoint2, string(abi.encodePacked("signer:", vm.toString(bob), ":2"))
+    );
+    bytes32 imageHash2 = PrimitivesRPC.getImageHash(vm, config2);
+
+    Payload.Decoded memory finalPayload;
+    finalPayload.kind = Payload.KIND_TRANSACTIONS;
+
+    bytes memory chainedSignature;
+    {
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(aliceKey, Payload.hashFor(finalPayload, address(baseSigImp)));
+
+      // One and only signature within the chain which is valid for config1 (currently out of date)
+      bytes memory signature = PrimitivesRPC.toEncodedSignature(
+        vm,
+        config1,
+        string(abi.encodePacked(vm.toString(alice), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))),
+        true
+      );
+
+      // Remove checkpointer data from the signature
+      bytes memory adjustedSignature = new bytes(signature.length - 3);
+      for (uint256 i = 0; i < adjustedSignature.length; i++) {
+        if (i < 21) {
+          adjustedSignature[i] = signature[i];
+        } else {
+          adjustedSignature[i] = signature[i + 3];
+        }
+      }
+
+      // Construct the chained signature
+      bytes1 outerFlag = bytes1(uint8(0x5)); // 0b000 001 01 => no checkpointer usage
+      uint24 innerSigSize = uint24(adjustedSignature.length);
+      chainedSignature = new bytes(adjustedSignature.length + 4);
+      chainedSignature[0] = outerFlag;
+      chainedSignature[1] = bytes1(uint8(innerSigSize >> 16));
+      chainedSignature[2] = bytes1(uint8(innerSigSize >> 8));
+      chainedSignature[3] = bytes1(uint8(innerSigSize));
+      for (uint256 i = 4; i < chainedSignature.length; i++) {
+        chainedSignature[i] = adjustedSignature[i - 4];
+      }
+    }
+
+    // Checkpointer will return the imageHash of the latest configuration
+    Snapshot memory latestSnapshot = Snapshot(imageHash2, 2);
+    vm.mockCall(checkpointer, abi.encodeWithSelector(ICheckpointer.snapshotFor.selector), abi.encode(latestSnapshot));
+
+    // Expect revert. Unused snapshot
+    vm.expectRevert(abi.encodeWithSelector(BaseSig.UncheckedSnapshot.selector, checkpointer));
+    baseSigImp.recoverPub(finalPayload, chainedSignature, false, address(0));
+  }
+
 }
