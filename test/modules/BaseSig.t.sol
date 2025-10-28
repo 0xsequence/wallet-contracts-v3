@@ -2615,4 +2615,68 @@ contract BaseSigTest is AdvTest {
     baseSigImp.recoverPub(finalPayload, chainedSignature, false, address(0));
   }
 
+  function test_checkpointer_bypass_high_checkpoint() external {
+    (address alice, uint256 aliceKey) = makeAddrAndKey("alice");
+    (address bob,) = makeAddrAndKey("bob");
+
+    address checkpointer = address(0xBEEF);
+
+    uint256 checkpoint1 = 1;
+    uint256 checkpoint2 = 2;
+    uint256 checkpoint3 = 1000; // Attacker high checkpoint
+
+    // Let's assume config1 is currently where the wallet contract is at, while the checkpointer is ahead at config2
+    string memory aliceConfigStr = string(abi.encodePacked("signer:", vm.toString(alice), ":1"));
+    string memory config1 = PrimitivesRPC.newConfigWithCheckpointer(vm, checkpointer, 1, checkpoint1, aliceConfigStr);
+    // bytes32 imageHash1 = PrimitivesRPC.getImageHash(vm, config1); // Unused
+    // In config2 Alice is no longer a signer so she shouldn't be able to authorise any more transactions
+    string memory config2 = PrimitivesRPC.newConfigWithCheckpointer(
+      vm, checkpointer, 1, checkpoint2, string(abi.encodePacked("signer:", vm.toString(bob), ":2"))
+    );
+    bytes32 imageHash2 = PrimitivesRPC.getImageHash(vm, config2);
+    // In config3 Alice is back in and the checkpoint is really high. The checkpointer doesn't know about this because it's an attack
+    string memory config3 = PrimitivesRPC.newConfigWithCheckpointer(vm, checkpointer, 1, checkpoint3, aliceConfigStr);
+    bytes32 imageHash3 = PrimitivesRPC.getImageHash(vm, config3);
+
+    Payload.Decoded memory finalPayload;
+    finalPayload.kind = Payload.KIND_TRANSACTIONS;
+
+    // Signature for the payload using config 3
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(aliceKey, Payload.hashFor(finalPayload, address(baseSigImp)));
+    bytes memory signature1 = PrimitivesRPC.toEncodedSignatureWithCheckpointerData(
+      vm,
+      config3,
+      string(abi.encodePacked(vm.toString(alice), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))),
+      true,
+      ""
+    );
+
+    // Signature for update from config 1 to config 3
+    Payload.Decoded memory linkedPayload;
+    linkedPayload.kind = Payload.KIND_CONFIG_UPDATE;
+    linkedPayload.imageHash = imageHash3;
+    (v, r, s) = vm.sign(aliceKey, Payload.hashFor(linkedPayload, address(baseSigImp)));
+    bytes memory signature2 = PrimitivesRPC.toEncodedSignatureWithCheckpointerData(
+      vm,
+      config1,
+      string(abi.encodePacked(vm.toString(alice), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))),
+      true,
+      ""
+    );
+
+    // Construct the chained signature
+    bytes[] memory signatures = new bytes[](2);
+    signatures[0] = signature1;
+    signatures[1] = signature2;
+    bytes memory chainedSignature = PrimitivesRPC.concatSignatures(vm, signatures);
+
+    // Checkpointer will return the imageHash of the second configuration (the real latest)
+    Snapshot memory latestSnapshot = Snapshot(imageHash2, 2);
+    vm.mockCall(checkpointer, abi.encodeWithSelector(ICheckpointer.snapshotFor.selector), abi.encode(latestSnapshot));
+
+    // Expect revert. Unused snapshot
+    vm.expectRevert(abi.encodeWithSelector(BaseSig.UnusedSnapshot.selector, latestSnapshot));
+    baseSigImp.recoverPub(finalPayload, chainedSignature, false, address(0));
+  }
+
 }
