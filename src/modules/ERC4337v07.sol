@@ -46,7 +46,7 @@ abstract contract ERC4337v07 is ReentrancyGuard, IAccount, Calls {
       IEntryPoint(entrypoint).depositTo{ value: missingAccountFunds }(address(this));
     }
 
-    if (this.isValidSignature(userOpHash, userOp.signature) != IERC1271_MAGIC_VALUE_HASH) {
+    if (isValidSignature(userOpHash, userOp.signature) != IERC1271_MAGIC_VALUE_HASH) {
       return SIG_VALIDATION_FAILED;
     }
 

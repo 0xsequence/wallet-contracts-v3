@@ -140,7 +140,7 @@ abstract contract BaseAuth is IAuth, IPartialAuth, ISapient, IERC1271, SelfAuth 
   }
 
   /// @inheritdoc IERC1271
-  function isValidSignature(bytes32 _hash, bytes calldata _signature) external view returns (bytes4) {
+  function isValidSignature(bytes32 _hash, bytes calldata _signature) public view returns (bytes4) {
     Payload.Decoded memory payload = Payload.fromDigest(_hash);
 
     (bool isValid,) = signatureValidation(payload, _signature);
