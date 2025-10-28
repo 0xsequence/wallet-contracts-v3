@@ -142,6 +142,27 @@ contract ERC4337v07Test is AdvTest {
     assertEq(validationData, 1, "Should return 1 (SIG_VALIDATION_FAILED) for an invalid signature");
   }
 
+  function test_validateUserOp_using_static_signature(
+    bytes32 userOpHash
+  ) public {
+    // Create a signature for the userOpHash using the wallet's signer config.
+    Payload.Decoded memory payload;
+    payload.kind = Payload.KIND_DIGEST;
+    payload.digest = userOpHash;
+
+    vm.prank(wallet);
+    Stage1Module(wallet).setStaticSignature(
+      Payload.hashFor(payload, wallet), address(entryPoint), uint96(block.timestamp + 1000)
+    );
+
+    PackedUserOperation memory userOp = _createUserOp(bytes(""), hex"80");
+
+    vm.prank(address(entryPoint));
+    uint256 validationData = Stage1Module(wallet).validateUserOp(userOp, userOpHash, 0);
+
+    assertEq(validationData, 0, "Should return 0 for a valid signature");
+  }
+
   // --- executeUserOp Tests ---
 
   function test_executeUserOp_reverts_if_disabled(
