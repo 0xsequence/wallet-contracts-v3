@@ -37,6 +37,8 @@ library BaseSig {
   error WrongChainedCheckpointOrder(uint256 _nextCheckpoint, uint256 _checkpoint);
   /// @notice Error thrown when the snapshot is unused
   error UnusedSnapshot(Snapshot _snapshot);
+  /// @notice Error thrown when the snapshot has not been checked
+  error UncheckedSnapshot(address _checkpointer);
   /// @notice Error thrown when the signature flag is invalid
   error InvalidSignatureFlag(uint256 _flag);
 
@@ -69,6 +71,7 @@ library BaseSig {
     uint256 weight;
     bytes32 imageHash;
     uint256 checkpoint;
+    address checkpointer;
     bytes32 opHash;
   }
 
@@ -112,10 +115,16 @@ library BaseSig {
         rindex += checkpointerDataSize;
       }
     }
+    vars.checkpointer = _checkpointer;
 
     // If signature type is 01 or 11 we do a chained signature
     if (signatureFlag & 0x01 == 0x01) {
-      return recoverChained(_payload, _checkpointer, snapshot, _signature[rindex:]);
+      vars = recoverChained(_payload, _checkpointer, snapshot, _signature[rindex:]);
+      if (vars.checkpointer != address(0) && _checkpointer == address(0)) {
+        // We should have checked the checkpointer
+        revert UncheckedSnapshot(vars.checkpointer);
+      }
+      return vars;
     }
 
     // If the signature type is 10 we do a no chain id signature
@@ -139,7 +148,7 @@ library BaseSig {
 
     vars.imageHash = LibOptim.fkeccak256(vars.imageHash, bytes32(vars.threshold));
     vars.imageHash = LibOptim.fkeccak256(vars.imageHash, bytes32(vars.checkpoint));
-    vars.imageHash = LibOptim.fkeccak256(vars.imageHash, bytes32(uint256(uint160(_checkpointer))));
+    vars.imageHash = LibOptim.fkeccak256(vars.imageHash, bytes32(uint256(uint160(vars.checkpointer))));
 
     // If the snapshot is used, either the imageHash must match
     // or the checkpoint must be greater than the snapshot checkpoint
@@ -171,13 +180,13 @@ library BaseSig {
         nrindex = sigSize + rindex;
       }
 
-      address checkpointer = nrindex == _signature.length ? _checkpointer : address(0);
+      vars.checkpointer = nrindex == _signature.length ? _checkpointer : address(0);
 
       if (prevCheckpoint == type(uint256).max) {
-        vars = recover(_payload, _signature[rindex:nrindex], true, checkpointer);
+        vars = recover(_payload, _signature[rindex:nrindex], true, vars.checkpointer);
       } else {
         bytes32 opHash = vars.opHash;
-        vars = recover(linkedPayload, _signature[rindex:nrindex], true, checkpointer);
+        vars = recover(linkedPayload, _signature[rindex:nrindex], true, vars.checkpointer);
         vars.opHash = opHash;
       }
 
