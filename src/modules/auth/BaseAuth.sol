@@ -86,6 +86,8 @@ abstract contract BaseAuth is IAuth, IPartialAuth, ISapient, IERC1271, SelfAuth 
     bytes1 signatureFlag = _signature[0];
 
     if (signatureFlag & 0x80 == 0x80) {
+      // Load the no chain id flag
+      _payload.noChainId = signatureFlag & 0x02 == 0x02;
       opHash = _payload.hash();
 
       (address addr, uint256 timestamp) = _getStaticSignature(opHash);

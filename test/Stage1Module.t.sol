@@ -504,6 +504,46 @@ contract TestStage1Module is AdvTest {
     assertEq(ts, 0, "Static signature timestamp should not be set");
   }
 
+  function test_no_chain_id_static_signature() external {
+    Payload.Decoded memory payload;
+    payload.kind = Payload.KIND_TRANSACTIONS;
+    payload.calls = new Payload.Call[](1);
+    payload.calls[0] = Payload.Call({
+      to: address(0),
+      value: 0,
+      data: bytes(""),
+      gasLimit: 100000,
+      delegateCall: false,
+      onlyFallback: false,
+      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+    });
+    payload.noChainId = true;
+    payload.space = 0;
+    payload.nonce = 0;
+    payload.parentWallets = new address[](0);
+
+    // Deploy a wallet with a random imageHash
+    address payable wallet = payable(factory.deploy(address(stage1Module), bytes32(0)));
+
+    // Set a static signature for the payload
+    vm.prank(wallet);
+    Stage1Module(wallet).setStaticSignature(Payload.hashFor(payload, wallet), address(0), type(uint96).max);
+
+    // Execute tx but reverts
+    bytes memory packedPayload = PrimitivesRPC.toPackedPayload(vm, payload);
+    payload.noChainId = false;
+    bytes32 payloadHashWithoutChainId = Payload.hashFor(payload, wallet);
+
+    // Execute fails without no chain id flag
+    vm.expectRevert(
+      abi.encodeWithSelector(BaseAuth.InvalidStaticSignatureExpired.selector, payloadHashWithoutChainId, 0)
+    );
+    Stage1Module(wallet).execute(packedPayload, hex"80");
+
+    // Execute passes with no chain id flag
+    Stage1Module(wallet).execute(packedPayload, hex"82");
+  }
+
   struct test_recover_partial_signature_params {
     Payload.Decoded payload;
     uint16 threshold;
