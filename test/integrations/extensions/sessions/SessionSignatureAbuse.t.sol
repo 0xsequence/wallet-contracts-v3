@@ -34,7 +34,7 @@ contract IntegrationSessionSignatureAbuseTest is ExtendedSessionTestBase {
 
     // Build the signature
     string[] memory callSignatures = new string[](1);
-    bytes32 payloadHash = SessionSig.hashCallWithReplayProtection(address(wallet), payload, 0);
+    bytes32 payloadHash = SessionSig.hashPayloadCallIdx(address(wallet), payload, 0);
     bytes32 r = bytes32(0); // Force the signature to return address(0)
     assertEq(ecrecover(payloadHash, v, r, s), address(0));
     callSignatures[0] = _explicitCallSignatureToJSON(
@@ -105,7 +105,7 @@ contract IntegrationSessionSignatureAbuseTest is ExtendedSessionTestBase {
 
     // Sign
     string[] memory callSignatures1 = new string[](1);
-    bytes32 callHash = SessionSig.hashCallWithReplayProtection(address(wallet), payload1, 0);
+    bytes32 callHash = SessionSig.hashPayloadCallIdx(address(wallet), payload1, 0);
     string memory sessionSignature = _signAndEncodeRSV(callHash, sessionWallet);
     callSignatures1[0] = _explicitCallSignatureToJSON(0, sessionSignature);
 

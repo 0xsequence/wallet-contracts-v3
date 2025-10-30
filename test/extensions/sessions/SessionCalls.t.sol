@@ -122,7 +122,7 @@ contract SessionCallsTest is SessionTestBase {
     string[] memory callSignatures = new string[](3);
     for (uint256 i = 0; i < 3; i++) {
       string memory sessionSignature =
-        _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(address(wallet), payload, i), sessionWallet);
+        _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), payload, i), sessionWallet);
       callSignatures[i] = _explicitCallSignatureToJSON(0, sessionSignature);
     }
     address[] memory explicitSigners = new address[](1);
@@ -234,7 +234,7 @@ contract SessionCallsTest is SessionTestBase {
     string[] memory callSignatures = new string[](4);
     for (uint256 i; i < 4; i++) {
       string memory sessionSignature =
-        _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(address(wallet), payload, i), sessionWallet);
+        _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), payload, i), sessionWallet);
       callSignatures[i] = _explicitCallSignatureToJSON(0, sessionSignature);
     }
     address[] memory explicitSigners = new address[](1);

@@ -82,7 +82,7 @@ contract ExtendedSessionTestBase is SessionTestBase {
   ) internal returns (bytes memory signature) {
     string[] memory callSignatures = new string[](payload.calls.length);
     for (uint256 i = 0; i < payload.calls.length; i++) {
-      bytes32 callHash = SessionSig.hashCallWithReplayProtection(wallet, payload, i);
+      bytes32 callHash = SessionSig.hashPayloadCallIdx(wallet, payload, i);
       string memory sessionSignature = _signAndEncodeRSV(callHash, signer);
       callSignatures[i] = _explicitCallSignatureToJSON(permissionIdxs[i], sessionSignature);
     }
