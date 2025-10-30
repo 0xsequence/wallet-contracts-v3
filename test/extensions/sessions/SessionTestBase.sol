@@ -123,7 +123,7 @@ abstract contract SessionTestBase is AdvTest {
   ) internal view returns (string memory) {
     bytes32 attestationHash = attestation.toHash();
     string memory identitySignature = _signAndEncodeRSV(attestationHash, identitySigner);
-    bytes32 callHash = SessionSig.hashCallWithReplayProtection(wallet, payload, callIdx);
+    bytes32 callHash = SessionSig.hashPayloadCallIdx(wallet, payload, callIdx);
     string memory sessionSignature = _signAndEncodeRSV(callHash, signer);
     return _implicitCallSignatureToJSON(attestation, sessionSignature, identitySignature);
   }

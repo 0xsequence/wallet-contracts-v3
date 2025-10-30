@@ -133,6 +133,7 @@ library SessionSig {
     {
       uint256 callsCount = payload.calls.length;
       sig.callSignatures = new CallSignature[](callsCount);
+      bytes32 payloadHash = Payload.hashFor(payload, wallet);
 
       for (uint256 i = 0; i < callsCount; i++) {
         CallSignature memory callSignature;
@@ -167,7 +168,7 @@ library SessionSig {
           uint8 v;
           (r, s, v, pointer) = encodedSignature.readRSVCompact(pointer);
 
-          bytes32 callHash = hashCallWithReplayProtection(wallet, payload, i);
+          bytes32 callHash = _hashPayloadHashCallIdx(payloadHash, i);
           callSignature.sessionSigner = ecrecover(callHash, v, r, s);
           if (callSignature.sessionSigner == address(0)) {
             revert SessionErrors.InvalidSessionSigner(address(0));
@@ -399,27 +400,22 @@ library SessionSig {
     return keccak256(abi.encodePacked(uint8(FLAG_IDENTITY_SIGNER), identitySigner));
   }
 
-  /// @notice Hashes a call with replay protection.
-  /// @dev The replay protection is based on the chainId, space, nonce and index in the payload.
-  /// @param wallet The wallet address
+  /// @notice Hashes the payload and call index into a call hash for session signing.
+  /// @param wallet The wallet that signed the payload
   /// @param payload The payload to hash
   /// @param callIdx The index of the call to hash
-  /// @return callHash The hash of the call with replay protection
-  function hashCallWithReplayProtection(
+  /// @return callHash The call hash
+  function hashPayloadCallIdx(
     address wallet,
     Payload.Decoded calldata payload,
     uint256 callIdx
   ) public view returns (bytes32 callHash) {
-    return keccak256(
-      abi.encodePacked(
-        wallet,
-        payload.noChainId ? 0 : block.chainid,
-        payload.space,
-        payload.nonce,
-        callIdx,
-        Payload.hashCall(payload.calls[callIdx])
-      )
-    );
+    bytes32 payloadHash = Payload.hashFor(payload, wallet);
+    return _hashPayloadHashCallIdx(payloadHash, callIdx);
+  }
+
+  function _hashPayloadHashCallIdx(bytes32 payloadHash, uint256 callIdx) private pure returns (bytes32) {
+    return keccak256(abi.encodePacked(payloadHash, callIdx));
   }
 
 }

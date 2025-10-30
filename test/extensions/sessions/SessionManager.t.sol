@@ -271,15 +271,13 @@ contract SessionManagerTest is SessionTestBase {
     string[] memory callSignatures = new string[](3);
     // Sign call 1 with signer 1
     string memory sessionSignature =
-      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(address(wallet), payload, 1), sessionWallet);
+      _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), payload, 1), sessionWallet);
     callSignatures[1] = _explicitCallSignatureToJSON(permissionIdxs[1], sessionSignature);
     // Sign call 2 with signer 2
-    sessionSignature =
-      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(address(wallet), payload, 2), sessionWallet2);
+    sessionSignature = _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), payload, 2), sessionWallet2);
     callSignatures[2] = _explicitCallSignatureToJSON(permissionIdxs[2], sessionSignature);
     // Sign call 0 (incrementUsageLimit) with signer 1
-    sessionSignature =
-      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(address(wallet), payload, 0), sessionWallet);
+    sessionSignature = _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), payload, 0), sessionWallet);
     callSignatures[0] = _explicitCallSignatureToJSON(permissionIdxs[0], sessionSignature);
 
     address[] memory explicitSigners = new address[](2);
@@ -390,10 +388,10 @@ contract SessionManagerTest is SessionTestBase {
     // Encode the call signatures for the reentrant payload
     string[] memory reentrantCallSignatures = new string[](2);
     string memory sessionSignature =
-      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(address(wallet), reentrantPayload, 0), sessionWallet);
+      _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), reentrantPayload, 0), sessionWallet);
     reentrantCallSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature);
     sessionSignature =
-      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(address(wallet), reentrantPayload, 1), sessionWallet);
+      _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), reentrantPayload, 1), sessionWallet);
     reentrantCallSignatures[1] = _explicitCallSignatureToJSON(0, sessionSignature);
     address[] memory reentrantExplicitSigners = new address[](1);
     reentrantExplicitSigners[0] = sessionWallet.addr;
@@ -469,13 +467,13 @@ contract SessionManagerTest is SessionTestBase {
     string[] memory callSignatures = new string[](3);
     {
       // Sign the explicit call (call 0) using the session key.
-      sessionSignature = _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(wallet, payload, 0), sessionWallet);
+      sessionSignature = _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(wallet, payload, 0), sessionWallet);
       callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature);
       // Sign the explicit call (call 1) using the session key.
-      sessionSignature = _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(wallet, payload, 1), sessionWallet);
+      sessionSignature = _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(wallet, payload, 1), sessionWallet);
       callSignatures[1] = _explicitCallSignatureToJSON(0, sessionSignature);
       // Sign the self call (call 2) using the session key.
-      sessionSignature = _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(wallet, payload, 2), sessionWallet);
+      sessionSignature = _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(wallet, payload, 2), sessionWallet);
       callSignatures[2] = _explicitCallSignatureToJSON(1, sessionSignature);
     }
 
@@ -1030,7 +1028,7 @@ contract SessionManagerTest is SessionTestBase {
     string[] memory callSignatures = new string[](callCount);
     for (uint256 i; i < callCount; i++) {
       string memory sessionSignature =
-        _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(wallet, payload, i), sessionWallet);
+        _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(wallet, payload, i), sessionWallet);
       callSignatures[i] = _explicitCallSignatureToJSON(permissionIdxs[i], sessionSignature);
     }
 

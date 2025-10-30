@@ -73,25 +73,18 @@ contract SessionSigTest is SessionTestBase {
       }
       payload2.calls = payload2Calls;
     }
+    boundToLegalPayload(payload1);
+    boundToLegalPayload(payload2);
+
+    // Ensure the payloads are different
+    bytes32 payloadHash1 = Payload.hashFor(payload1, wallet);
+    bytes32 payloadHash2 = Payload.hashFor(payload2, wallet);
+    vm.assume(payloadHash1 != payloadHash2);
 
     for (uint256 i = 0; i < payload1.calls.length; i++) {
-      Payload.Call memory call1 = payload1.calls[i];
       for (uint256 j = 0; j < payload2.calls.length; j++) {
-        Payload.Call memory call2 = payload2.calls[j];
-
-        if (
-          i == j && call1.to == call2.to && keccak256(call1.data) == keccak256(call2.data)
-            && call1.gasLimit == call2.gasLimit && call1.delegateCall == call2.delegateCall
-            && call1.onlyFallback == call2.onlyFallback && call1.behaviorOnError == call2.behaviorOnError
-            && payload1.space == payload2.space && payload1.nonce == payload2.nonce
-            && payload1.noChainId == payload2.noChainId
-        ) {
-          // The allowed collision case
-          continue;
-        }
-
-        bytes32 callHash1 = SessionSig.hashCallWithReplayProtection(wallet, payload1, i);
-        bytes32 callHash2 = SessionSig.hashCallWithReplayProtection(wallet, payload2, j);
+        bytes32 callHash1 = SessionSig.hashPayloadCallIdx(wallet, payload1, i);
+        bytes32 callHash2 = SessionSig.hashPayloadCallIdx(wallet, payload2, j);
         assertNotEq(callHash1, callHash2, "Call hashes should be different");
       }
     }
@@ -140,7 +133,7 @@ contract SessionSigTest is SessionTestBase {
     string memory callSignature;
     {
       uint8 permissionIdx = 0;
-      bytes32 callHash = SessionSig.hashCallWithReplayProtection(wallet, payload, 0);
+      bytes32 callHash = SessionSig.hashPayloadCallIdx(wallet, payload, 0);
       string memory sessionSignature = _signAndEncodeRSV(callHash, sessionWallet);
       callSignature = _explicitCallSignatureToJSON(permissionIdx, sessionSignature);
     }
@@ -345,12 +338,12 @@ contract SessionSigTest is SessionTestBase {
     string[] memory callSignatures = new string[](2);
     {
       // First call signed by sessionWallet
-      bytes32 callHash = SessionSig.hashCallWithReplayProtection(wallet, payload, 0);
+      bytes32 callHash = SessionSig.hashPayloadCallIdx(wallet, payload, 0);
       string memory sessionSignature1 = _signAndEncodeRSV(callHash, sessionWallet);
       callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature1);
 
       // Second call signed by sessionWallet2
-      callHash = SessionSig.hashCallWithReplayProtection(wallet, payload, 1);
+      callHash = SessionSig.hashPayloadCallIdx(wallet, payload, 1);
       string memory sessionSignature2 = _signAndEncodeRSV(callHash, sessionWallet2);
       callSignatures[1] = _explicitCallSignatureToJSON(1, sessionSignature2);
     }
