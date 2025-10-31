@@ -25,7 +25,7 @@ contract Deploy is SingletonDeployer {
     address factory = _deployIfNotAlready("Factory", initCode, salt, pk);
 
     initCode = abi.encodePacked(type(ERC4337FactoryWrapper).creationCode, abi.encode(factory, senderCreator));
-    address factoryWrapper = _deployIfNotAlready("ERC4337FactoryWrapper", initCode, salt, pk);
+    _deployIfNotAlready("ERC4337FactoryWrapper", initCode, salt, pk);
 
     initCode = abi.encodePacked(type(Stage1Module).creationCode, abi.encode(factory, entryPoint));
     address stage1Module = _deployIfNotAlready("Stage1Module", initCode, salt, pk);
