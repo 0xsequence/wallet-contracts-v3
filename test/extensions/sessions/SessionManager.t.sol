@@ -37,8 +37,7 @@ contract SessionManagerTest is SessionTestBase {
     emitter = new Emitter();
   }
 
-  /// @notice Valid explicit session test.
-  function testValidExplicitSessionSignature(
+  function _prepareTestValidExplicitSessionSignature(
     address wallet,
     bytes4 selector,
     uint256 param,
@@ -46,7 +45,7 @@ contract SessionManagerTest is SessionTestBase {
     address explicitTarget,
     address explicitTarget2,
     bool useChainId
-  ) public {
+  ) public returns (bytes32 imageHash, Payload.Decoded memory payload, bytes memory encodedSig) {
     vm.assume(explicitTarget != explicitTarget2);
     vm.assume(value > 0);
     vm.assume(param > 0);
@@ -92,7 +91,7 @@ contract SessionManagerTest is SessionTestBase {
     //   Call 1: call not requiring incrementUsageLimit
     //   Call 2: call requiring incrementUsageLimit
     //   Call 0: the required incrementUsageLimit call (self–call)
-    Payload.Decoded memory payload = _buildPayload(3);
+    payload = _buildPayload(3);
 
     // --- Explicit Call 1 ---
     payload.calls[1] = Payload.Call({
@@ -141,22 +140,61 @@ contract SessionManagerTest is SessionTestBase {
     permissionIdxs[1] = 0; // Call 1
     permissionIdxs[2] = 1; // Call 2
 
-    (bytes32 imageHash, bytes memory encodedSig) =
-      _validExplicitSessionSignature(wallet, payload, sessionPerms, permissionIdxs);
+    (imageHash, encodedSig) = _validExplicitSessionSignature(wallet, payload, sessionPerms, permissionIdxs);
+  }
+
+  /// @notice Valid explicit session test.
+  function testValidExplicitSessionSignature(
+    address wallet,
+    bytes4 selector,
+    uint256 param,
+    uint256 value,
+    address explicitTarget,
+    address explicitTarget2,
+    bool useChainId
+  ) public {
+    (bytes32 imageHash, Payload.Decoded memory payload, bytes memory encodedSig) =
+    _prepareTestValidExplicitSessionSignature(
+      wallet, selector, param, value, explicitTarget, explicitTarget2, useChainId
+    );
 
     vm.prank(wallet);
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     assertEq(imageHash, actualImageHash);
   }
 
-  /// @notice Valid explicit session test with multiple signers.
-  function testValidExplicitSessionMixing(
+  /// @notice Valid explicit session test, fails when padding added.
+  function testValidExplicitSessionSignature_padded_fails(
+    address wallet,
+    bytes4 selector,
+    uint256 param,
+    uint256 value,
+    address explicitTarget,
+    address explicitTarget2,
+    bool useChainId,
+    bytes memory padding
+  ) public {
+    vm.assume(padding.length > 0);
+
+    (bytes32 imageHash, Payload.Decoded memory payload, bytes memory encodedSig) =
+    _prepareTestValidExplicitSessionSignature(
+      wallet, selector, param, value, explicitTarget, explicitTarget2, useChainId
+    );
+
+    bytes memory paddedSignature = abi.encodePacked(encodedSig, padding);
+
+    vm.prank(wallet);
+    vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidSignatureLength.selector));
+    sessionManager.recoverSapientSignature(payload, paddedSignature);
+  }
+
+  function _prepareTestValidExplicitSessionMixing(
     address wallet,
     bytes4 selector,
     uint256 param,
     address explicitTarget,
     bool useChainId
-  ) public {
+  ) internal returns (bytes32 imageHash, Payload.Decoded memory payload, bytes memory encodedSig) {
     Vm.Wallet memory sessionWallet2 = vm.createWallet("session2");
     vm.assume(param > 0);
     vm.assume(explicitTarget != wallet);
@@ -225,7 +263,7 @@ contract SessionManagerTest is SessionTestBase {
     //   Call 1: using session 1 (non cumulative signer)
     //   Call 2: using session 2 (cumulative signer)
     //   Call 0: the required incrementUsageLimit call (self–call)
-    Payload.Decoded memory payload = _buildPayload(3);
+    payload = _buildPayload(3);
 
     // --- Explicit Call 1 ---
     payload.calls[1] = Payload.Call({
@@ -266,7 +304,7 @@ contract SessionManagerTest is SessionTestBase {
     topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
     sessionPermsJson = _sessionPermissionsToJSON(sessionPerms2);
     topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
-    bytes32 imageHash = PrimitivesRPC.sessionImageHash(vm, topology);
+    imageHash = PrimitivesRPC.sessionImageHash(vm, topology);
 
     string[] memory callSignatures = new string[](3);
     // Sign call 1 with signer 1
@@ -284,12 +322,44 @@ contract SessionManagerTest is SessionTestBase {
     explicitSigners[0] = sessionWallet.addr;
     explicitSigners[1] = sessionWallet2.addr;
     address[] memory implicitSigners = new address[](0);
-    bytes memory encodedSig =
+    encodedSig =
       PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, explicitSigners, implicitSigners);
+  }
+
+  /// @notice Valid explicit session test with multiple signers.
+  function testValidExplicitSessionMixing(
+    address wallet,
+    bytes4 selector,
+    uint256 param,
+    address explicitTarget,
+    bool useChainId
+  ) public {
+    (bytes32 imageHash, Payload.Decoded memory payload, bytes memory encodedSig) =
+      _prepareTestValidExplicitSessionMixing(wallet, selector, param, explicitTarget, useChainId);
 
     vm.prank(wallet);
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     assertEq(imageHash, actualImageHash);
+  }
+
+  /// @notice Valid explicit session test with multiple signers fails when padding added.
+  function testValidExplicitSessionMixing_padded_fails(
+    address wallet,
+    bytes4 selector,
+    uint256 param,
+    address explicitTarget,
+    bool useChainId,
+    bytes memory padding
+  ) public {
+    vm.assume(padding.length > 0);
+    (bytes32 imageHash, Payload.Decoded memory payload, bytes memory encodedSig) =
+      _prepareTestValidExplicitSessionMixing(wallet, selector, param, explicitTarget, useChainId);
+
+    bytes memory paddedSignature = abi.encodePacked(encodedSig, padding);
+
+    vm.prank(wallet);
+    vm.expectRevert(abi.encodeWithSelector(SessionErrors.InvalidSignatureLength.selector));
+    sessionManager.recoverSapientSignature(payload, paddedSignature);
   }
 
   function testIncrementReentrancy() external {

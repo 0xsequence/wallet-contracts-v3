@@ -402,6 +402,73 @@ contract PasskeysTest is AdvTest {
     assertEq(vars.recoveredRoot, vars.expectedRoot, "Recovered root should match expected root");
   }
 
+  function test_recoverSapientSignatureCompact_paddedFails(RecoverParams memory params, bytes memory padding) public {
+    vm.assume(padding.length > 0);
+    vm.etch(P256_VERIFIER, P256_VERIFIER_RUNTIME_CODE);
+
+    recoverSapientSignatureCompact_valid_vars memory vars;
+
+    params.pkSeed = boundP256Pk(params.pkSeed);
+    vars.wallet = vm.createWallet(params.pkSeed);
+
+    if (params.embedMetadata) {
+      vm.assume(params.metadataHash != bytes32(0));
+    } else {
+      params.metadataHash = bytes32(0);
+    }
+
+    (vars.pubX, vars.pubY) = vm.publicKeyP256(vars.wallet.privateKey);
+    vars.pkParams.x = bytes32(vars.pubX);
+    vars.pkParams.y = bytes32(vars.pubY);
+    vars.pkParams.requireUserVerification = params.requireUserVerification;
+    vars.pkParams.metadataHash = params.metadataHash;
+    vars.pkParams.credentialId = "";
+
+    uint8 flags = 0x01;
+    if (params.requireUserVerification) {
+      flags |= 0x04;
+    }
+
+    vars.generatedAuthenticatorData = abi.encodePacked(params.rpIdHash, flags, params.signCount);
+
+    string memory raw = vm.toBase64URL(abi.encodePacked(params.digest));
+    if (bytes(raw)[bytes(raw).length - 1] == "=") {
+      assembly {
+        mstore(raw, sub(mload(raw), 1))
+      }
+    }
+    vars.base64UrlChallenge = raw;
+    vars.typeValue = "webauthn.get";
+    vars.originValue = generateRandomString(params.originValueSeed);
+    vm.assume(bytes(vars.originValue).length > 0);
+
+    vars.clientDataJSON = string.concat(
+      '{"type":"', vars.typeValue, '","challenge":"', vars.base64UrlChallenge, '","origin":"', vars.originValue, '"}'
+    );
+    vars.sigParams.clientDataJson = vars.clientDataJSON;
+    vars.sigParams.authenticatorData = vars.generatedAuthenticatorData;
+
+    vars.clientDataJSONHash = sha256(bytes(vars.clientDataJSON));
+    vars.messageHash = sha256(abi.encodePacked(vars.generatedAuthenticatorData, vars.clientDataJSONHash));
+    (bytes32 rVal, bytes32 sVal) = vm.signP256(vars.wallet.privateKey, vars.messageHash);
+
+    bytes32 halfN = bytes32(0x7fffffff800000007fffffffffffffffde737d56d38bcf4279dce5617e3192a8);
+    if (sVal > halfN) {
+      sVal = bytes32(0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551 - uint256(sVal));
+    }
+
+    vars.sigParams.r = bytes32(rVal);
+    vars.sigParams.s = bytes32(sVal);
+    vars.encodedSignature =
+      PrimitivesRPC.passkeysEncodeSignature(vm, vars.pkParams, vars.sigParams, params.embedMetadata);
+
+    vars.expectedRoot = PrimitivesRPC.passkeysComputeRoot(vm, vars.pkParams);
+
+    bytes memory paddedSignature = abi.encodePacked(vars.encodedSignature, padding);
+    vm.expectRevert(abi.encodeWithSelector(Passkeys.InvalidSignatureLength.selector));
+    passkeysImp.recoverSapientSignatureCompact(params.digest, paddedSignature);
+  }
+
   struct recoverSapientSignatureCompact_invalidSignature_vars {
     Vm.Wallet wallet;
     Vm.Wallet wrongWallet;
