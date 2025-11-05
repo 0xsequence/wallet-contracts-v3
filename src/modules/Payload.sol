@@ -13,6 +13,9 @@ library Payload {
   /// @notice Error thrown when the kind is invalid
   error InvalidKind(uint8 kind);
 
+  /// @notice Error thrown when the encoding is invalid
+  error InvalidPackedLength();
+
   /// @dev keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
   bytes32 private constant EIP712_DOMAIN_TYPEHASH = 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
 
@@ -212,6 +215,12 @@ library Payload {
       // Last 2 bits are directly mapped to the behavior on error
       _decoded.calls[i].behaviorOnError = (flags & 0xC0) >> 6;
     }
+
+    if (pointer != packed.length) {
+      revert InvalidPackedLength();
+    }
+
+    return _decoded;
   }
 
   function hashCall(
