@@ -85,6 +85,37 @@ contract PayloadTest is AdvTest {
     assertEq(abi.encode(input), abi.encode(output));
   }
 
+  function test_fromPackedCalls_paddedFails(
+    Payload.Call[] memory _calls,
+    uint256 _space,
+    uint256 _nonce,
+    bytes memory padding
+  ) external {
+    vm.assume(padding.length > 0);
+    // Convert nonce into legal range
+    _nonce = bound(_nonce, 0, type(uint56).max);
+    _space = bound(_space, 0, type(uint160).max);
+
+    for (uint256 i = 0; i < _calls.length; i++) {
+      // Convert behaviors into legal ones
+      _calls[i].behaviorOnError = bound(
+        _calls[i].behaviorOnError, uint256(Payload.BEHAVIOR_IGNORE_ERROR), uint256(Payload.BEHAVIOR_ABORT_ON_ERROR)
+      );
+    }
+
+    Payload.Decoded memory input;
+    input.kind = Payload.KIND_TRANSACTIONS;
+    input.calls = _calls;
+    input.space = _space;
+    input.nonce = _nonce;
+
+    bytes memory packed = PrimitivesRPC.toPackedPayload(vm, input);
+
+    bytes memory paddedPacked = abi.encodePacked(packed, padding);
+    vm.expectRevert(abi.encodeWithSelector(Payload.InvalidPackedLength.selector));
+    payloadImp.fromPackedCalls(paddedPacked);
+  }
+
   function test_fromPackedCalls_2bytes(
     Payload.Call memory _call
   ) external {
@@ -105,6 +136,28 @@ contract PayloadTest is AdvTest {
     bytes memory packed = PrimitivesRPC.toPackedPayload(vm, input);
     Payload.Decoded memory output = payloadImp.fromPackedCalls(packed);
     assertEq(abi.encode(input), abi.encode(output));
+  }
+
+  function test_fromPackedCalls_2bytes_paddedFails(Payload.Call memory _call, bytes memory padding) external {
+    vm.assume(padding.length > 0);
+    // Convert behaviors into legal ones
+    _call.behaviorOnError =
+      bound(_call.behaviorOnError, uint256(Payload.BEHAVIOR_IGNORE_ERROR), uint256(Payload.BEHAVIOR_ABORT_ON_ERROR));
+
+    Payload.Call[] memory _calls = new Payload.Call[](257);
+    for (uint256 i = 0; i < 257; i++) {
+      // Force > 1 byte of calls
+      _calls[i] = _call;
+    }
+
+    Payload.Decoded memory input;
+    input.kind = Payload.KIND_TRANSACTIONS;
+    input.calls = _calls;
+
+    bytes memory packed = PrimitivesRPC.toPackedPayload(vm, input);
+    bytes memory paddedPacked = abi.encodePacked(packed, padding);
+    vm.expectRevert(abi.encodeWithSelector(Payload.InvalidPackedLength.selector));
+    payloadImp.fromPackedCalls(paddedPacked);
   }
 
   function test_fromPackedCalls_self(
