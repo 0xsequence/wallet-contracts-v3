@@ -243,14 +243,10 @@ library Payload {
 
     if (_decoded.kind == KIND_TRANSACTIONS) {
       bytes32 callsHash = hashCalls(_decoded.calls);
-      // The top-level struct for Calls might be something like:
-      // Calls(bytes32 callsHash,uint256 space,uint256 nonce,bytes32 walletsHash)
       return keccak256(abi.encode(CALLS_TYPEHASH, callsHash, _decoded.space, _decoded.nonce, walletsHash));
     } else if (_decoded.kind == KIND_MESSAGE) {
-      // If you define your top-level as: Message(bytes32 messageHash,bytes32 walletsHash)
       return keccak256(abi.encode(MESSAGE_TYPEHASH, keccak256(_decoded.message), walletsHash));
     } else if (_decoded.kind == KIND_CONFIG_UPDATE) {
-      // Top-level: ConfigUpdate(bytes32 imageHash,bytes32 walletsHash)
       return keccak256(abi.encode(CONFIG_UPDATE_TYPEHASH, _decoded.imageHash, walletsHash));
     } else if (_decoded.kind == KIND_DIGEST) {
       // Top-level: Use MESSAGE_TYPEHASH but assume the digest is already the hashed message
