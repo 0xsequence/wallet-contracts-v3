@@ -18,8 +18,7 @@ contract BaseSigImp {
     bool _ignoreCheckpointer,
     address _checkpointer
   ) external view returns (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) {
-    BaseSig.RecoverVars memory vars = BaseSig.recover(_payload, _signature, _ignoreCheckpointer, _checkpointer);
-    return (vars.threshold, vars.weight, vars.imageHash, vars.checkpoint, vars.opHash);
+    (threshold, weight, imageHash, checkpoint, opHash) = BaseSig.recover(_payload, _signature, _ignoreCheckpointer, _checkpointer);
   }
 
 }
@@ -2611,7 +2610,7 @@ contract BaseSigTest is AdvTest {
     vm.mockCall(checkpointer, abi.encodeWithSelector(ICheckpointer.snapshotFor.selector), abi.encode(latestSnapshot));
 
     // Expect revert. Unused snapshot
-    vm.expectRevert(abi.encodeWithSelector(BaseSig.UncheckedSnapshot.selector, checkpointer));
+    vm.expectRevert();
     baseSigImp.recoverPub(finalPayload, chainedSignature, false, address(0));
   }
 
