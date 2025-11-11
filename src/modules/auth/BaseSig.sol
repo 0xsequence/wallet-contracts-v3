@@ -83,7 +83,7 @@ library BaseSig {
 
     // The possible flags are:
     // - 0000 00XX (bits [1..0]): signature type (00 = normal, 01/11 = chained, 10 = no chain id)
-    // - 000X XX00 (bits [4..2]): checkpoint size (00 = 0 bytes, 001 = 1 byte, 010 = 2 bytes...)
+    // - 000X XX00 (bits [4..2]): checkpoint size (000 = 0 bytes, 001 = 1 byte, 010 = 2 bytes...)
     // - 00X0 0000 (bit [5]): threshold size (0 = 1 byte, 1 = 2 bytes)
     // - 0X00 0000 (bit [6]): set if imageHash checkpointer is used
     // - X000 0000 (bit [7]): reserved by base-auth
