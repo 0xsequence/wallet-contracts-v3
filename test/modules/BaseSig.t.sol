@@ -15,10 +15,10 @@ contract BaseSigImp {
   function recoverPub(
     Payload.Decoded memory _payload,
     bytes calldata _signature,
-    bool _ignoreCheckpointer,
+    BaseSig.RecoverMode _recoverMode,
     address _checkpointer
   ) external view returns (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) {
-    (threshold, weight, imageHash, checkpoint, opHash) = BaseSig.recover(_payload, _signature, _ignoreCheckpointer, _checkpointer);
+    (threshold, weight, imageHash, checkpoint, opHash) = BaseSig.recover(_payload, _signature, _recoverMode, _checkpointer);
   }
 
 }
@@ -41,7 +41,7 @@ contract BaseSigTest is AdvTest {
     bytes memory encodedConfig = PrimitivesRPC.toEncodedConfig(vm, config);
 
     (, uint256 weight, bytes32 imageHash,, bytes32 opHash) =
-      baseSigImp.recoverPub(payload, encodedConfig, true, address(0));
+      baseSigImp.recoverPub(payload, encodedConfig, BaseSig.RecoverMode.Initial, address(0));
 
     assertEq(weight, 0);
     assertEq(imageHash, PrimitivesRPC.getImageHash(vm, config));
@@ -60,7 +60,7 @@ contract BaseSigTest is AdvTest {
     bytes memory encodedConfig = PrimitivesRPC.toEncodedConfig(vm, config);
 
     (, uint256 weight, bytes32 imageHash,, bytes32 opHash) =
-      baseSigImp.recoverPub(payload, encodedConfig, true, address(0));
+      baseSigImp.recoverPub(payload, encodedConfig, BaseSig.RecoverMode.Initial, address(0));
 
     assertEq(weight, 0);
     assertEq(imageHash, PrimitivesRPC.getImageHash(vm, config));
@@ -79,7 +79,7 @@ contract BaseSigTest is AdvTest {
     bytes memory encodedConfig = PrimitivesRPC.toEncodedConfig(vm, config);
 
     (, uint256 weight, bytes32 imageHash,, bytes32 opHash) =
-      baseSigImp.recoverPub(payload, encodedConfig, true, address(0));
+      baseSigImp.recoverPub(payload, encodedConfig, BaseSig.RecoverMode.Initial, address(0));
 
     assertEq(weight, 0);
     assertEq(imageHash, PrimitivesRPC.getImageHash(vm, config));
@@ -171,7 +171,7 @@ contract BaseSigTest is AdvTest {
     }
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, encodedSignature, true, address(0));
+      baseSigImp.recoverPub(params.payload, encodedSignature, BaseSig.RecoverMode.Initial, address(0));
 
     assertEq(threshold, params.threshold);
     assertEq(imageHash, PrimitivesRPC.getImageHash(vm, config));
@@ -255,7 +255,7 @@ contract BaseSigTest is AdvTest {
     }
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, encodedSignature, true, address(0));
+      baseSigImp.recoverPub(params.payload, encodedSignature, BaseSig.RecoverMode.Initial, address(0));
 
     assertEq(threshold, params.threshold);
     assertEq(imageHash, PrimitivesRPC.getImageHash(vm, config));
@@ -335,7 +335,7 @@ contract BaseSigTest is AdvTest {
     }
 
     vm.expectRevert(params.revertFromSigner);
-    baseSigImp.recoverPub(params.payload, encodedSignature, true, address(0));
+    baseSigImp.recoverPub(params.payload, encodedSignature, BaseSig.RecoverMode.Initial, address(0));
   }
 
   struct test_recover_one_1271_invalid_signature_bad_return_fail_params {
@@ -415,7 +415,7 @@ contract BaseSigTest is AdvTest {
     vm.expectRevert(
       abi.encodeWithSelector(BaseSig.InvalidERC1271Signature.selector, payloadHash, params.signer, params.signature)
     );
-    baseSigImp.recoverPub(params.payload, encodedSignature, true, address(0));
+    baseSigImp.recoverPub(params.payload, encodedSignature, BaseSig.RecoverMode.Initial, address(0));
   }
 
   struct test_recover_one_sapient_signer_params {
@@ -521,7 +521,7 @@ contract BaseSigTest is AdvTest {
     }
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, encodedSignature, true, address(0));
+      baseSigImp.recoverPub(params.payload, encodedSignature, BaseSig.RecoverMode.Initial, address(0));
 
     assertEq(threshold, params.threshold);
     assertEq(imageHash, PrimitivesRPC.getImageHash(vm, config));
@@ -663,7 +663,7 @@ contract BaseSigTest is AdvTest {
     }
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, encodedSignature, true, address(0));
+      baseSigImp.recoverPub(params.payload, encodedSignature, BaseSig.RecoverMode.Initial, address(0));
 
     assertEq(threshold, params.threshold);
     assertEq(imageHash, PrimitivesRPC.getImageHash(vm, config));
@@ -818,7 +818,7 @@ contract BaseSigTest is AdvTest {
 
     // Recover chained signature
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(_finalPayload, chainedSignature, true, address(0));
+      baseSigImp.recoverPub(_finalPayload, chainedSignature, BaseSig.RecoverMode.Initial, address(0));
 
     assertEq(threshold, 1);
     assertEq(weight, 1);
@@ -862,7 +862,7 @@ contract BaseSigTest is AdvTest {
     bytes32 expectedImageHash = PrimitivesRPC.getImageHash(vm, config);
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 recoveredOpHash) =
-      baseSigImp.recoverPub(params.payload, encodedSig, true, address(0));
+      baseSigImp.recoverPub(params.payload, encodedSig, BaseSig.RecoverMode.Initial, address(0));
 
     assertEq(threshold, params.threshold);
     assertEq(checkpoint, params.checkpoint);
@@ -908,7 +908,7 @@ contract BaseSigTest is AdvTest {
     bytes32 expectedImageHash = PrimitivesRPC.getImageHash(vm, config);
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 recoveredOpHash) =
-      baseSigImp.recoverPub(params.payload, encodedSig, true, address(0));
+      baseSigImp.recoverPub(params.payload, encodedSig, BaseSig.RecoverMode.Initial, address(0));
 
     assertEq(threshold, params.threshold);
     assertEq(checkpoint, params.checkpoint);
@@ -938,7 +938,7 @@ contract BaseSigTest is AdvTest {
     signature[1 + checkpointSize + thresholdLen] = bytes1((invalidFlag << 4));
 
     vm.expectRevert(abi.encodeWithSelector(BaseSig.InvalidSignatureFlag.selector, invalidFlag));
-    baseSigImp.recoverPub(_payload, signature, false, address(0));
+    baseSigImp.recoverPub(_payload, signature, BaseSig.RecoverMode.Initial, address(0));
   }
 
   struct test_recover_chained_low_weight_fail_params {
@@ -1079,7 +1079,7 @@ contract BaseSigTest is AdvTest {
     vm.expectRevert(
       abi.encodeWithSelector(BaseSig.LowWeightChainedSignature.selector, signatures[1], params.threshold, params.weight)
     );
-    baseSigImp.recoverPub(params.payload, chainedSignature, true, address(0));
+    baseSigImp.recoverPub(params.payload, chainedSignature, BaseSig.RecoverMode.Initial, address(0));
   }
 
   struct test_recover_chained_wrong_checkpoint_order_fail_params {
@@ -1236,7 +1236,7 @@ contract BaseSigTest is AdvTest {
         abi.encodeWithSelector(BaseSig.WrongChainedCheckpointOrder.selector, params.checkpoint2, params.checkpoint3)
       );
     }
-    baseSigImp.recoverPub(params.payload, chainedSignature, true, address(0));
+    baseSigImp.recoverPub(params.payload, chainedSignature, BaseSig.RecoverMode.Initial, address(0));
   }
 
   // Checkpointer tests
@@ -1303,7 +1303,7 @@ contract BaseSigTest is AdvTest {
     );
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, vars.signature, false, address(0));
+      baseSigImp.recoverPub(params.payload, vars.signature, BaseSig.RecoverMode.Initial, address(0));
     assertEq(threshold, params.threshold);
     assertEq(weight, params.weight);
     assertEq(imageHash, vars.snapshot.imageHash);
@@ -1440,7 +1440,7 @@ contract BaseSigTest is AdvTest {
     vars.chainedSignature = PrimitivesRPC.concatSignatures(vm, signatures);
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, vars.chainedSignature, false, address(0));
+      baseSigImp.recoverPub(params.payload, vars.chainedSignature, BaseSig.RecoverMode.Initial, address(0));
     assertEq(threshold, params.threshold);
     assertEq(weight, params.weight);
     assertEq(imageHash, vars.config1ImageHash); // Should recover to the first config in the chain
@@ -1577,7 +1577,7 @@ contract BaseSigTest is AdvTest {
     vars.chainedSignature = PrimitivesRPC.concatSignatures(vm, signatures);
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, vars.chainedSignature, false, address(0));
+      baseSigImp.recoverPub(params.payload, vars.chainedSignature, BaseSig.RecoverMode.Initial, address(0));
     assertEq(threshold, params.threshold);
     assertEq(weight, params.weight);
     assertEq(imageHash, vars.config1ImageHash); // Should recover to the first config in the chain
@@ -1718,7 +1718,7 @@ contract BaseSigTest is AdvTest {
     vars.chainedSignature = PrimitivesRPC.concatSignatures(vm, signatures);
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, vars.chainedSignature, false, address(0));
+      baseSigImp.recoverPub(params.payload, vars.chainedSignature, BaseSig.RecoverMode.Initial, address(0));
     assertEq(threshold, params.threshold);
     assertEq(weight, params.weight);
     assertEq(imageHash, vars.config1ImageHash); // Should recover to the first config in the chain
@@ -1791,7 +1791,7 @@ contract BaseSigTest is AdvTest {
     );
 
     vm.expectRevert(abi.encodeWithSelector(BaseSig.UnusedSnapshot.selector, vars.snapshot));
-    baseSigImp.recoverPub(params.payload, vars.signature, false, address(0));
+    baseSigImp.recoverPub(params.payload, vars.signature, BaseSig.RecoverMode.Initial, address(0));
   }
 
   struct test_checkpointer_different_image_hash_fail_params {
@@ -1863,7 +1863,7 @@ contract BaseSigTest is AdvTest {
     );
 
     vm.expectRevert(abi.encodeWithSelector(BaseSig.UnusedSnapshot.selector, vars.snapshot));
-    baseSigImp.recoverPub(params.payload, vars.signature, false, address(0));
+    baseSigImp.recoverPub(params.payload, vars.signature, BaseSig.RecoverMode.Initial, address(0));
   }
 
   struct test_checkpointer_disabled_params {
@@ -1930,7 +1930,7 @@ contract BaseSigTest is AdvTest {
     );
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, vars.signature, false, address(0));
+      baseSigImp.recoverPub(params.payload, vars.signature, BaseSig.RecoverMode.Initial, address(0));
     assertEq(threshold, params.threshold);
     assertEq(weight, params.weight);
     assertEq(imageHash, vars.expectedImageHash);
@@ -2007,7 +2007,7 @@ contract BaseSigTest is AdvTest {
     );
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, vars.signature, false, address(0));
+      baseSigImp.recoverPub(params.payload, vars.signature, BaseSig.RecoverMode.Initial, address(0));
     assertEq(threshold, params.threshold);
     assertEq(weight, params.weight);
     assertEq(imageHash, vars.expectedImageHash);
@@ -2136,7 +2136,7 @@ contract BaseSigTest is AdvTest {
     vars.chainedSignature = PrimitivesRPC.concatSignatures(vm, signatures);
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, vars.chainedSignature, false, address(0));
+      baseSigImp.recoverPub(params.payload, vars.chainedSignature, BaseSig.RecoverMode.Initial, address(0));
     assertEq(threshold, 1);
     assertEq(weight, 1);
     assertEq(imageHash, vars.config1ImageHash);
@@ -2266,7 +2266,7 @@ contract BaseSigTest is AdvTest {
     vars.chainedSignature = PrimitivesRPC.concatSignatures(vm, signatures);
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, vars.chainedSignature, false, address(0));
+      baseSigImp.recoverPub(params.payload, vars.chainedSignature, BaseSig.RecoverMode.Initial, address(0));
     assertEq(threshold, 1);
     assertEq(weight, 1);
     assertEq(imageHash, vars.config1ImageHash);
@@ -2398,7 +2398,7 @@ contract BaseSigTest is AdvTest {
     vars.chainedSignature = PrimitivesRPC.concatSignatures(vm, signatures);
 
     (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) =
-      baseSigImp.recoverPub(params.payload, vars.chainedSignature, false, address(0));
+      baseSigImp.recoverPub(params.payload, vars.chainedSignature, BaseSig.RecoverMode.Initial, address(0));
     assertEq(threshold, 1);
     assertEq(weight, 1);
     assertEq(imageHash, vars.config1ImageHash);
@@ -2536,14 +2536,14 @@ contract BaseSigTest is AdvTest {
     if (params.snapshotImageHash == bytes32(0)) {
       // Snapshot imageHash is 0, checkpointer is considered disabled
       (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint,) =
-        baseSigImp.recoverPub(params.payload, vars.chainedSignature, false, address(0));
+        baseSigImp.recoverPub(params.payload, vars.chainedSignature, BaseSig.RecoverMode.Initial, address(0));
       assertEq(threshold, 1);
       assertEq(weight, 1);
       assertEq(imageHash, vars.config1ImageHash);
       assertEq(checkpoint, params.checkpoint1);
     } else {
       vm.expectRevert(abi.encodeWithSelector(BaseSig.UnusedSnapshot.selector, vars.snapshot));
-      baseSigImp.recoverPub(params.payload, vars.chainedSignature, false, address(0));
+      baseSigImp.recoverPub(params.payload, vars.chainedSignature, BaseSig.RecoverMode.Initial, address(0));
     }
   }
 
@@ -2565,6 +2565,7 @@ contract BaseSigTest is AdvTest {
     string memory config2 = PrimitivesRPC.newConfigWithCheckpointer(
       vm, checkpointer, 1, checkpoint2, string(abi.encodePacked("signer:", vm.toString(bob), ":2"))
     );
+    bytes32 imageHash1 = PrimitivesRPC.getImageHash(vm, config1);
     bytes32 imageHash2 = PrimitivesRPC.getImageHash(vm, config2);
 
     Payload.Decoded memory finalPayload;
@@ -2609,9 +2610,11 @@ contract BaseSigTest is AdvTest {
     Snapshot memory latestSnapshot = Snapshot(imageHash2, 2);
     vm.mockCall(checkpointer, abi.encodeWithSelector(ICheckpointer.snapshotFor.selector), abi.encode(latestSnapshot));
 
-    // Expect revert. Unused snapshot
-    vm.expectRevert();
-    baseSigImp.recoverPub(finalPayload, chainedSignature, false, address(0));
+    // Expect it to recover to a different imageHash
+    (,, bytes32 recoveredImageHash,,) =
+      baseSigImp.recoverPub(finalPayload, chainedSignature, BaseSig.RecoverMode.Initial, address(0));
+    assertNotEq(recoveredImageHash, imageHash1, "imageHash1");
+    assertNotEq(recoveredImageHash, imageHash2, "imageHash2");
   }
 
   function test_checkpointer_bypass_high_checkpoint() external {
@@ -2675,7 +2678,7 @@ contract BaseSigTest is AdvTest {
 
     // Expect revert. Unused snapshot
     vm.expectRevert(abi.encodeWithSelector(BaseSig.UnusedSnapshot.selector, latestSnapshot));
-    baseSigImp.recoverPub(finalPayload, chainedSignature, false, address(0));
+    baseSigImp.recoverPub(finalPayload, chainedSignature, BaseSig.RecoverMode.Initial, address(0));
   }
 
 }
