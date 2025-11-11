@@ -13,7 +13,6 @@ import { ParameterOperation, ParameterRule, Permission } from "src/extensions/se
 import { Attestation, AuthData, LibAttestation } from "src/extensions/sessions/implicit/Attestation.sol";
 import { Payload } from "src/modules/Payload.sol";
 
-
 using LibAttestation for Attestation;
 
 contract SessionSigHarness {
@@ -705,10 +704,7 @@ contract SessionSigTest is SessionTestBase {
     assertEq(hasBlacklist, true, "Blacklist should be present");
   }
 
-  function testConfiguration_duplicateBlacklistNodes(
-    address[5] memory fiveBlacklists,
-    uint8 size
-  ) public {
+  function testConfiguration_duplicateBlacklistNodes(address[5] memory fiveBlacklists, uint8 size) public {
     size = uint8(bound(size, 0, 5));
     address[] memory blacklist = new address[](size);
     for (uint256 i = 0; i < size; i++) {
@@ -732,10 +728,7 @@ contract SessionSigTest is SessionTestBase {
     harness.recoverConfiguration(encoded);
   }
 
-  function testConfiguration_duplicateBlacklistNodes_inBranch(
-    address[5] memory fiveBlacklists,
-    uint8 size
-  ) public {
+  function testConfiguration_duplicateBlacklistNodes_inBranch(address[5] memory fiveBlacklists, uint8 size) public {
     size = uint8(bound(size, 0, 5));
     address[] memory blacklist = new address[](size);
     for (uint256 i = 0; i < size; i++) {

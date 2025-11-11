@@ -18,7 +18,8 @@ contract BaseSigImp {
     BaseSig.RecoverMode _recoverMode,
     address _checkpointer
   ) external view returns (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) {
-    (threshold, weight, imageHash, checkpoint, opHash) = BaseSig.recover(_payload, _signature, _recoverMode, _checkpointer);
+    (threshold, weight, imageHash, checkpoint, opHash) =
+      BaseSig.recover(_payload, _signature, _recoverMode, _checkpointer);
   }
 
 }
@@ -829,10 +830,7 @@ contract BaseSigTest is AdvTest {
 
   function _standardChainedSignatureFixture()
     internal
-    returns (
-      Payload.Decoded memory finalPayload,
-      test_recover_chained_signature_single_case_vars memory vars
-    )
+    returns (Payload.Decoded memory finalPayload, test_recover_chained_signature_single_case_vars memory vars)
   {
     finalPayload.kind = Payload.KIND_TRANSACTIONS;
     finalPayload.space = 1;

@@ -178,7 +178,8 @@ library BaseSig {
         nrindex = sigSize + rindex;
       }
 
-      RecoverMode recoverMode = nrindex == _signature.length ? RecoverMode.UseProvidedCheckpointer : RecoverMode.IgnoreReadCheckpointer;
+      RecoverMode recoverMode =
+        nrindex == _signature.length ? RecoverMode.UseProvidedCheckpointer : RecoverMode.IgnoreReadCheckpointer;
 
       if (prevCheckpoint == type(uint256).max) {
         (threshold, weight, imageHash, checkpoint, opHash) =
