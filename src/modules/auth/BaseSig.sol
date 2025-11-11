@@ -39,6 +39,8 @@ library BaseSig {
   error UnusedSnapshot(Snapshot _snapshot);
   /// @notice Error thrown when the signature flag is invalid
   error InvalidSignatureFlag(uint256 _flag);
+  /// @notice Error thrown when a chained signature is nested inside another chained signature
+  error ChainedSignatureNestedInChainedSignature();
 
   enum RecoverMode {
     Initial,
@@ -119,6 +121,9 @@ library BaseSig {
 
     // If signature type is 01 or 11 we do a chained signature
     if (signatureFlag & 0x01 == 0x01) {
+      if (_recoverMode != RecoverMode.Initial) {
+        revert ChainedSignatureNestedInChainedSignature();
+      }
       return recoverChained(_payload, _checkpointer, snapshot, _signature[rindex:]);
     }
 

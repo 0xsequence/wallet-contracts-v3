@@ -83,6 +83,10 @@ All signature parts must meet their respective thresholds.
                                                                  ╚═══════════╝
 ```
 
+### No nested chained signatures
+
+Each hop in the chain must be a regular (non-chained) signature payload. Nesting chained signatures is rejected by the contracts (`BaseSig.ChainedSignatureNestedInChainedSignature`), so every link in the chain can only delegate to a single next configuration.
+
 ### Checkpoint
 
 Each wallet configuration defines a checkpoint, checkpoints define a strict order in which these configurations can be used **in the context of a chained signature**, this acts as a form of replay protection that blocks the usage of a previous section of the state channel **in case the state channel ever repeats configurations**.

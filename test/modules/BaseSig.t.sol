@@ -827,6 +827,183 @@ contract BaseSigTest is AdvTest {
     assertEq(opHash, Payload.hashFor(_finalPayload, address(baseSigImp)));
   }
 
+  function _standardChainedSignatureFixture()
+    internal
+    returns (
+      Payload.Decoded memory finalPayload,
+      test_recover_chained_signature_single_case_vars memory vars
+    )
+  {
+    finalPayload.kind = Payload.KIND_TRANSACTIONS;
+    finalPayload.space = 1;
+    finalPayload.nonce = 1;
+    finalPayload.calls = new Payload.Call[](0);
+    finalPayload.parentWallets = new address[](0);
+    boundToLegalPayload(finalPayload);
+
+    vars.signer1pk = 1;
+    vars.signer2pk = 2;
+    vars.signer3pk = 3;
+
+    vars.signer1addr = vm.addr(vars.signer1pk);
+    vars.signer2addr = vm.addr(vars.signer2pk);
+    vars.signer3addr = vm.addr(vars.signer3pk);
+
+    vars.config1 =
+      PrimitivesRPC.newConfig(vm, 1, 1, string(abi.encodePacked("signer:", vm.toString(vars.signer1addr), ":1")));
+
+    vars.config2 = PrimitivesRPC.newConfig(
+      vm,
+      1,
+      2,
+      string(
+        abi.encodePacked(
+          "signer:", vm.toString(vars.signer2addr), ":3 ", "signer:", vm.toString(vars.signer1addr), ":2"
+        )
+      )
+    );
+
+    vars.config3 = PrimitivesRPC.newConfig(
+      vm,
+      1,
+      3,
+      string(
+        abi.encodePacked(
+          "signer:", vm.toString(vars.signer3addr), ":2 ", "signer:", vm.toString(vars.signer2addr), ":2"
+        )
+      )
+    );
+
+    vars.config1Hash = PrimitivesRPC.getImageHash(vm, vars.config1);
+    vars.config2Hash = PrimitivesRPC.getImageHash(vm, vars.config2);
+    vars.config3Hash = PrimitivesRPC.getImageHash(vm, vars.config3);
+
+    vars.payloadApprove2.kind = Payload.KIND_CONFIG_UPDATE;
+    vars.payloadApprove3.kind = Payload.KIND_CONFIG_UPDATE;
+
+    vars.payloadApprove2.imageHash = vars.config2Hash;
+    vars.payloadApprove3.imageHash = vars.config3Hash;
+
+    (vars.v2, vars.r2, vars.s2) = vm.sign(vars.signer1pk, Payload.hashFor(vars.payloadApprove2, address(baseSigImp)));
+    (vars.v3, vars.r3, vars.s3) = vm.sign(vars.signer2pk, Payload.hashFor(vars.payloadApprove3, address(baseSigImp)));
+    (vars.fv, vars.fr, vars.fs) = vm.sign(vars.signer3pk, Payload.hashFor(finalPayload, address(baseSigImp)));
+
+    vars.signatureForFinalPayload = PrimitivesRPC.toEncodedSignature(
+      vm,
+      vars.config3,
+      string(
+        abi.encodePacked(
+          vm.toString(vars.signer3addr),
+          ":hash:",
+          vm.toString(vars.fr),
+          ":",
+          vm.toString(vars.fs),
+          ":",
+          vm.toString(vars.fv)
+        )
+      ),
+      !finalPayload.noChainId
+    );
+
+    vars.signature1to2 = PrimitivesRPC.toEncodedSignature(
+      vm,
+      vars.config1,
+      string(
+        abi.encodePacked(
+          vm.toString(vars.signer1addr),
+          ":hash:",
+          vm.toString(vars.r2),
+          ":",
+          vm.toString(vars.s2),
+          ":",
+          vm.toString(vars.v2)
+        )
+      ),
+      true
+    );
+
+    vars.signature2to3 = PrimitivesRPC.toEncodedSignature(
+      vm,
+      vars.config2,
+      string(
+        abi.encodePacked(
+          vm.toString(vars.signer2addr),
+          ":hash:",
+          vm.toString(vars.r3),
+          ":",
+          vm.toString(vars.s3),
+          ":",
+          vm.toString(vars.v3)
+        )
+      ),
+      true
+    );
+
+    return (finalPayload, vars);
+  }
+
+  function _wrapAsChainedSignature(
+    bytes[] memory signatures
+  ) internal pure returns (bytes memory chainedSignature) {
+    uint256 totalLength = 1;
+    for (uint256 i = 0; i < signatures.length; i++) {
+      totalLength += 3 + signatures[i].length;
+    }
+
+    chainedSignature = new bytes(totalLength);
+    chainedSignature[0] = bytes1(uint8(0x01));
+
+    uint256 pointer = 1;
+    for (uint256 i = 0; i < signatures.length; i++) {
+      uint256 sigLen = signatures[i].length;
+      chainedSignature[pointer] = bytes1(uint8(sigLen >> 16));
+      chainedSignature[pointer + 1] = bytes1(uint8(sigLen >> 8));
+      chainedSignature[pointer + 2] = bytes1(uint8(sigLen));
+      pointer += 3;
+
+      for (uint256 j = 0; j < sigLen; j++) {
+        chainedSignature[pointer + j] = signatures[i][j];
+      }
+      pointer += sigLen;
+    }
+  }
+
+  function test_recover_chained_nested_signature_reverts_on_intermediate_link() external {
+    (Payload.Decoded memory finalPayload, test_recover_chained_signature_single_case_vars memory vars) =
+      _standardChainedSignatureFixture();
+
+    bytes[] memory inner = new bytes[](2);
+    inner[0] = vars.signatureForFinalPayload;
+    inner[1] = vars.signature2to3;
+    bytes memory innerChained = _wrapAsChainedSignature(inner);
+
+    bytes[] memory outer = new bytes[](2);
+    outer[0] = innerChained;
+    outer[1] = vars.signature1to2;
+    bytes memory nestedChained = _wrapAsChainedSignature(outer);
+
+    vm.expectRevert(abi.encodeWithSelector(BaseSig.ChainedSignatureNestedInChainedSignature.selector));
+    baseSigImp.recoverPub(finalPayload, nestedChained, BaseSig.RecoverMode.Initial, address(0));
+  }
+
+  function test_recover_chained_nested_signature_reverts_on_final_link() external {
+    (Payload.Decoded memory finalPayload, test_recover_chained_signature_single_case_vars memory vars) =
+      _standardChainedSignatureFixture();
+
+    bytes[] memory inner = new bytes[](2);
+    inner[0] = vars.signature2to3;
+    inner[1] = vars.signature1to2;
+    bytes memory innerChained = _wrapAsChainedSignature(inner);
+
+    bytes[] memory outer = new bytes[](2);
+    outer[0] = vars.signatureForFinalPayload;
+    outer[1] = innerChained;
+    bytes memory nestedChained = _wrapAsChainedSignature(outer);
+
+    vm.expectRevert(abi.encodeWithSelector(BaseSig.ChainedSignatureNestedInChainedSignature.selector));
+    baseSigImp.recoverPub(finalPayload, nestedChained, BaseSig.RecoverMode.Initial, address(0));
+  }
+
   struct test_recover_subdigest_params {
     Payload.Decoded payload;
     AddressWeightPair[] prefix;
