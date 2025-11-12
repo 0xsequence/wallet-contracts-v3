@@ -39,6 +39,7 @@ contract SessionManagerTest is SessionTestBase {
 
   /// @notice Valid explicit session test.
   function testValidExplicitSessionSignature(
+    address wallet,
     bytes4 selector,
     uint256 param,
     uint256 value,
@@ -49,6 +50,8 @@ contract SessionManagerTest is SessionTestBase {
     vm.assume(explicitTarget != explicitTarget2);
     vm.assume(value > 0);
     vm.assume(param > 0);
+    vm.assume(explicitTarget != wallet);
+    vm.assume(explicitTarget2 != wallet);
     vm.assume(explicitTarget != address(sessionManager));
     vm.assume(explicitTarget2 != address(sessionManager));
     vm.assume(explicitTarget != address(sessionWallet.addr));
@@ -86,9 +89,9 @@ contract SessionManagerTest is SessionTestBase {
     sessionPerms.permissions[1] = Permission({ target: explicitTarget2, rules: new ParameterRule[](0) }); // Unlimited access
 
     // Build a payload with two calls:
-    //   Call 0: call not requiring incrementUsageLimit
-    //   Call 1: call requiring incrementUsageLimit
-    //   Call 2: the required incrementUsageLimit call (self–call)
+    //   Call 1: call not requiring incrementUsageLimit
+    //   Call 2: call requiring incrementUsageLimit
+    //   Call 0: the required incrementUsageLimit call (self–call)
     Payload.Decoded memory payload = _buildPayload(3);
 
     // --- Explicit Call 1 ---
@@ -138,9 +141,153 @@ contract SessionManagerTest is SessionTestBase {
     permissionIdxs[1] = 0; // Call 1
     permissionIdxs[2] = 1; // Call 2
 
-    (bytes32 imageHash, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, permissionIdxs);
+    (bytes32 imageHash, bytes memory encodedSig) =
+      _validExplicitSessionSignature(wallet, payload, sessionPerms, permissionIdxs);
 
-    vm.prank(sessionWallet.addr);
+    vm.prank(wallet);
+    bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
+    assertEq(imageHash, actualImageHash);
+  }
+
+  /// @notice Valid explicit session test with multiple signers.
+  function testValidExplicitSessionMixing(
+    address wallet,
+    bytes4 selector,
+    uint256 param,
+    address explicitTarget,
+    bool useChainId
+  ) public {
+    Vm.Wallet memory sessionWallet2 = vm.createWallet("session2");
+    vm.assume(param > 0);
+    vm.assume(explicitTarget != wallet);
+    vm.assume(explicitTarget != address(sessionManager));
+    vm.assume(explicitTarget != address(sessionWallet.addr));
+    vm.assume(explicitTarget != address(sessionWallet2.addr));
+
+    bytes memory callData = abi.encodeWithSelector(selector, param);
+
+    // --- Session Permissions ---
+    // Create a SessionPermissions struct granting permission for calls to explicitTarget.
+    SessionPermissions memory sessionPerms2 = SessionPermissions({
+      signer: sessionWallet2.addr,
+      chainId: useChainId ? block.chainid : 0,
+      valueLimit: 0,
+      deadline: uint64(block.timestamp + 1 days),
+      permissions: new Permission[](1)
+    });
+    // Permission with an empty rules set allows all calls to the target.
+    ParameterRule[] memory rules2 = new ParameterRule[](2);
+    // Rules for explicitTarget in call 1.
+    rules2[0] = ParameterRule({
+      cumulative: false,
+      operation: ParameterOperation.EQUAL,
+      value: bytes32(uint256(uint32(selector)) << 224),
+      offset: 0,
+      mask: bytes32(uint256(uint32(0xffffffff)) << 224)
+    });
+    rules2[1] = ParameterRule({
+      cumulative: true,
+      operation: ParameterOperation.LESS_THAN_OR_EQUAL,
+      value: bytes32(param),
+      offset: 4,
+      mask: bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    });
+    sessionPerms2.permissions[0] = Permission({ target: explicitTarget, rules: rules2 });
+
+    // Create a SessionPermissions struct granting permission for calls to explicitTarget.
+    SessionPermissions memory sessionPerms1 = SessionPermissions({
+      signer: sessionWallet.addr,
+      chainId: useChainId ? block.chainid : 0,
+      valueLimit: 0,
+      deadline: uint64(block.timestamp + 1 days),
+      permissions: new Permission[](1)
+    });
+    // Permission with an empty rules set allows all calls to the target.
+    ParameterRule[] memory rules1 = new ParameterRule[](2);
+    // Rules for explicitTarget in call 1.
+    rules1[0] = ParameterRule({
+      cumulative: false,
+      operation: ParameterOperation.EQUAL,
+      value: bytes32(uint256(uint32(selector)) << 224),
+      offset: 0,
+      mask: bytes32(uint256(uint32(0xffffffff)) << 224)
+    });
+    rules1[1] = ParameterRule({
+      cumulative: false, // Not cumulative
+      operation: ParameterOperation.LESS_THAN_OR_EQUAL,
+      value: bytes32(param),
+      offset: 4,
+      mask: bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    });
+    sessionPerms1.permissions[0] = Permission({ target: explicitTarget, rules: rules1 });
+
+    // Build a payload with two calls:
+    //   Call 1: using session 1 (non cumulative signer)
+    //   Call 2: using session 2 (cumulative signer)
+    //   Call 0: the required incrementUsageLimit call (self–call)
+    Payload.Decoded memory payload = _buildPayload(3);
+
+    // --- Explicit Call 1 ---
+    payload.calls[1] = Payload.Call({
+      to: explicitTarget,
+      value: 0,
+      data: callData,
+      gasLimit: 0,
+      delegateCall: false,
+      onlyFallback: false,
+      behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+    });
+    payload.calls[2] = payload.calls[1]; // Reuse
+
+    // --- Increment Usage Limit ---
+    {
+      UsageLimit[] memory limits = new UsageLimit[](1);
+      limits[0] = UsageLimit({
+        usageHash: keccak256(abi.encode(sessionWallet2.addr, sessionPerms2.permissions[0], uint256(1))),
+        usageAmount: param
+      });
+      payload.calls[0] = Payload.Call({
+        to: address(sessionManager),
+        value: 0,
+        data: abi.encodeWithSelector(sessionManager.incrementUsageLimit.selector, limits),
+        gasLimit: 0,
+        delegateCall: false,
+        onlyFallback: false,
+        behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
+      });
+    }
+
+    // All signers use permission at index 0
+    uint8[] memory permissionIdxs = new uint8[](3);
+
+    // Configuration
+    string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
+    string memory sessionPermsJson = _sessionPermissionsToJSON(sessionPerms1);
+    topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
+    sessionPermsJson = _sessionPermissionsToJSON(sessionPerms2);
+    topology = PrimitivesRPC.sessionExplicitAdd(vm, sessionPermsJson, topology);
+    bytes32 imageHash = PrimitivesRPC.sessionImageHash(vm, topology);
+
+    string[] memory callSignatures = new string[](3);
+    // Sign call 1 with signer 1
+    string memory sessionSignature =
+      _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), payload, 1), sessionWallet);
+    callSignatures[1] = _explicitCallSignatureToJSON(permissionIdxs[1], sessionSignature);
+    // Sign call 2 with signer 2
+    sessionSignature = _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), payload, 2), sessionWallet2);
+    callSignatures[2] = _explicitCallSignatureToJSON(permissionIdxs[2], sessionSignature);
+    // Sign call 0 (incrementUsageLimit) with signer 1
+    sessionSignature = _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), payload, 0), sessionWallet);
+    callSignatures[0] = _explicitCallSignatureToJSON(permissionIdxs[0], sessionSignature);
+
+    address[] memory explicitSigners = new address[](2);
+    explicitSigners[0] = sessionWallet.addr;
+    explicitSigners[1] = sessionWallet2.addr;
+    address[] memory implicitSigners = new address[](0);
+    bytes memory encodedSig =
+      PrimitivesRPC.sessionEncodeCallSignatures(vm, topology, callSignatures, explicitSigners, implicitSigners);
+
+    vm.prank(wallet);
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     assertEq(imageHash, actualImageHash);
   }
@@ -241,9 +388,10 @@ contract SessionManagerTest is SessionTestBase {
     // Encode the call signatures for the reentrant payload
     string[] memory reentrantCallSignatures = new string[](2);
     string memory sessionSignature =
-      _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(reentrantPayload, 0), sessionWallet);
+      _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), reentrantPayload, 0), sessionWallet);
     reentrantCallSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature);
-    sessionSignature = _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(reentrantPayload, 1), sessionWallet);
+    sessionSignature =
+      _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(address(wallet), reentrantPayload, 1), sessionWallet);
     reentrantCallSignatures[1] = _explicitCallSignatureToJSON(0, sessionSignature);
     address[] memory reentrantExplicitSigners = new address[](1);
     reentrantExplicitSigners[0] = sessionWallet.addr;
@@ -319,13 +467,13 @@ contract SessionManagerTest is SessionTestBase {
     string[] memory callSignatures = new string[](3);
     {
       // Sign the explicit call (call 0) using the session key.
-      sessionSignature = _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(payload, 0), sessionWallet);
+      sessionSignature = _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(wallet, payload, 0), sessionWallet);
       callSignatures[0] = _explicitCallSignatureToJSON(0, sessionSignature);
       // Sign the explicit call (call 1) using the session key.
-      sessionSignature = _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(payload, 1), sessionWallet);
+      sessionSignature = _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(wallet, payload, 1), sessionWallet);
       callSignatures[1] = _explicitCallSignatureToJSON(0, sessionSignature);
       // Sign the self call (call 2) using the session key.
-      sessionSignature = _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(payload, 2), sessionWallet);
+      sessionSignature = _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(wallet, payload, 2), sessionWallet);
       callSignatures[2] = _explicitCallSignatureToJSON(1, sessionSignature);
     }
 
@@ -361,6 +509,7 @@ contract SessionManagerTest is SessionTestBase {
     uint256 value2,
     uint256 ruleValue
   ) internal returns (Payload.Decoded memory payload, bytes32 imageHash, bytes memory encodedSig) {
+    vm.assume(target != wallet);
     vm.assume(target.code.length == 0);
 
     // Session permissions
@@ -425,7 +574,7 @@ contract SessionManagerTest is SessionTestBase {
 
     uint8[] memory permissionIdxs = new uint8[](3);
 
-    (imageHash, encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, permissionIdxs);
+    (imageHash, encodedSig) = _validExplicitSessionSignature(wallet, payload, sessionPerms, permissionIdxs);
 
     return (payload, imageHash, encodedSig);
   }
@@ -438,6 +587,7 @@ contract SessionManagerTest is SessionTestBase {
     uint256 value2,
     uint256 ruleValue
   ) public {
+    vm.assume(target != wallet);
     startIncrement = bound(startIncrement, 0, 1 ether);
     value1 = bound(value1, 1, 1 ether);
     value2 = bound(value2, 1, 1 ether);
@@ -514,7 +664,13 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Test that a call using delegateCall reverts.
-  function testInvalidDelegateCallReverts(Attestation memory attestation, bytes memory data, address target) public {
+  function testInvalidDelegateCallReverts(
+    address wallet,
+    Attestation memory attestation,
+    bytes memory data,
+    address target
+  ) public {
+    vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
@@ -533,16 +689,15 @@ contract SessionManagerTest is SessionTestBase {
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
     });
 
-    (, bytes memory encodedSig) = _validImplicitSessionSignature(payload);
+    (, bytes memory encodedSig) = _validImplicitSessionSignature(wallet, payload);
 
+    vm.prank(wallet);
     vm.expectRevert(SessionErrors.InvalidDelegateCall.selector);
     sessionManager.recoverSapientSignature(payload, encodedSig);
   }
 
   /// @notice Valid implicit session test.
-  function testValidImplicitSessionSignature(
-    Attestation memory attestation
-  ) public {
+  function testValidImplicitSessionSignature(address wallet, Attestation memory attestation) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
     attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
@@ -560,15 +715,17 @@ contract SessionManagerTest is SessionTestBase {
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
     });
 
-    (bytes32 imageHash, bytes memory encodedSig) = _validImplicitSessionSignature(payload);
+    (bytes32 imageHash, bytes memory encodedSig) = _validImplicitSessionSignature(wallet, payload);
 
-    vm.prank(sessionWallet.addr);
+    vm.prank(wallet);
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     assertEq(imageHash, actualImageHash);
   }
 
   /// @notice Test that calls with onlyFallback = true are allowed
-  function testOnlyFallbackCallsAllowed() public {
+  function testOnlyFallbackCallsAllowed(
+    address wallet
+  ) public {
     // Build a payload with one call that has onlyFallback = true
     Payload.Decoded memory payload = _buildPayload(1);
     payload.calls[0] = Payload.Call({
@@ -581,15 +738,16 @@ contract SessionManagerTest is SessionTestBase {
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR
     });
 
-    (bytes32 imageHash, bytes memory encodedSig) = _validImplicitSessionSignature(payload);
+    (bytes32 imageHash, bytes memory encodedSig) = _validImplicitSessionSignature(wallet, payload);
 
-    vm.prank(sessionWallet.addr);
+    vm.prank(wallet);
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     assertEq(imageHash, actualImageHash);
   }
 
   /// @notice Test that calls with BEHAVIOR_ABORT_ON_ERROR will revert with InvalidBehavior
-  function testBehaviorAbortOnErrorCallsRevert(address target, bytes memory data) public {
+  function testBehaviorAbortOnErrorCallsRevert(address wallet, address target, bytes memory data) public {
+    vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
 
@@ -606,14 +764,16 @@ contract SessionManagerTest is SessionTestBase {
       behaviorOnError: Payload.BEHAVIOR_ABORT_ON_ERROR // This should revert
      });
 
-    (, bytes memory encodedSig) = _validImplicitSessionSignature(payload);
+    (, bytes memory encodedSig) = _validImplicitSessionSignature(wallet, payload);
 
+    vm.prank(wallet);
     vm.expectRevert(SessionErrors.InvalidBehavior.selector);
     sessionManager.recoverSapientSignature(payload, encodedSig);
   }
 
   /// @notice Test that calls with onlyFallback = true in explicit sessions are allowed
-  function testExplicitSessionOnlyFallbackAllowed(address target, bytes memory data) public {
+  function testExplicitSessionOnlyFallbackAllowed(address wallet, address target, bytes memory data) public {
+    vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
 
@@ -645,15 +805,17 @@ contract SessionManagerTest is SessionTestBase {
     uint8[] memory permissionIdxs = new uint8[](1);
     permissionIdxs[0] = 0; // Call 0
 
-    (bytes32 imageHash, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, permissionIdxs);
+    (bytes32 imageHash, bytes memory encodedSig) =
+      _validExplicitSessionSignature(wallet, payload, sessionPerms, permissionIdxs);
 
-    vm.prank(sessionWallet.addr);
+    vm.prank(wallet);
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     assertEq(imageHash, actualImageHash);
   }
 
   /// @notice Test that the increment call cannot have onlyFallback = true
-  function testIncrementCallOnlyFallbackReverts(address target, bytes memory data) public {
+  function testIncrementCallOnlyFallbackReverts(address wallet, address target, bytes memory data) public {
+    vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
 
@@ -697,14 +859,16 @@ contract SessionManagerTest is SessionTestBase {
     permissionIdxs[0] = 0; // Call 0
     permissionIdxs[1] = 0; // Call 1
 
-    (, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, permissionIdxs);
+    (, bytes memory encodedSig) = _validExplicitSessionSignature(wallet, payload, sessionPerms, permissionIdxs);
 
+    vm.prank(wallet);
     vm.expectRevert(SessionErrors.InvalidLimitUsageIncrement.selector);
     sessionManager.recoverSapientSignature(payload, encodedSig);
   }
 
   /// @notice Test that calls with BEHAVIOR_IGNORE_ERROR in explicit sessions are allowed
-  function testExplicitSessionBehaviorIgnoreErrorAllowed(address target, bytes memory data) public {
+  function testExplicitSessionBehaviorIgnoreErrorAllowed(address wallet, address target, bytes memory data) public {
+    vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
 
@@ -731,14 +895,17 @@ contract SessionManagerTest is SessionTestBase {
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });
 
-    (bytes32 imageHash, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, new uint8[](1));
+    (bytes32 imageHash, bytes memory encodedSig) =
+      _validExplicitSessionSignature(wallet, payload, sessionPerms, new uint8[](1));
 
+    vm.prank(wallet);
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     assertEq(imageHash, actualImageHash);
   }
 
   /// @notice Test that calls with BEHAVIOR_ABORT_ON_ERROR in explicit sessions revert
-  function testExplicitSessionBehaviorAbortOnErrorReverts(address target, bytes memory data) public {
+  function testExplicitSessionBehaviorAbortOnErrorReverts(address wallet, address target, bytes memory data) public {
+    vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
 
@@ -765,14 +932,16 @@ contract SessionManagerTest is SessionTestBase {
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });
 
-    (, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, new uint8[](1));
+    (, bytes memory encodedSig) = _validExplicitSessionSignature(wallet, payload, sessionPerms, new uint8[](1));
 
+    vm.prank(wallet);
     vm.expectRevert(SessionErrors.InvalidBehavior.selector);
     sessionManager.recoverSapientSignature(payload, encodedSig);
   }
 
   /// @notice Test that valid linear execution still works
-  function testValidLinearExecution(address target, bytes memory data) public {
+  function testValidLinearExecution(address wallet, address target, bytes memory data) public {
+    vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
 
@@ -799,9 +968,11 @@ contract SessionManagerTest is SessionTestBase {
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });
 
-    (bytes32 imageHash, bytes memory encodedSig) = _validExplicitSessionSignature(payload, sessionPerms, new uint8[](1));
+    (bytes32 imageHash, bytes memory encodedSig) =
+      _validExplicitSessionSignature(wallet, payload, sessionPerms, new uint8[](1));
 
     // This should succeed since all flags are valid for linear execution
+    vm.prank(wallet);
     bytes32 actualImageHash = sessionManager.recoverSapientSignature(payload, encodedSig);
     assertEq(imageHash, actualImageHash);
   }
@@ -820,6 +991,7 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   function _validImplicitSessionSignature(
+    address wallet,
     Payload.Decoded memory payload
   ) internal returns (bytes32 imageHash, bytes memory encodedSig) {
     string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);
@@ -829,7 +1001,8 @@ contract SessionManagerTest is SessionTestBase {
     string[] memory callSignatures = new string[](callCount);
     Attestation memory attestation = _createValidAttestation();
     for (uint256 i; i < callCount; i++) {
-      callSignatures[i] = _createImplicitCallSignature(payload, i, sessionWallet, identityWallet, attestation);
+      callSignatures[i] =
+        _createImplicitCallSignature(address(wallet), payload, i, sessionWallet, identityWallet, attestation);
     }
 
     address[] memory explicitSigners = new address[](0);
@@ -841,6 +1014,7 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   function _validExplicitSessionSignature(
+    address wallet,
     Payload.Decoded memory payload,
     SessionPermissions memory sessionPerms,
     uint8[] memory permissionIdxs
@@ -854,7 +1028,7 @@ contract SessionManagerTest is SessionTestBase {
     string[] memory callSignatures = new string[](callCount);
     for (uint256 i; i < callCount; i++) {
       string memory sessionSignature =
-        _signAndEncodeRSV(SessionSig.hashCallWithReplayProtection(payload, i), sessionWallet);
+        _signAndEncodeRSV(SessionSig.hashPayloadCallIdx(wallet, payload, i), sessionWallet);
       callSignatures[i] = _explicitCallSignatureToJSON(permissionIdxs[i], sessionSignature);
     }
 

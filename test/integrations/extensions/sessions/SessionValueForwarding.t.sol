@@ -39,7 +39,7 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     uint256 valueSent,
     uint256 valueCap
   ) public {
-    vm.assume(recipient.code.length == 0);
+    assumeNotPrecompile2(recipient);
     chainId = bound(chainId, 0, 2 ** 26 - 1);
     if (chainId != 0) {
       vm.chainId(chainId);
@@ -82,7 +82,8 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     payload.calls[1].behaviorOnError = Payload.BEHAVIOR_REVERT_ON_ERROR;
 
     // Sign it with the session
-    bytes memory signature = _validExplicitSignature(payload, sessionWallet, config, topology, new uint8[](2));
+    bytes memory signature =
+      _validExplicitSignature(address(wallet), payload, sessionWallet, config, topology, new uint8[](2));
 
     // Execute should fail due to limit exceeded
     vm.expectRevert(SessionErrors.InvalidValue.selector);
@@ -96,7 +97,7 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     payload.calls[1].value = valueSent;
 
     // Sign and execute successfully
-    signature = _validExplicitSignature(payload, sessionWallet, config, topology, new uint8[](2));
+    signature = _validExplicitSignature(address(wallet), payload, sessionWallet, config, topology, new uint8[](2));
     wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload), signature);
 
     // Check the balance of the recipient
@@ -113,7 +114,7 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     vm.deal(address(wallet), valueSent);
 
     // Sign and fail sending
-    signature = _validExplicitSignature(payload, sessionWallet, config, topology, new uint8[](2));
+    signature = _validExplicitSignature(address(wallet), payload, sessionWallet, config, topology, new uint8[](2));
     vm.expectRevert(SessionErrors.InvalidValue.selector);
     wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload), signature);
   }
@@ -171,7 +172,8 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     payload.calls[3] = payload.calls[1];
 
     // Sign it with the session
-    bytes memory signature = _validExplicitSignature(payload, sessionWallet, config, topology, new uint8[](4));
+    bytes memory signature =
+      _validExplicitSignature(address(wallet), payload, sessionWallet, config, topology, new uint8[](4));
 
     // Execute should fail due to limit exceeded
     vm.expectRevert(SessionErrors.InvalidValue.selector);
@@ -187,7 +189,7 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     payload.calls[3] = payload.calls[1];
 
     // Sign and execute successfully
-    signature = _validExplicitSignature(payload, sessionWallet, config, topology, new uint8[](4));
+    signature = _validExplicitSignature(address(wallet), payload, sessionWallet, config, topology, new uint8[](4));
     wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload), signature);
 
     // Check the balance of the recipient
@@ -206,7 +208,7 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     vm.deal(address(wallet), valueSent * 3);
 
     // Sign and fail sending
-    signature = _validExplicitSignature(payload, sessionWallet, config, topology, new uint8[](4));
+    signature = _validExplicitSignature(address(wallet), payload, sessionWallet, config, topology, new uint8[](4));
     vm.expectRevert(SessionErrors.InvalidValue.selector);
     wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload), signature);
   }
@@ -262,11 +264,11 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     payload.calls[1].behaviorOnError = Payload.BEHAVIOR_REVERT_ON_ERROR;
 
     // Sign it with the session
-    bytes memory signature = _validExplicitSignature(payload, sessionWallet, config, topology, new uint8[](2));
+    bytes memory signature =
+      _validExplicitSignature(address(wallet), payload, sessionWallet, config, topology, new uint8[](4));
 
-    uint256 recipientBalance = address(recipient).balance;
     // Sign and execute successfully
-    signature = _validExplicitSignature(payload, sessionWallet, config, topology, new uint8[](4));
+    uint256 recipientBalance = address(recipient).balance;
     wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload), signature);
 
     // Check the balance of the recipient
@@ -288,7 +290,7 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     // Sign and send success
     uint8[] memory permsUsed = new uint8[](2);
     permsUsed[1] = 1; // Uses mockTarget permission
-    signature = _validExplicitSignature(payload, sessionWallet, config, topology, permsUsed);
+    signature = _validExplicitSignature(address(wallet), payload, sessionWallet, config, topology, permsUsed);
     wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload), signature);
   }
 

@@ -83,7 +83,8 @@ contract IntegrationSessionUsing4337 is ExtendedSessionTestBase {
     payload.kind = Payload.KIND_DIGEST;
     payload.digest = userOpHash;
 
-    bytes memory signature = _validExplicitSignature(payload, sessionWallet, config, topology, new uint8[](1));
+    bytes memory signature =
+      _validExplicitSignature(address(wallet), payload, sessionWallet, config, topology, new uint8[](1));
     userOp.signature = signature;
 
     PackedUserOperation[] memory ops = new PackedUserOperation[](1);
@@ -121,7 +122,7 @@ contract IntegrationSessionUsing4337 is ExtendedSessionTestBase {
     payload.kind = Payload.KIND_DIGEST;
     payload.digest = userOpHash;
 
-    bytes memory signature = _validImplicitSignature(payload, sessionWallet, config, topology);
+    bytes memory signature = _validImplicitSignature(address(wallet), payload, sessionWallet, config, topology);
     userOp.signature = signature;
 
     PackedUserOperation[] memory ops = new PackedUserOperation[](1);

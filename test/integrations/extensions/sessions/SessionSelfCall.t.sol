@@ -61,7 +61,8 @@ contract IntegrationSessionSelfCall is ExtendedSessionTestBase {
     });
 
     // Sign with the session wallet
-    bytes memory signature = _validExplicitSignature(payload, sessionWallet, updatedConfig, topology, new uint8[](1));
+    bytes memory signature =
+      _validExplicitSignature(address(wallet), payload, sessionWallet, updatedConfig, topology, new uint8[](1));
 
     // Execute the self call payload
     bytes memory packedPayload = PrimitivesRPC.toPackedPayload(vm, payload);
