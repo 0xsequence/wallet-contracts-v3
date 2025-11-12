@@ -45,7 +45,7 @@ library BaseSig {
   enum RecoverMode {
     Initial,
     UseProvidedCheckpointer,
-    IgnoreReadCheckpointer
+    SkipSnapshotRead
   }
 
   function _leafForAddressAndWeight(address _addr, uint256 _weight) internal pure returns (bytes32) {
@@ -99,11 +99,9 @@ library BaseSig {
       _checkpointer = address(0);
 
       if (signatureFlag & 0x40 == 0x40) {
-        // Override the checkpointer
-        // not ideal, but we don't have much room in the stack
         (_checkpointer, rindex) = _signature.readAddress(rindex);
 
-        if (_recoverMode != RecoverMode.IgnoreReadCheckpointer) {
+        if (_recoverMode != RecoverMode.SkipSnapshotRead) {
           // Next 3 bytes determine the checkpointer data size
           uint256 checkpointerDataSize;
           (checkpointerDataSize, rindex) = _signature.readUint24(rindex);
@@ -179,7 +177,7 @@ library BaseSig {
       }
 
       RecoverMode recoverMode =
-        nrindex == _signature.length ? RecoverMode.UseProvidedCheckpointer : RecoverMode.IgnoreReadCheckpointer;
+        nrindex == _signature.length ? RecoverMode.UseProvidedCheckpointer : RecoverMode.SkipSnapshotRead;
 
       if (prevCheckpoint == type(uint256).max) {
         (threshold, weight, imageHash, checkpoint, opHash) =
