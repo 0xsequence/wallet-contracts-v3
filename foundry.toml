@@ -29,3 +29,10 @@ int_types = "long"
 quote_style = "double"
 hex_underscore = "remove"
 wrap_comments = false
+
+[lint]
+ignore = ["test/**/*.sol", "script/**/*.sol"]
+severity = ["High", "Medium", "Low", "Gas"]
+exclude_lints = [
+  "asm-keccak256",
+]
