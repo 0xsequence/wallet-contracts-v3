@@ -3,7 +3,6 @@ pragma solidity ^0.8.27;
 
 import { Payload } from "../../modules/Payload.sol";
 import { ISapient } from "../../modules/interfaces/ISapient.sol";
-import { LibBytes } from "../../utils/LibBytes.sol";
 
 import { SessionErrors } from "./SessionErrors.sol";
 import { SessionSig } from "./SessionSig.sol";

@@ -4,7 +4,6 @@ pragma solidity ^0.8.27;
 import { Calls } from "./modules/Calls.sol";
 import { Payload } from "./modules/Payload.sol";
 
-import { LibBytes } from "./utils/LibBytes.sol";
 import { LibOptim } from "./utils/LibOptim.sol";
 
 /// @title Guest

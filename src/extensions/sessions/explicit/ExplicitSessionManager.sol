@@ -2,7 +2,6 @@
 pragma solidity ^0.8.27;
 
 import { Payload } from "../../../modules/Payload.sol";
-import { LibBytes } from "../../../utils/LibBytes.sol";
 
 import { SessionErrors } from "../SessionErrors.sol";
 import { IExplicitSessionManager, SessionPermissions, SessionUsageLimits } from "./IExplicitSessionManager.sol";
