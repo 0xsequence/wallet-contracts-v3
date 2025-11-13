@@ -13,8 +13,6 @@ contract Stage1Auth is BaseAuth, Implementation {
 
   /// @notice Error thrown when the image hash is zero
   error ImageHashIsZero();
-  /// @notice Error thrown when the signature type is invalid
-  error InvalidSignatureType(bytes1 _type);
 
   /// @notice Initialization code hash
   bytes32 public immutable INIT_CODE_HASH;
