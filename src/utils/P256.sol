@@ -23,49 +23,12 @@ library P256 {
   /// See: https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md
   address internal constant RIP_PRECOMPILE = 0x0000000000000000000000000000000000000100;
 
-  /// @dev The order of the secp256r1 elliptic curve.
-  uint256 internal constant N = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551;
-
   /// @dev `N/2`. Used for checking the malleability of the signature.
   uint256 private constant _HALF_N = 0x7fffffff800000007fffffffffffffffde737d56d38bcf4279dce5617e3192a8;
 
   /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
   /*                P256 VERIFICATION OPERATIONS                */
   /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-  /// @dev Returns if the signature (`r`, `s`) is valid for `hash` and public key (`x`, `y`).
-  /// Does NOT include the malleability check.
-  function verifySignatureAllowMalleability(
-    bytes32 hash,
-    bytes32 r,
-    bytes32 s,
-    bytes32 x,
-    bytes32 y
-  ) internal view returns (bool isValid) {
-    /// @solidity memory-safe-assembly
-    assembly {
-      let m := mload(0x40)
-      mstore(m, hash)
-      mstore(add(m, 0x20), r)
-      mstore(add(m, 0x40), s)
-      mstore(add(m, 0x60), x)
-      mstore(add(m, 0x80), y)
-      mstore(0x00, 0) // Zeroize the return slot before the staticcalls.
-      pop(staticcall(gas(), RIP_PRECOMPILE, m, 0xa0, 0x00, 0x20))
-      // RIP-7212 dictates that success returns `uint256(1)`.
-      // But failure returns zero returndata, which is ambiguous.
-      if iszero(returndatasize()) {
-        pop(staticcall(gas(), VERIFIER, m, 0xa0, returndatasize(), 0x20))
-        // Unlike RIP-7212, the verifier returns `uint256(0)` on failure,
-        // allowing us to use the returndatasize to determine existence.
-        if iszero(returndatasize()) {
-          mstore(returndatasize(), 0xd0d5039b) // `P256VerificationFailed()`.
-          revert(0x1c, 0x04)
-        }
-      }
-      isValid := eq(1, mload(0x00))
-    }
-  }
 
   /// @dev Returns if the signature (`r`, `s`) is valid for `hash` and public key (`x`, `y`).
   /// Includes the malleability check.
@@ -101,45 +64,4 @@ library P256 {
       isValid := lt(gt(s, _HALF_N), eq(1, mload(0x00)))
     }
   }
-
-  /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-  /*                      OTHER OPERATIONS                      */
-  /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-  /// @dev Returns `s` normalized to the lower half of the curve.
-  function normalized(
-    bytes32 s
-  ) internal pure returns (bytes32 result) {
-    /// @solidity memory-safe-assembly
-    assembly {
-      result := xor(s, mul(xor(sub(N, s), s), gt(s, _HALF_N)))
-    }
-  }
-
-  /// @dev Helper function for `abi.decode(encoded, (bytes32, bytes32))`.
-  /// If `encoded.length < 64`, `(x, y)` will be `(0, 0)`, which is an invalid point.
-  function tryDecodePoint(
-    bytes memory encoded
-  ) internal pure returns (bytes32 x, bytes32 y) {
-    /// @solidity memory-safe-assembly
-    assembly {
-      let t := gt(mload(encoded), 0x3f)
-      x := mul(mload(add(encoded, 0x20)), t)
-      y := mul(mload(add(encoded, 0x40)), t)
-    }
-  }
-
-  /// @dev Helper function for `abi.decode(encoded, (bytes32, bytes32))`.
-  /// If `encoded.length < 64`, `(x, y)` will be `(0, 0)`, which is an invalid point.
-  function tryDecodePointCalldata(
-    bytes calldata encoded
-  ) internal pure returns (bytes32 x, bytes32 y) {
-    /// @solidity memory-safe-assembly
-    assembly {
-      let t := gt(encoded.length, 0x3f)
-      x := mul(calldataload(encoded.offset), t)
-      y := mul(calldataload(add(encoded.offset, 0x20)), t)
-    }
-  }
-
 }
