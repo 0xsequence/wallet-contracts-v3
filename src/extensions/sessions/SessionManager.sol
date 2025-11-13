@@ -16,8 +16,6 @@ import {
 import { Permission, UsageLimit } from "./explicit/Permission.sol";
 import { ImplicitSessionManager } from "./implicit/ImplicitSessionManager.sol";
 
-using LibBytes for bytes;
-
 /// @title SessionManager
 /// @author Michael Standen, Agustin Aguilar
 /// @notice Manager for smart sessions

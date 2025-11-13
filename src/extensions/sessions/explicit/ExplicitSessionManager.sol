@@ -11,8 +11,6 @@ import { PermissionValidator } from "./PermissionValidator.sol";
 
 abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionValidator {
 
-  using LibBytes for bytes;
-
   /// @notice Special address used for tracking native token value limits
   address public constant VALUE_TRACKING_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 

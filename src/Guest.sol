@@ -12,8 +12,6 @@ import { LibOptim } from "./utils/LibOptim.sol";
 /// @notice Guest for dispatching calls
 contract Guest {
 
-  using LibBytes for bytes;
-
   /// @notice Error thrown when a delegate call is not allowed
   error DelegateCallNotAllowed(uint256 index);
 
