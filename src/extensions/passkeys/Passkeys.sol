@@ -17,6 +17,9 @@ contract Passkeys is ISapientCompact {
     WebAuthn.WebAuthnAuth _webAuthnAuth, bool _requireUserVerification, bytes32 _x, bytes32 _y
   );
 
+  /// @notice Error thrown when the signature length is invalid
+  error InvalidSignatureLength();
+
   function _rootForPasskey(
     bool _requireUserVerification,
     bytes32 _x,
@@ -96,6 +99,10 @@ contract Passkeys is ISapientCompact {
 
         (_x, pointer) = LibBytes.readBytes32(_signature, pointer);
         (_y, pointer) = LibBytes.readBytes32(_signature, pointer);
+
+        if (pointer != _signature.length) {
+          revert InvalidSignatureLength();
+        }
       } else {
         (_webAuthnAuth, _requireUserVerification, _x, _y, _metadata) =
           abi.decode(_signature[1:], (WebAuthn.WebAuthnAuth, bool, bytes32, bytes32, bytes32));
