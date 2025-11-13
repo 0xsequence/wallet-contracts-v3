@@ -8,9 +8,9 @@ import { PrimitivesRPC } from "test/utils/PrimitivesRPC.sol";
 
 import { Factory } from "src/Factory.sol";
 import { Stage1Module } from "src/Stage1Module.sol";
-import {
-  SessionErrors, SessionManager, SessionPermissions, SessionSig
-} from "src/extensions/sessions/SessionManager.sol";
+
+import { SessionErrors, SessionManager, SessionSig } from "src/extensions/sessions/SessionManager.sol";
+import { SessionPermissions } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import {
   ParameterOperation, ParameterRule, Permission, UsageLimit
 } from "src/extensions/sessions/explicit/Permission.sol";
