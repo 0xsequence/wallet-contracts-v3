@@ -6,12 +6,7 @@ import { ISapient } from "../../modules/interfaces/ISapient.sol";
 
 import { SessionErrors } from "./SessionErrors.sol";
 import { SessionSig } from "./SessionSig.sol";
-import {
-  ExplicitSessionManager,
-  IExplicitSessionManager,
-  SessionPermissions,
-  SessionUsageLimits
-} from "./explicit/ExplicitSessionManager.sol";
+import { ExplicitSessionManager, SessionUsageLimits } from "./explicit/ExplicitSessionManager.sol";
 import { UsageLimit } from "./explicit/Permission.sol";
 import { ImplicitSessionManager } from "./implicit/ImplicitSessionManager.sol";
 

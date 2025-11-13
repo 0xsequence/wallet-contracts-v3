@@ -5,7 +5,8 @@ import { ExtendedSessionTestBase, Vm } from "./ExtendedSessionTestBase.sol";
 import { PrimitivesRPC } from "test/utils/PrimitivesRPC.sol";
 
 import { Stage1Module } from "src/Stage1Module.sol";
-import { SessionErrors, SessionPermissions } from "src/extensions/sessions/SessionManager.sol";
+import { SessionErrors } from "src/extensions/sessions/SessionManager.sol";
+import { SessionPermissions } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import { ParameterRule, Permission } from "src/extensions/sessions/explicit/Permission.sol";
 
 import { Payload } from "src/modules/Payload.sol";

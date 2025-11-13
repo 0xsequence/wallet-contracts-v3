@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { Wallet } from "../../Wallet.sol";
 import { Implementation } from "../Implementation.sol";
 import { Storage } from "../Storage.sol";
 import { BaseAuth } from "./BaseAuth.sol";

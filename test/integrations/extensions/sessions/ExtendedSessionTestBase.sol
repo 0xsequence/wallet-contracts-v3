@@ -11,7 +11,9 @@ import { PrimitivesRPC } from "test/utils/PrimitivesRPC.sol";
 import { EntryPoint } from "account-abstraction/core/EntryPoint.sol";
 import { Factory } from "src/Factory.sol";
 import { Stage1Module } from "src/Stage1Module.sol";
-import { SessionManager, SessionPermissions, SessionSig } from "src/extensions/sessions/SessionManager.sol";
+
+import { SessionManager, SessionSig } from "src/extensions/sessions/SessionManager.sol";
+import { SessionPermissions } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import { ParameterOperation, ParameterRule, Permission } from "src/extensions/sessions/explicit/Permission.sol";
 import { Attestation } from "src/extensions/sessions/implicit/Attestation.sol";
 import { Payload } from "src/modules/Payload.sol";
