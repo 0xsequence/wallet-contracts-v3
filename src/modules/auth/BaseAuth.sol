@@ -108,7 +108,8 @@ abstract contract BaseAuth is IAuth, IPartialAuth, ISapient, IERC1271, SelfAuth 
     uint256 weight;
     bytes32 imageHash;
 
-    (threshold, weight, imageHash,, opHash) = BaseSig.recover(_payload, _signature, false, address(0));
+    (threshold, weight, imageHash,, opHash) =
+      BaseSig.recover(_payload, _signature, BaseSig.RecoverMode.Initial, address(0));
 
     // Validate the weight
     if (weight < threshold) {
@@ -169,7 +170,8 @@ abstract contract BaseAuth is IAuth, IPartialAuth, ISapient, IERC1271, SelfAuth 
       bytes32 opHash
     )
   {
-    (threshold, weight, imageHash, checkpoint, opHash) = BaseSig.recover(_payload, _signature, false, address(0));
+    (threshold, weight, imageHash, checkpoint, opHash) =
+      BaseSig.recover(_payload, _signature, BaseSig.RecoverMode.Initial, address(0));
     isValidImage = _isValidImage(imageHash);
   }
 

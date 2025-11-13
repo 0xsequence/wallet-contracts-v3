@@ -39,6 +39,14 @@ library BaseSig {
   error UnusedSnapshot(Snapshot _snapshot);
   /// @notice Error thrown when the signature flag is invalid
   error InvalidSignatureFlag(uint256 _flag);
+  /// @notice Error thrown when a chained signature is nested inside another chained signature
+  error ChainedSignatureNestedInChainedSignature();
+
+  enum RecoverMode {
+    Initial,
+    UseProvidedCheckpointer,
+    SkipSnapshotRead
+  }
 
   function _leafForAddressAndWeight(address _addr, uint256 _weight) internal pure returns (bytes32) {
     return keccak256(abi.encodePacked("Sequence signer:\n", _addr, _weight));
@@ -67,7 +75,7 @@ library BaseSig {
   function recover(
     Payload.Decoded memory _payload,
     bytes calldata _signature,
-    bool _ignoreCheckpointer,
+    RecoverMode _recoverMode,
     address _checkpointer
   ) internal view returns (uint256 threshold, uint256 weight, bytes32 imageHash, uint256 checkpoint, bytes32 opHash) {
     // First byte is the signature flag
@@ -75,7 +83,7 @@ library BaseSig {
 
     // The possible flags are:
     // - 0000 00XX (bits [1..0]): signature type (00 = normal, 01/11 = chained, 10 = no chain id)
-    // - 000X XX00 (bits [4..2]): checkpoint size (00 = 0 bytes, 001 = 1 byte, 010 = 2 bytes...)
+    // - 000X XX00 (bits [4..2]): checkpoint size (000 = 0 bytes, 001 = 1 byte, 010 = 2 bytes...)
     // - 00X0 0000 (bit [5]): threshold size (0 = 1 byte, 1 = 2 bytes)
     // - 0X00 0000 (bit [6]): set if imageHash checkpointer is used
     // - X000 0000 (bit [7]): reserved by base-auth
@@ -85,28 +93,35 @@ library BaseSig {
     // Recover the imageHash checkpointer if any
     // but checkpointer passed as argument takes precedence
     // since it can be defined by the chained signatures
-    if (signatureFlag & 0x40 == 0x40 && _checkpointer == address(0)) {
-      // Override the checkpointer
-      // not ideal, but we don't have much room in the stack
-      (_checkpointer, rindex) = _signature.readAddress(rindex);
+    if (_recoverMode != RecoverMode.UseProvidedCheckpointer) {
+      // Clear the provided checkpointer because we will either
+      // read our own, or it is zero
+      _checkpointer = address(0);
 
-      if (!_ignoreCheckpointer) {
-        // Next 3 bytes determine the checkpointer data size
-        uint256 checkpointerDataSize;
-        (checkpointerDataSize, rindex) = _signature.readUint24(rindex);
+      if (signatureFlag & 0x40 == 0x40) {
+        (_checkpointer, rindex) = _signature.readAddress(rindex);
 
-        // Read the checkpointer data
-        bytes memory checkpointerData = _signature[rindex:rindex + checkpointerDataSize];
+        if (_recoverMode != RecoverMode.SkipSnapshotRead) {
+          // Next 3 bytes determine the checkpointer data size
+          uint256 checkpointerDataSize;
+          (checkpointerDataSize, rindex) = _signature.readUint24(rindex);
 
-        // Call the middleware
-        snapshot = ICheckpointer(_checkpointer).snapshotFor(address(this), checkpointerData);
+          // Read the checkpointer data
+          bytes memory checkpointerData = _signature[rindex:rindex + checkpointerDataSize];
 
-        rindex += checkpointerDataSize;
+          // Call the middleware
+          snapshot = ICheckpointer(_checkpointer).snapshotFor(address(this), checkpointerData);
+
+          rindex += checkpointerDataSize;
+        }
       }
     }
 
     // If signature type is 01 or 11 we do a chained signature
     if (signatureFlag & 0x01 == 0x01) {
+      if (_recoverMode != RecoverMode.Initial) {
+        revert ChainedSignatureNestedInChainedSignature();
+      }
       return recoverChained(_payload, _checkpointer, snapshot, _signature[rindex:]);
     }
 
@@ -161,14 +176,15 @@ library BaseSig {
         nrindex = sigSize + rindex;
       }
 
-      address checkpointer = nrindex == _signature.length ? _checkpointer : address(0);
+      RecoverMode recoverMode =
+        nrindex == _signature.length ? RecoverMode.UseProvidedCheckpointer : RecoverMode.SkipSnapshotRead;
 
       if (prevCheckpoint == type(uint256).max) {
         (threshold, weight, imageHash, checkpoint, opHash) =
-          recover(_payload, _signature[rindex:nrindex], true, checkpointer);
+          recover(_payload, _signature[rindex:nrindex], recoverMode, _checkpointer);
       } else {
         (threshold, weight, imageHash, checkpoint,) =
-          recover(linkedPayload, _signature[rindex:nrindex], true, checkpointer);
+          recover(linkedPayload, _signature[rindex:nrindex], recoverMode, _checkpointer);
       }
 
       if (weight < threshold) {
