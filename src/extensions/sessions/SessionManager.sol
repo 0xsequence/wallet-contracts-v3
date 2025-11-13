@@ -13,7 +13,7 @@ import {
   SessionPermissions,
   SessionUsageLimits
 } from "./explicit/ExplicitSessionManager.sol";
-import { Permission, UsageLimit } from "./explicit/Permission.sol";
+import { UsageLimit } from "./explicit/Permission.sol";
 import { ImplicitSessionManager } from "./implicit/ImplicitSessionManager.sol";
 
 /// @title SessionManager
