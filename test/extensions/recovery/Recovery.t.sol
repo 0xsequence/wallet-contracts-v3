@@ -437,6 +437,82 @@ contract RecoveryTest is AdvTest {
     assertEq(vars.recoveredRoot, vars.rpcRoot);
   }
 
+  function test_fail_padded_signature(
+    test_recover_sapient_signature_compact_params memory params,
+    bytes memory padding
+  ) external {
+    vm.assume(padding.length > 0);
+
+    boundToLegalPayload(params.payload);
+    params.startTime = bound(params.startTime, 1, type(uint64).max / 2); // Safer upper bound perhaps
+    params.requiredDeltaTime = bound(params.requiredDeltaTime, 0, type(uint24).max);
+    params.minTimestamp = bound(params.minTimestamp, 0, params.startTime);
+    uint256 minPassedTime = params.requiredDeltaTime == type(uint64).max ? type(uint64).max : params.requiredDeltaTime;
+
+    params.passedTime = bound(params.passedTime, minPassedTime, type(uint64).max);
+    vm.warp(params.startTime);
+
+    params.signerPk = boundPk(params.signerPk);
+
+    test_recover_sapient_signature_compact_vars memory vars;
+    vars.recoveryPayloadHash = recovery.recoveryPayloadHash(params.wallet, params.payload);
+    vars.payloadHash = Payload.hashFor(params.payload, params.wallet);
+    (vars.v, vars.r, vars.s) = vm.sign(params.signerPk, vars.recoveryPayloadHash);
+
+    vars.yParityAndS = bytes32((uint256(vars.v - 27) << 255) | uint256(vars.s));
+    vars.signature = abi.encodePacked(vars.r, vars.yParityAndS);
+
+    vars.signerAddr = vm.addr(params.signerPk);
+
+    recovery.queuePayload(params.wallet, vars.signerAddr, params.payload, vars.signature);
+
+    vm.warp(block.timestamp + params.passedTime);
+
+    vars.parts = "";
+    for (uint256 i = 0; i < params.suffixes.length; i++) {
+      vars.parts = string.concat(
+        vars.parts,
+        "signer:",
+        vm.toString(params.suffixes[i].signer),
+        ":",
+        vm.toString(params.suffixes[i].requiredDeltaTime),
+        ":",
+        vm.toString(params.suffixes[i].minTimestamp),
+        " "
+      );
+    }
+
+    vars.parts = string.concat(
+      vars.parts,
+      "signer:",
+      vm.toString(vars.signerAddr),
+      ":",
+      vm.toString(params.requiredDeltaTime),
+      ":",
+      vm.toString(params.minTimestamp)
+    );
+
+    for (uint256 i = 0; i < params.prefixes.length; i++) {
+      vars.parts = string.concat(
+        vars.parts,
+        " signer:",
+        vm.toString(params.prefixes[i].signer),
+        ":",
+        vm.toString(params.prefixes[i].requiredDeltaTime),
+        ":",
+        vm.toString(params.prefixes[i].minTimestamp)
+      );
+    }
+
+    vars.rpcRoot = PrimitivesRPC.recoveryHashFromLeaves(vm, vars.parts);
+
+    vars.encoded = PrimitivesRPC.recoveryTrim(vm, vars.parts, vars.signerAddr);
+    bytes memory signature = abi.encodePacked(vars.encoded, padding);
+    vm.prank(params.wallet);
+    vm.expectRevert(); // Unspecified revert
+    vars.recoveredRoot = recovery.recoverSapientSignatureCompact(vars.payloadHash, signature);
+  }
+
   function test_recover_sapient_signature_compact_fail_minTimestamp(
     test_recover_sapient_signature_compact_params memory params
   ) external {

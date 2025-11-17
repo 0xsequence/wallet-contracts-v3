@@ -179,6 +179,11 @@ library SessionSig {
       }
     }
 
+    if (pointer != encodedSignature.length) {
+      // Invalid signature length
+      revert SessionErrors.InvalidSignatureLength();
+    }
+
     return sig;
   }
 
