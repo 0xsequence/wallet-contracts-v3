@@ -113,7 +113,10 @@ library LibAttestation {
   /// @param attestation The attestation
   /// @param wallet The wallet
   /// @return magic The expected implicit request magic
-  function generateImplicitRequestMagic(Attestation memory attestation, address wallet) internal pure returns (bytes32) {
+  function generateImplicitRequestMagic(
+    Attestation memory attestation,
+    address wallet
+  ) internal pure returns (bytes32) {
     return keccak256(
       abi.encodePacked(ACCEPT_IMPLICIT_REQUEST_MAGIC_PREFIX, wallet, attestation.audienceHash, attestation.issuerHash)
     );

@@ -23,7 +23,12 @@ contract ModuleImp {
   uint256 public immutable expectedValue;
   bool public immutable alwaysReverts;
 
-  constructor(bytes memory _expectedData, bytes memory _willReturn, uint256 _expectedValue, bool _alwaysReverts) {
+  constructor(
+    bytes memory _expectedData,
+    bytes memory _willReturn,
+    uint256 _expectedValue,
+    bool _alwaysReverts
+  ) {
     expectedDataPointer = new VariableDataStore(_expectedData);
     willReturnPointer = new VariableDataStore(_willReturn);
     expectedValue = _expectedValue;
@@ -69,7 +74,11 @@ contract WalletTest is AdvTest {
     factory = new Factory();
   }
 
-  function test_forward(bytes32 _salt, bytes calldata _data, bytes calldata _return) external {
+  function test_forward(
+    bytes32 _salt,
+    bytes calldata _data,
+    bytes calldata _return
+  ) external {
     ModuleImp module = new ModuleImp(_data, _return, 0, false);
     address wallet = factory.deploy(address(module), _salt);
 
@@ -78,7 +87,10 @@ contract WalletTest is AdvTest {
     assertEq(returnData, _return);
   }
 
-  function test_doNotForwardWithValue(bytes32 _salt, uint256 _value) external {
+  function test_doNotForwardWithValue(
+    bytes32 _salt,
+    uint256 _value
+  ) external {
     vm.assume(_value > 0);
 
     vm.deal(address(this), _value);

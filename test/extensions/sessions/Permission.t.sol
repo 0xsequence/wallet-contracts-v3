@@ -4,12 +4,18 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 
 import {
-  LibPermission, ParameterOperation, ParameterRule, Permission
+  LibPermission,
+  ParameterOperation,
+  ParameterRule,
+  Permission
 } from "src/extensions/sessions/explicit/Permission.sol";
 
 contract LibPermissionHarness {
 
-  function readPermission(bytes calldata encoded, uint256 pointer) public pure returns (Permission memory, uint256) {
+  function readPermission(
+    bytes calldata encoded,
+    uint256 pointer
+  ) public pure returns (Permission memory, uint256) {
     return LibPermission.readPermission(encoded, pointer);
   }
 

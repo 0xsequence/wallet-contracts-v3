@@ -11,7 +11,10 @@ import { Stage1Module } from "src/Stage1Module.sol";
 import { SessionErrors, SessionManager, SessionSig } from "src/extensions/sessions/SessionManager.sol";
 import { SessionPermissions } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import {
-  ParameterOperation, ParameterRule, Permission, UsageLimit
+  ParameterOperation,
+  ParameterRule,
+  Permission,
+  UsageLimit
 } from "src/extensions/sessions/explicit/Permission.sol";
 import { Attestation } from "src/extensions/sessions/implicit/Attestation.sol";
 import { Calls } from "src/modules/Calls.sol";
@@ -20,7 +23,10 @@ import { Payload } from "src/modules/Payload.sol";
 /// @notice Session signature abuse tests.
 contract IntegrationSessionSignatureAbuseTest is ExtendedSessionTestBase {
 
-  function test_SessionSigner_ZeroAddress_reverts_InvalidSessionSigner(uint8 v, bytes32 s) public {
+  function test_SessionSigner_ZeroAddress_reverts_InvalidSessionSigner(
+    uint8 v,
+    bytes32 s
+  ) public {
     // Create a topology with the session signer
     string memory topology = _createDefaultTopology();
 

@@ -81,7 +81,11 @@ contract IntegrationRecoveryDenialOfService is AdvTest {
     signature = PrimitivesRPC.toEncodedSignature(vm, walletConfig, signatures, !payload.noChainId);
   }
 
-  function test_Recovery_Reexecution(uint160 space, uint64 minTimestamp, uint24 requiredDeltaTime) public {
+  function test_Recovery_Reexecution(
+    uint160 space,
+    uint64 minTimestamp,
+    uint24 requiredDeltaTime
+  ) public {
     minTimestamp = uint64(bound(minTimestamp, 1, type(uint64).max - requiredDeltaTime));
     vm.warp(minTimestamp);
 
@@ -112,7 +116,11 @@ contract IntegrationRecoveryDenialOfService is AdvTest {
     wallet.execute(PrimitivesRPC.toPackedPayload(vm, recoveryPayload), walletSignature);
   }
 
-  function test_Recovery_DenialOfService(uint160 space, uint64 minTimestamp, uint24 requiredDeltaTime) public {
+  function test_Recovery_DenialOfService(
+    uint160 space,
+    uint64 minTimestamp,
+    uint24 requiredDeltaTime
+  ) public {
     minTimestamp = uint64(bound(minTimestamp, 1, type(uint64).max - requiredDeltaTime));
     vm.warp(minTimestamp);
 

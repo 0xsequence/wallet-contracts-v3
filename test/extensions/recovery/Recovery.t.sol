@@ -35,7 +35,11 @@ contract RecoveryTest is AdvTest {
     uint64 minTimestamp;
   }
 
-  function test_recoverBranch(Signer[] calldata signers, address wallet, bytes32 payloadHash) public {
+  function test_recoverBranch(
+    Signer[] calldata signers,
+    address wallet,
+    bytes32 payloadHash
+  ) public {
     vm.assume(signers.length > 0);
 
     string memory leaves;

@@ -97,7 +97,11 @@ contract PasskeysTest is AdvTest {
   }
 
   // Fuzz test for _rootForPasskey without metadata
-  function test_rootForPasskey_noMetadata(bool requireUserVerification, bytes32 x, bytes32 y) public {
+  function test_rootForPasskey_noMetadata(
+    bool requireUserVerification,
+    bytes32 x,
+    bytes32 y
+  ) public {
     bytes32 noMetadataHash = bytes32(0);
     bytes32 contractRoot = passkeysImp.rootForPasskeyPub(requireUserVerification, x, y, noMetadataHash);
 
@@ -402,7 +406,10 @@ contract PasskeysTest is AdvTest {
     assertEq(vars.recoveredRoot, vars.expectedRoot, "Recovered root should match expected root");
   }
 
-  function test_recoverSapientSignatureCompact_paddedFails(RecoverParams memory params, bytes memory padding) public {
+  function test_recoverSapientSignatureCompact_paddedFails(
+    RecoverParams memory params,
+    bytes memory padding
+  ) public {
     vm.assume(padding.length > 0);
     vm.etch(P256_VERIFIER, P256_VERIFIER_RUNTIME_CODE);
 
@@ -489,7 +496,10 @@ contract PasskeysTest is AdvTest {
     bytes generatedAuthenticatorData;
   }
 
-  function test_recoverSapientSignatureCompact_invalidSignature(RecoverParams memory params, uint256 wrongSeed) public {
+  function test_recoverSapientSignatureCompact_invalidSignature(
+    RecoverParams memory params,
+    uint256 wrongSeed
+  ) public {
     vm.etch(P256_VERIFIER, P256_VERIFIER_RUNTIME_CODE);
 
     recoverSapientSignatureCompact_invalidSignature_vars memory vars;
@@ -579,7 +589,10 @@ contract PasskeysTest is AdvTest {
 
 library LibString {
 
-  function indexOf(string memory haystack, string memory needle) internal pure returns (uint256) {
+  function indexOf(
+    string memory haystack,
+    string memory needle
+  ) internal pure returns (uint256) {
     bytes memory h = bytes(haystack);
     bytes memory n = bytes(needle);
     if (n.length == 0) {

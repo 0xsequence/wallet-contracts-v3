@@ -48,15 +48,26 @@ library BaseSig {
     SkipSnapshotRead
   }
 
-  function _leafForAddressAndWeight(address _addr, uint256 _weight) internal pure returns (bytes32) {
+  function _leafForAddressAndWeight(
+    address _addr,
+    uint256 _weight
+  ) internal pure returns (bytes32) {
     return keccak256(abi.encodePacked("Sequence signer:\n", _addr, _weight));
   }
 
-  function _leafForNested(bytes32 _node, uint256 _threshold, uint256 _weight) internal pure returns (bytes32) {
+  function _leafForNested(
+    bytes32 _node,
+    uint256 _threshold,
+    uint256 _weight
+  ) internal pure returns (bytes32) {
     return keccak256(abi.encodePacked("Sequence nested config:\n", _node, _threshold, _weight));
   }
 
-  function _leafForSapient(address _addr, uint256 _weight, bytes32 _imageHash) internal pure returns (bytes32) {
+  function _leafForSapient(
+    address _addr,
+    uint256 _weight,
+    bytes32 _imageHash
+  ) internal pure returns (bytes32) {
     return keccak256(abi.encodePacked("Sequence sapient config:\n", _addr, _weight, _imageHash));
   }
 

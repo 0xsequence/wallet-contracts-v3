@@ -26,11 +26,17 @@ contract Nonce {
     return uint256(Storage.readBytes32Map(NONCE_KEY, bytes32(_space)));
   }
 
-  function _writeNonce(uint256 _space, uint256 _nonce) internal {
+  function _writeNonce(
+    uint256 _space,
+    uint256 _nonce
+  ) internal {
     Storage.writeBytes32Map(NONCE_KEY, bytes32(_space), bytes32(_nonce));
   }
 
-  function _consumeNonce(uint256 _space, uint256 _nonce) internal {
+  function _consumeNonce(
+    uint256 _space,
+    uint256 _nonce
+  ) internal {
     uint256 currentNonce = readNonce(_space);
     if (currentNonce != _nonce) {
       revert BadNonce(_space, _nonce, currentNonce);

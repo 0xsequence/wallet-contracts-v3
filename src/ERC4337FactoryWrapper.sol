@@ -17,7 +17,10 @@ contract ERC4337FactoryWrapper {
   /// @notice Constructor
   /// @param _factory Address of the factory
   /// @param _senderCreator Address of the ERC-4337 entrypoint's sender creator
-  constructor(address _factory, address _senderCreator) {
+  constructor(
+    address _factory,
+    address _senderCreator
+  ) {
     factory = Factory(_factory);
     senderCreator = _senderCreator;
   }
@@ -28,7 +31,10 @@ contract ERC4337FactoryWrapper {
   /// @dev It is recommended to not have more than 200 signers as opcode repricing could make transactions impossible to execute as all the signers must be passed for each transaction.
   /// @dev Only the senderCreator can deploy a wallet.
   /// @return _contract The address of the deployed wallet
-  function deploy(address _mainModule, bytes32 _salt) public payable returns (address _contract) {
+  function deploy(
+    address _mainModule,
+    bytes32 _salt
+  ) public payable returns (address _contract) {
     if (msg.sender != senderCreator) {
       revert NotSenderCreator();
     }

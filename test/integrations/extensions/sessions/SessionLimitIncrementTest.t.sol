@@ -12,7 +12,10 @@ import { Stage1Module } from "src/Stage1Module.sol";
 import { SessionErrors, SessionManager, SessionSig } from "src/extensions/sessions/SessionManager.sol";
 import { SessionPermissions } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import {
-  ParameterOperation, ParameterRule, Permission, UsageLimit
+  ParameterOperation,
+  ParameterRule,
+  Permission,
+  UsageLimit
 } from "src/extensions/sessions/explicit/Permission.sol";
 import { Attestation } from "src/extensions/sessions/implicit/Attestation.sol";
 import { Calls } from "src/modules/Calls.sol";
@@ -53,8 +56,7 @@ contract IntegrationSessionLimitIncrementTest is ExtendedSessionTestBase {
     // Create a valid payload
     UsageLimit[] memory usageLimits = new UsageLimit[](1);
     usageLimits[0] = UsageLimit({
-      usageHash: keccak256(abi.encode(signer2.addr, signer2Perms.permissions[0], uint256(0))),
-      usageAmount: uint256(1)
+      usageHash: keccak256(abi.encode(signer2.addr, signer2Perms.permissions[0], uint256(0))), usageAmount: uint256(1)
     });
 
     // Make the increment call with signer1

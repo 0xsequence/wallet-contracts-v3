@@ -17,25 +17,37 @@ contract ERC4337FactoryWrapperTest is AdvTest {
     factoryWrapper = new ERC4337FactoryWrapper(address(factory), senderCreator);
   }
 
-  function test_deploy(address _mainModule, bytes32 _salt) external {
+  function test_deploy(
+    address _mainModule,
+    bytes32 _salt
+  ) external {
     vm.startPrank(senderCreator);
     address result = factoryWrapper.deploy(_mainModule, _salt);
     assertNotEq(result.code.length, 0);
   }
 
-  function test_deployMatchesFactory(address _mainModule, bytes32 _salt) external {
+  function test_deployMatchesFactory(
+    address _mainModule,
+    bytes32 _salt
+  ) external {
     address factoryResult = factory.deploy(_mainModule, _salt);
     vm.startPrank(senderCreator);
     address result = factoryWrapper.deploy(_mainModule, _salt);
     assertEq(result, factoryResult);
   }
 
-  function test_deployNotSenderCreator(address _mainModule, bytes32 _salt) external {
+  function test_deployNotSenderCreator(
+    address _mainModule,
+    bytes32 _salt
+  ) external {
     vm.expectRevert(abi.encodeWithSelector(ERC4337FactoryWrapper.NotSenderCreator.selector));
     factoryWrapper.deploy(_mainModule, _salt);
   }
 
-  function test_deployTwice(address _mainModule, bytes32 _salt) external {
+  function test_deployTwice(
+    address _mainModule,
+    bytes32 _salt
+  ) external {
     vm.startPrank(senderCreator);
     address result1 = factoryWrapper.deploy(_mainModule, _salt);
     address result2 = factoryWrapper.deploy(_mainModule, _salt);
@@ -43,7 +55,11 @@ contract ERC4337FactoryWrapperTest is AdvTest {
   }
 
   /// @notice The senderCreator will never send value.
-  function test_deployForwardValue(address _mainModule, bytes32 _salt, uint256 _value) external {
+  function test_deployForwardValue(
+    address _mainModule,
+    bytes32 _salt,
+    uint256 _value
+  ) external {
     vm.deal(address(senderCreator), _value);
     vm.startPrank(senderCreator);
     address result = factoryWrapper.deploy{ value: _value }(_mainModule, _salt);

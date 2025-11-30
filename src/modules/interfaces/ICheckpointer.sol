@@ -18,6 +18,9 @@ interface ICheckpointer {
   /// @param _wallet The wallet address
   /// @param _proof The proof
   /// @return snapshot The snapshot
-  function snapshotFor(address _wallet, bytes calldata _proof) external view returns (Snapshot memory snapshot);
+  function snapshotFor(
+    address _wallet,
+    bytes calldata _proof
+  ) external view returns (Snapshot memory snapshot);
 
 }

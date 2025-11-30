@@ -27,7 +27,10 @@ library Payload {
   bytes32 private constant EIP712_DOMAIN_VERSION_SEQUENCE =
     0x2a80e1ef1d7842f27f2e6be0972bb708b9a135c38860dbe73c27c3486c34f4de;
 
-  function domainSeparator(bool _noChainId, address _wallet) internal view returns (bytes32 _domainSeparator) {
+  function domainSeparator(
+    bool _noChainId,
+    address _wallet
+  ) internal view returns (bytes32 _domainSeparator) {
     return keccak256(
       abi.encode(
         EIP712_DOMAIN_TYPEHASH,
@@ -274,7 +277,10 @@ library Payload {
     return keccak256(abi.encodePacked("\x19\x01", domain, structHash));
   }
 
-  function hashFor(Decoded memory _decoded, address _wallet) internal view returns (bytes32) {
+  function hashFor(
+    Decoded memory _decoded,
+    address _wallet
+  ) internal view returns (bytes32) {
     bytes32 domain = domainSeparator(_decoded.noChainId, _wallet);
     bytes32 structHash = toEIP712(_decoded);
     return keccak256(abi.encodePacked("\x19\x01", domain, structHash));

@@ -67,7 +67,10 @@ contract AdvTest is Test {
   }
 
   // ERC-2098 Compact Signature
-  function signRSVCompact(bytes32 hash, Vm.Wallet memory wallet) internal pure returns (bytes memory) {
+  function signRSVCompact(
+    bytes32 hash,
+    Vm.Wallet memory wallet
+  ) internal pure returns (bytes memory) {
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(wallet.privateKey, hash);
     uint256 yParity = v == 28 ? 1 << 255 : 0;
     bytes32 yParityAndS = bytes32(uint256(s) | yParity);
@@ -120,7 +123,11 @@ contract AdvTest is Test {
     return string(_bytes);
   }
 
-  function useSeed(uint256 _seed, uint256 _min, uint256 _max) internal pure returns (uint256 seed, uint256 val) {
+  function useSeed(
+    uint256 _seed,
+    uint256 _min,
+    uint256 _max
+  ) internal pure returns (uint256 seed, uint256 val) {
     val = uint256(keccak256(abi.encode(_seed)));
     seed = val;
     val = val % (_max - _min + 1) + _min;

@@ -68,7 +68,10 @@ contract GuestTest is AdvTest {
     assertTrue(ok);
   }
 
-  function test_notEnoughGas(GuestPayload memory p, uint256 callIndex) external {
+  function test_notEnoughGas(
+    GuestPayload memory p,
+    uint256 callIndex
+  ) external {
     vm.assume(p.calls.length > 0);
     callIndex = bound(callIndex, 0, p.calls.length - 1);
 
@@ -98,7 +101,10 @@ contract GuestTest is AdvTest {
     assertTrue(ok);
   }
 
-  function test_delegateCallNotAllowed(GuestPayload memory p, uint256 callIndex) external {
+  function test_delegateCallNotAllowed(
+    GuestPayload memory p,
+    uint256 callIndex
+  ) external {
     vm.assume(p.calls.length > 0);
     callIndex = bound(callIndex, 0, p.calls.length - 1);
 
@@ -126,7 +132,10 @@ contract GuestTest is AdvTest {
     assertTrue(ok);
   }
 
-  function test_callFailsWithIgnoreBehavior(GuestPayload memory p, uint256 callIndex) external {
+  function test_callFailsWithIgnoreBehavior(
+    GuestPayload memory p,
+    uint256 callIndex
+  ) external {
     vm.assume(p.calls.length > 0);
     callIndex = bound(callIndex, 0, p.calls.length - 1);
 
@@ -178,7 +187,10 @@ contract GuestTest is AdvTest {
     assertTrue(ok);
   }
 
-  function test_callFailsWithRevertBehavior(GuestPayload memory p, uint256 callIndex) external {
+  function test_callFailsWithRevertBehavior(
+    GuestPayload memory p,
+    uint256 callIndex
+  ) external {
     vm.assume(p.calls.length > 0);
     callIndex = bound(callIndex, 0, p.calls.length - 1);
 
@@ -216,7 +228,10 @@ contract GuestTest is AdvTest {
     assertTrue(ok);
   }
 
-  function test_callFailsWithAbortBehavior(GuestPayload memory p, uint256 callIndex) external {
+  function test_callFailsWithAbortBehavior(
+    GuestPayload memory p,
+    uint256 callIndex
+  ) external {
     vm.assume(p.calls.length > 0);
     callIndex = bound(callIndex, 0, p.calls.length - 1);
 
@@ -256,7 +271,10 @@ contract GuestTest is AdvTest {
     assertTrue(ok);
   }
 
-  function test_forwardPayment(uint256 _value1, uint256 _value2) external {
+  function test_forwardPayment(
+    uint256 _value1,
+    uint256 _value2
+  ) external {
     address to1 = address(0x100001);
     address to2 = address(0x100002);
 

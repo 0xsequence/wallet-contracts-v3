@@ -22,12 +22,16 @@ contract Stage1Auth is BaseAuth, Implementation {
   address public immutable STAGE_2_IMPLEMENTATION;
 
   /// @dev keccak256("org.arcadeum.module.auth.upgradable.image.hash")
-  bytes32 internal constant IMAGE_HASH_KEY = bytes32(0xea7157fa25e3aa17d0ae2d5280fa4e24d421c61842aa85e45194e1145aa72bf8);
+  bytes32 internal constant IMAGE_HASH_KEY =
+    bytes32(0xea7157fa25e3aa17d0ae2d5280fa4e24d421c61842aa85e45194e1145aa72bf8);
 
   /// @notice Emitted when the image hash is updated
   event ImageHashUpdated(bytes32 newImageHash);
 
-  constructor(address _factory, address _stage2) {
+  constructor(
+    address _factory,
+    address _stage2
+  ) {
     // Build init code hash of the deployed wallets using that module
     bytes32 initCodeHash = keccak256(abi.encodePacked(Wallet.creationCode, uint256(uint160(address(this)))));
 

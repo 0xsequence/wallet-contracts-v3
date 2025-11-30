@@ -32,7 +32,10 @@ contract BaseSigTest is AdvTest {
     baseSigImp = new BaseSigImp();
   }
 
-  function test_recover_random_config_unsigned(uint256 _maxDepth, uint256 _seed) external {
+  function test_recover_random_config_unsigned(
+    uint256 _maxDepth,
+    uint256 _seed
+  ) external {
     _maxDepth = bound(_maxDepth, 1, 6);
 
     Payload.Decoded memory payload;
@@ -494,7 +497,9 @@ contract BaseSigTest is AdvTest {
 
         vm.mockCall(
           address(params.signer),
-          abi.encodeWithSelector(ISapientCompact.recoverSapientSignatureCompact.selector, payloadHash, params.signature),
+          abi.encodeWithSelector(
+            ISapientCompact.recoverSapientSignatureCompact.selector, payloadHash, params.signature
+          ),
           abi.encode(params.sapientImageHash)
         );
 
@@ -1020,15 +1025,17 @@ contract BaseSigTest is AdvTest {
     string memory ce;
 
     for (uint256 i = 0; i < params.prefix.length; i++) {
-      ce =
-        string.concat(ce, "signer:", vm.toString(params.prefix[i].addr), ":", vm.toString(params.prefix[i].weight), " ");
+      ce = string.concat(
+        ce, "signer:", vm.toString(params.prefix[i].addr), ":", vm.toString(params.prefix[i].weight), " "
+      );
     }
 
     ce = string.concat(ce, "subdigest:", vm.toString(opHash));
 
     for (uint256 i = 0; i < params.suffix.length; i++) {
-      ce =
-        string.concat(ce, " ", "signer:", vm.toString(params.suffix[i].addr), ":", vm.toString(params.suffix[i].weight));
+      ce = string.concat(
+        ce, " ", "signer:", vm.toString(params.suffix[i].addr), ":", vm.toString(params.suffix[i].weight)
+      );
     }
 
     string memory config = PrimitivesRPC.newConfig(vm, params.threshold, params.checkpoint, ce);
@@ -1066,15 +1073,17 @@ contract BaseSigTest is AdvTest {
     string memory ce;
 
     for (uint256 i = 0; i < params.prefix.length; i++) {
-      ce =
-        string.concat(ce, "signer:", vm.toString(params.prefix[i].addr), ":", vm.toString(params.prefix[i].weight), " ");
+      ce = string.concat(
+        ce, "signer:", vm.toString(params.prefix[i].addr), ":", vm.toString(params.prefix[i].weight), " "
+      );
     }
 
     ce = string.concat(ce, "any-address-subdigest:", vm.toString(expectedAnyAddressDigest));
 
     for (uint256 i = 0; i < params.suffix.length; i++) {
-      ce =
-        string.concat(ce, " ", "signer:", vm.toString(params.suffix[i].addr), ":", vm.toString(params.suffix[i].weight));
+      ce = string.concat(
+        ce, " ", "signer:", vm.toString(params.suffix[i].addr), ":", vm.toString(params.suffix[i].weight)
+      );
     }
 
     string memory config = PrimitivesRPC.newConfig(vm, params.threshold, params.checkpoint, ce);
@@ -2754,7 +2763,9 @@ contract BaseSigTest is AdvTest {
       bytes memory signature = PrimitivesRPC.toEncodedSignature(
         vm,
         config1,
-        string(abi.encodePacked(vm.toString(alice), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))),
+        string(
+          abi.encodePacked(vm.toString(alice), ":hash:", vm.toString(r), ":", vm.toString(s), ":", vm.toString(v))
+        ),
         true
       );
 

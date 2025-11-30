@@ -60,7 +60,10 @@ abstract contract ImplicitSessionManager {
   /// @param target The address to check
   /// @param blacklist The sorted array of blacklisted addresses
   /// @return bool True if the address is blacklisted, false otherwise
-  function _isAddressBlacklisted(address target, address[] memory blacklist) internal pure returns (bool) {
+  function _isAddressBlacklisted(
+    address target,
+    address[] memory blacklist
+  ) internal pure returns (bool) {
     int256 left = 0;
     int256 right = int256(blacklist.length) - 1;
 

@@ -419,7 +419,10 @@ library SessionSig {
     return _hashPayloadHashCallIdx(payloadHash, callIdx);
   }
 
-  function _hashPayloadHashCallIdx(bytes32 payloadHash, uint256 callIdx) private pure returns (bytes32) {
+  function _hashPayloadHashCallIdx(
+    bytes32 payloadHash,
+    uint256 callIdx
+  ) private pure returns (bytes32) {
     return keccak256(abi.encodePacked(payloadHash, callIdx));
   }
 

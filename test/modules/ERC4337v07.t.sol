@@ -87,7 +87,10 @@ contract ERC4337v07Test is AdvTest {
     Stage1Module(wallet).validateUserOp(userOp, userOpHash, missingFunds);
   }
 
-  function test_validateUserOp_depositsMissingFunds(bytes32 userOpHash, uint256 missingFunds) public {
+  function test_validateUserOp_depositsMissingFunds(
+    bytes32 userOpHash,
+    uint256 missingFunds
+  ) public {
     vm.assume(missingFunds > 0);
     // Signature doesn't need to be valid for this test.
     PackedUserOperation memory userOp = _createUserOp(bytes(""), hex"000010000000000000000000000000000000000000000000");
@@ -151,9 +154,8 @@ contract ERC4337v07Test is AdvTest {
     payload.digest = userOpHash;
 
     vm.prank(wallet);
-    Stage1Module(wallet).setStaticSignature(
-      Payload.hashFor(payload, wallet), address(entryPoint), uint96(block.timestamp + 1000)
-    );
+    Stage1Module(wallet)
+      .setStaticSignature(Payload.hashFor(payload, wallet), address(entryPoint), uint96(block.timestamp + 1000));
 
     PackedUserOperation memory userOp = _createUserOp(bytes(""), hex"80");
 
@@ -177,7 +179,10 @@ contract ERC4337v07Test is AdvTest {
     Stage1Module(walletDisabled).executeUserOp(payload);
   }
 
-  function test_executeUserOp_reverts_invalidEntryPoint(bytes calldata payload, address randomCaller) public {
+  function test_executeUserOp_reverts_invalidEntryPoint(
+    bytes calldata payload,
+    address randomCaller
+  ) public {
     vm.assume(randomCaller != address(entryPoint));
 
     vm.prank(randomCaller);

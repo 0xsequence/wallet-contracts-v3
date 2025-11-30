@@ -106,7 +106,10 @@ library PrimitivesRPC {
   // payload
   // ----------------------------------------------------------------
 
-  function toPackedPayload(Vm _vm, Payload.Decoded memory _decoded) internal returns (bytes memory) {
+  function toPackedPayload(
+    Vm _vm,
+    Payload.Decoded memory _decoded
+  ) internal returns (bytes memory) {
     string memory params = string.concat('{"payload":"', _vm.toString(abi.encode(_decoded)), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "payload_toPacked", params);
     return (rawResponse);
@@ -187,13 +190,19 @@ library PrimitivesRPC {
     return string(rawResponse);
   }
 
-  function toEncodedConfig(Vm _vm, string memory configJson) internal returns (bytes memory) {
+  function toEncodedConfig(
+    Vm _vm,
+    string memory configJson
+  ) internal returns (bytes memory) {
     string memory params = string.concat('{"input":', configJson, "}");
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "config_encode", params);
     return (rawResponse);
   }
 
-  function getImageHash(Vm _vm, string memory configJson) internal returns (bytes32) {
+  function getImageHash(
+    Vm _vm,
+    string memory configJson
+  ) internal returns (bytes32) {
     string memory params = string.concat('{"input":', configJson, "}");
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "config_imageHash", params);
     bytes memory hexBytes = (rawResponse);
@@ -240,7 +249,10 @@ library PrimitivesRPC {
     return (rawResponse);
   }
 
-  function concatSignatures(Vm _vm, bytes[] memory _signatures) internal returns (bytes memory) {
+  function concatSignatures(
+    Vm _vm,
+    bytes[] memory _signatures
+  ) internal returns (bytes memory) {
     string memory arrayPrefix = '{"signatures":[';
     string memory arraySuffix = "]}";
     string memory arrayMid;
@@ -256,13 +268,19 @@ library PrimitivesRPC {
   // session
   // ----------------------------------------------------------------
 
-  function sessionEmpty(Vm _vm, address identitySigner) internal returns (string memory) {
+  function sessionEmpty(
+    Vm _vm,
+    address identitySigner
+  ) internal returns (string memory) {
     string memory params = string.concat('{"identitySigner":"', _vm.toString(identitySigner), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_empty", params);
     return string(rawResponse);
   }
 
-  function sessionEncodeTopology(Vm _vm, string memory topologyInput) internal returns (bytes memory) {
+  function sessionEncodeTopology(
+    Vm _vm,
+    string memory topologyInput
+  ) internal returns (bytes memory) {
     string memory params = string.concat('{"sessionTopology":', topologyInput, "}");
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_encodeTopology", params);
     return rawResponse;
@@ -293,7 +311,10 @@ library PrimitivesRPC {
     return rawResponse;
   }
 
-  function sessionImageHash(Vm _vm, string memory sessionTopologyInput) internal returns (bytes32) {
+  function sessionImageHash(
+    Vm _vm,
+    string memory sessionTopologyInput
+  ) internal returns (bytes32) {
     string memory params = string.concat('{"sessionTopology":', sessionTopologyInput, "}");
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_imageHash", params);
     return abi.decode(rawResponse, (bytes32));
@@ -355,7 +376,12 @@ library PrimitivesRPC {
   // wallet
   // ----------------------------------------------------------------
 
-  function getAddress(Vm _vm, bytes32 _configHash, address _factory, address _module) internal returns (address) {
+  function getAddress(
+    Vm _vm,
+    bytes32 _configHash,
+    address _factory,
+    address _module
+  ) internal returns (address) {
     string memory params = string.concat(
       '{"imageHash":"',
       _vm.toString(_configHash),
@@ -415,7 +441,10 @@ library PrimitivesRPC {
   // utils
   // ----------------------------------------------------------------
 
-  function _toJson(Vm _vm, address[] memory _addresses) internal pure returns (string memory) {
+  function _toJson(
+    Vm _vm,
+    address[] memory _addresses
+  ) internal pure returns (string memory) {
     if (_addresses.length == 0) {
       return "[]";
     }
@@ -430,7 +459,10 @@ library PrimitivesRPC {
   }
 
   // For lists of strings
-  function _toJson(Vm, string[] memory _strings) internal pure returns (string memory) {
+  function _toJson(
+    Vm,
+    string[] memory _strings
+  ) internal pure returns (string memory) {
     if (_strings.length == 0) {
       return "[]";
     }
@@ -445,7 +477,10 @@ library PrimitivesRPC {
   }
 
   // For lists of JSONified strings
-  function _toJsonUnwrapped(Vm, string[] memory _strings) internal pure returns (string memory) {
+  function _toJsonUnwrapped(
+    Vm,
+    string[] memory _strings
+  ) internal pure returns (string memory) {
     if (_strings.length == 0) {
       return "[]";
     }
@@ -463,25 +498,38 @@ library PrimitivesRPC {
   // recovery
   // ----------------------------------------------------------------
 
-  function recoveryHashFromLeaves(Vm _vm, string memory leaves) internal returns (bytes32) {
+  function recoveryHashFromLeaves(
+    Vm _vm,
+    string memory leaves
+  ) internal returns (bytes32) {
     string memory params = string.concat('{"leaves":"', leaves, '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "recovery_hashFromLeaves", params);
     return abi.decode(rawResponse, (bytes32));
   }
 
-  function recoveryEncode(Vm _vm, string memory leaves) internal returns (bytes memory) {
+  function recoveryEncode(
+    Vm _vm,
+    string memory leaves
+  ) internal returns (bytes memory) {
     string memory params = string.concat('{"leaves":"', leaves, '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "recovery_encode", params);
     return rawResponse;
   }
 
-  function recoveryTrim(Vm _vm, string memory leaves, address signer) internal returns (bytes memory) {
+  function recoveryTrim(
+    Vm _vm,
+    string memory leaves,
+    address signer
+  ) internal returns (bytes memory) {
     string memory params = string.concat('{"leaves":"', leaves, '","signer":"', _vm.toString(signer), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "recovery_trim", params);
     return rawResponse;
   }
 
-  function recoveryHashEncoded(Vm _vm, bytes memory encoded) internal returns (bytes32) {
+  function recoveryHashEncoded(
+    Vm _vm,
+    bytes memory encoded
+  ) internal returns (bytes32) {
     string memory params = string.concat('{"encoded":"', _vm.toString(encoded), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "recovery_hashEncoded", params);
     return abi.decode(rawResponse, (bytes32));
@@ -531,13 +579,19 @@ library PrimitivesRPC {
     return rawResponse;
   }
 
-  function passkeysDecodeSignature(Vm _vm, bytes memory _encodedSignature) internal returns (string memory) {
+  function passkeysDecodeSignature(
+    Vm _vm,
+    bytes memory _encodedSignature
+  ) internal returns (string memory) {
     string memory params = string.concat('{"encodedSignature":"', _vm.toString(_encodedSignature), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "passkeys_decodeSignature", params);
     return string(rawResponse);
   }
 
-  function passkeysComputeRoot(Vm _vm, PasskeyPublicKey memory _pk) internal returns (bytes32) {
+  function passkeysComputeRoot(
+    Vm _vm,
+    PasskeyPublicKey memory _pk
+  ) internal returns (bytes32) {
     string memory params = '{"x":"';
     params = string.concat(params, _vm.toString(_pk.x));
     params = string.concat(params, '","y":"', _vm.toString(_pk.y));

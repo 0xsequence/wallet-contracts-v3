@@ -37,7 +37,10 @@ contract Recovery is ISapientCompact {
   /// @notice Error thrown when the signature flag is invalid
   error InvalidSignatureFlag(uint256 _flag);
 
-  function domainSeparator(bool _noChainId, address _wallet) internal view returns (bytes32 _domainSeparator) {
+  function domainSeparator(
+    bool _noChainId,
+    address _wallet
+  ) internal view returns (bytes32 _domainSeparator) {
     return keccak256(
       abi.encode(
         EIP712_DOMAIN_TYPEHASH,
@@ -61,7 +64,10 @@ contract Recovery is ISapientCompact {
   /// @param _wallet The wallet to get the total number of queued payloads for
   /// @param _signer The signer to get the total number of queued payloads for
   /// @return The total number of queued payloads
-  function totalQueuedPayloads(address _wallet, address _signer) public view returns (uint256) {
+  function totalQueuedPayloads(
+    address _wallet,
+    address _signer
+  ) public view returns (uint256) {
     return queuedPayloadHashes[_wallet][_signer].length;
   }
 
@@ -140,7 +146,10 @@ contract Recovery is ISapientCompact {
   /// @param _wallet The wallet to get the recovery payload hash for
   /// @param _payload The payload to get the recovery payload hash for
   /// @return The recovery payload hash
-  function recoveryPayloadHash(address _wallet, Payload.Decoded calldata _payload) public view returns (bytes32) {
+  function recoveryPayloadHash(
+    address _wallet,
+    Payload.Decoded calldata _payload
+  ) public view returns (bytes32) {
     bytes32 domain = domainSeparator(_payload.noChainId, _wallet);
     bytes32 structHash = Payload.toEIP712(_payload);
     return keccak256(abi.encodePacked("\x19\x01", domain, structHash));

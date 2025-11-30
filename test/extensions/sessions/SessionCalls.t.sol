@@ -14,7 +14,10 @@ import { SessionManager } from "src/extensions/sessions/SessionManager.sol";
 import { SessionSig } from "src/extensions/sessions/SessionSig.sol";
 import { SessionPermissions } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import {
-  ParameterOperation, ParameterRule, Permission, UsageLimit
+  ParameterOperation,
+  ParameterRule,
+  Permission,
+  UsageLimit
 } from "src/extensions/sessions/explicit/Permission.sol";
 import { Attestation, LibAttestation } from "src/extensions/sessions/implicit/Attestation.sol";
 import { Calls } from "src/modules/Calls.sol";
@@ -41,7 +44,10 @@ contract SessionCallsTest is SessionTestBase {
     target = new MockContract();
   }
 
-  function _validCall(Payload.Call memory call, bool callRevert) internal view returns (Payload.Call memory) {
+  function _validCall(
+    Payload.Call memory call,
+    bool callRevert
+  ) internal view returns (Payload.Call memory) {
     call.to = address(target);
     call.behaviorOnError = bound(call.behaviorOnError, 0, 2);
     call.value = bound(call.value, 0, 1 ether);
@@ -88,7 +94,7 @@ contract SessionCallsTest is SessionTestBase {
       delegateCall: false,
       onlyFallback: false, // Must not be a fallback
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR // Must revert on error
-     });
+    });
 
     // Create the valid explicit session
     string memory topology = PrimitivesRPC.sessionEmpty(vm, identityWallet.addr);

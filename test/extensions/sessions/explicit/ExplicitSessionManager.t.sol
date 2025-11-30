@@ -9,7 +9,10 @@ import { ExplicitSessionManager } from "src/extensions/sessions/explicit/Explici
 import { IExplicitSessionManager } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import { SessionPermissions, SessionUsageLimits } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import {
-  ParameterOperation, ParameterRule, Permission, UsageLimit
+  ParameterOperation,
+  ParameterRule,
+  Permission,
+  UsageLimit
 } from "src/extensions/sessions/explicit/Permission.sol";
 import { Payload } from "src/modules/Payload.sol";
 
@@ -67,11 +70,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Allow calls to the target if the selector matches..
     perms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](1) });
     perms.permissions[0].rules[0] = ParameterRule({
-      cumulative: false,
-      operation: ParameterOperation.EQUAL,
-      value: bytes32(selector),
-      offset: 0,
-      mask: SELECTOR_MASK
+      cumulative: false, operation: ParameterOperation.EQUAL, value: bytes32(selector), offset: 0, mask: SELECTOR_MASK
     });
 
     // Prepare initial session usage limits.
@@ -133,11 +132,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Allow calls to the target if the selector matches..
     perms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](1) });
     perms.permissions[0].rules[0] = ParameterRule({
-      cumulative: false,
-      operation: ParameterOperation.EQUAL,
-      value: bytes32(selector),
-      offset: 0,
-      mask: SELECTOR_MASK
+      cumulative: false, operation: ParameterOperation.EQUAL, value: bytes32(selector), offset: 0, mask: SELECTOR_MASK
     });
 
     // Prepare initial session usage limits.
@@ -528,7 +523,10 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     harness.validateLimitUsageIncrement(incCall, usageArr);
   }
 
-  function test_validateLimitUsageIncrement_RuleAndValue(UsageLimit memory limit, uint256 value) public view {
+  function test_validateLimitUsageIncrement_RuleAndValue(
+    UsageLimit memory limit,
+    uint256 value
+  ) public view {
     limit.usageAmount = bound(limit.usageAmount, 1, type(uint256).max);
     value = bound(value, 1, type(uint256).max);
 
@@ -576,7 +574,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       delegateCall: false,
       onlyFallback: false,
       behaviorOnError: 0 // not the expected Payload.BEHAVIOR_REVERT_ON_ERROR
-     });
+    });
 
     SessionUsageLimits memory usage;
     usage.signer = sessionWallet.addr;
@@ -816,8 +814,7 @@ contract ExplicitSessionManagerTest is SessionTestBase {
     // Increment usage limit after first call
     UsageLimit[] memory limits = new UsageLimit[](1);
     limits[0] = UsageLimit({
-      usageHash: keccak256(abi.encode(sessionWallet.addr, VALUE_TRACKING_ADDRESS)),
-      usageAmount: firstValue
+      usageHash: keccak256(abi.encode(sessionWallet.addr, VALUE_TRACKING_ADDRESS)), usageAmount: firstValue
     });
     vm.prank(wallet);
     harness.incrementUsageLimit(limits);

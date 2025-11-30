@@ -46,7 +46,11 @@ contract Estimator is Stage2Module {
     return startingGas - gasleft();
   }
 
-  function _estimate(uint256 _startingGas, bytes32 _opHash, Payload.Decoded memory _decoded) private {
+  function _estimate(
+    uint256 _startingGas,
+    bytes32 _opHash,
+    Payload.Decoded memory _decoded
+  ) private {
     bool errorFlag = false;
 
     uint256 numCalls = _decoded.calls.length;

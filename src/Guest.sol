@@ -22,7 +22,10 @@ contract Guest {
     _dispatchGuest(decoded, opHash);
   }
 
-  function _dispatchGuest(Payload.Decoded memory _decoded, bytes32 _opHash) internal {
+  function _dispatchGuest(
+    Payload.Decoded memory _decoded,
+    bytes32 _opHash
+  ) internal {
     bool errorFlag = false;
 
     uint256 numCalls = _decoded.calls.length;

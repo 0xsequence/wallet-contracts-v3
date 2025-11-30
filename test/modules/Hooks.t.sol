@@ -2,7 +2,13 @@
 pragma solidity ^0.8.27;
 
 import { Factory } from "../../src/Factory.sol";
-import { Hooks, IERC1155Receiver, IERC223Receiver, IERC721Receiver, IERC777Receiver } from "../../src/modules/Hooks.sol";
+import {
+  Hooks,
+  IERC1155Receiver,
+  IERC223Receiver,
+  IERC721Receiver,
+  IERC777Receiver
+} from "../../src/modules/Hooks.sol";
 import { SelfAuth } from "../../src/modules/auth/SelfAuth.sol";
 
 import { AdvTest } from "../utils/TestUtils.sol";
@@ -101,7 +107,12 @@ contract HooksTest is AdvTest {
   }
 
   // ERC721 Receiver Tests
-  function test_onERC721Received(address _from, address _to, uint256 _tokenId, bytes calldata _data) external view {
+  function test_onERC721Received(
+    address _from,
+    address _to,
+    uint256 _tokenId,
+    bytes calldata _data
+  ) external view {
     bytes4 selector = IERC721Receiver.onERC721Received.selector;
     assertEq(selector, bytes4(keccak256("onERC721Received(address,address,uint256,bytes)")));
     bytes4 returnValue = hooks.onERC721Received(_from, _to, _tokenId, _data);
@@ -109,7 +120,11 @@ contract HooksTest is AdvTest {
   }
 
   // ERC223 Receiver Tests
-  function test_tokenReceived(address _from, uint256 _value, bytes calldata _data) external view {
+  function test_tokenReceived(
+    address _from,
+    uint256 _value,
+    bytes calldata _data
+  ) external view {
     bytes4 selector = IERC223Receiver.tokenReceived.selector;
     assertEq(selector, bytes4(keccak256("tokenReceived(address,uint256,bytes)")));
     bytes4 returnValue = hooks.tokenReceived(_from, _value, _data);

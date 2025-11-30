@@ -57,7 +57,11 @@ contract PayloadTest is AdvTest {
     payloadImp = new PayloadImp();
   }
 
-  function test_fromPackedCalls(Payload.Call[] memory _calls, uint256 _space, uint256 _nonce) external {
+  function test_fromPackedCalls(
+    Payload.Call[] memory _calls,
+    uint256 _space,
+    uint256 _nonce
+  ) external {
     // Convert nonce into legal range
     _nonce = bound(_nonce, 0, type(uint56).max);
     _space = bound(_space, 0, type(uint160).max);
@@ -138,7 +142,10 @@ contract PayloadTest is AdvTest {
     assertEq(abi.encode(input), abi.encode(output));
   }
 
-  function test_fromPackedCalls_2bytes_paddedFails(Payload.Call memory _call, bytes memory padding) external {
+  function test_fromPackedCalls_2bytes_paddedFails(
+    Payload.Call memory _call,
+    bytes memory padding
+  ) external {
     vm.assume(padding.length > 0);
     // Convert behaviors into legal ones
     _call.behaviorOnError =
@@ -225,7 +232,10 @@ contract PayloadTest is AdvTest {
   //   assertEq(contractHash, payloadHash);
   // }
 
-  function test_hash_kindMessage(bytes calldata _message, address[] memory _parents) external {
+  function test_hash_kindMessage(
+    bytes calldata _message,
+    address[] memory _parents
+  ) external {
     Payload.Decoded memory _payload;
     _payload.kind = Payload.KIND_MESSAGE;
     _payload.message = _message;
@@ -235,7 +245,11 @@ contract PayloadTest is AdvTest {
     assertEq(contractHash, payloadHash);
   }
 
-  function test_hashFor_kindMessage(bytes calldata _message, address[] memory _parents, address _wallet) external {
+  function test_hashFor_kindMessage(
+    bytes calldata _message,
+    address[] memory _parents,
+    address _wallet
+  ) external {
     Payload.Decoded memory _payload;
     _payload.kind = Payload.KIND_MESSAGE;
     _payload.message = _message;
@@ -245,7 +259,10 @@ contract PayloadTest is AdvTest {
     assertEq(contractHash, payloadHash);
   }
 
-  function test_hash_kindMessage_as_digest(bytes calldata _message, address[] memory _parents) external {
+  function test_hash_kindMessage_as_digest(
+    bytes calldata _message,
+    address[] memory _parents
+  ) external {
     bytes32 digest = keccak256(_message);
     Payload.Decoded memory _payloadDigest;
     _payloadDigest.kind = Payload.KIND_DIGEST;
@@ -280,7 +297,10 @@ contract PayloadTest is AdvTest {
     assertEq(contractHashDigest, payloadHashMessage);
   }
 
-  function test_hash_kindConfigUpdate(bytes32 _imageHash, address[] memory _parents) external {
+  function test_hash_kindConfigUpdate(
+    bytes32 _imageHash,
+    address[] memory _parents
+  ) external {
     Payload.Decoded memory _payload;
     _payload.kind = Payload.KIND_CONFIG_UPDATE;
     _payload.imageHash = _imageHash;
@@ -290,7 +310,11 @@ contract PayloadTest is AdvTest {
     assertEq(contractHash, payloadHash);
   }
 
-  function test_hashFor_kindConfigUpdate(bytes32 _imageHash, address[] memory _parents, address _wallet) external {
+  function test_hashFor_kindConfigUpdate(
+    bytes32 _imageHash,
+    address[] memory _parents,
+    address _wallet
+  ) external {
     Payload.Decoded memory _payload;
     _payload.kind = Payload.KIND_CONFIG_UPDATE;
     _payload.imageHash = _imageHash;

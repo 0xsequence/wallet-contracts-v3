@@ -15,7 +15,10 @@ interface IERC1271 {
   /// @param _hash keccak256 hash that was signed
   /// @param _signature Signature byte array associated with _data
   /// @return magicValue Magic value 0x1626ba7e if the signature is valid and 0x0 otherwise
-  function isValidSignature(bytes32 _hash, bytes calldata _signature) external view returns (bytes4 magicValue);
+  function isValidSignature(
+    bytes32 _hash,
+    bytes calldata _signature
+  ) external view returns (bytes4 magicValue);
 
 }
 
@@ -30,6 +33,9 @@ interface IERC1271Data {
   /// @param _data Data that was signed
   /// @param _signature Signature byte array associated with _data
   /// @return magicValue Magic value 0x20c13b0b if the signature is valid and 0x0 otherwise
-  function isValidSignature(bytes calldata _data, bytes calldata _signature) external view returns (bytes4 magicValue);
+  function isValidSignature(
+    bytes calldata _data,
+    bytes calldata _signature
+  ) external view returns (bytes4 magicValue);
 
 }

@@ -14,7 +14,10 @@ import { SessionManager } from "src/extensions/sessions/SessionManager.sol";
 import { SessionSig } from "src/extensions/sessions/SessionSig.sol";
 import { SessionPermissions } from "src/extensions/sessions/explicit/IExplicitSessionManager.sol";
 import {
-  ParameterOperation, ParameterRule, Permission, UsageLimit
+  ParameterOperation,
+  ParameterRule,
+  Permission,
+  UsageLimit
 } from "src/extensions/sessions/explicit/Permission.sol";
 import { Attestation, LibAttestation } from "src/extensions/sessions/implicit/Attestation.sol";
 import { Payload } from "src/modules/Payload.sol";
@@ -122,8 +125,9 @@ contract SessionManagerTest is SessionTestBase {
         usageHash: keccak256(abi.encode(sessionWallet.addr, sessionPerms.permissions[0], uint256(1))),
         usageAmount: param
       });
-      limits[1] =
-        UsageLimit({ usageHash: keccak256(abi.encode(sessionWallet.addr, VALUE_TRACKING_ADDRESS)), usageAmount: value });
+      limits[1] = UsageLimit({
+        usageHash: keccak256(abi.encode(sessionWallet.addr, VALUE_TRACKING_ADDRESS)), usageAmount: value
+      });
       payload.calls[0] = Payload.Call({
         to: address(sessionManager),
         value: 0,
@@ -153,8 +157,7 @@ contract SessionManagerTest is SessionTestBase {
     address explicitTarget2,
     bool useChainId
   ) public {
-    (bytes32 imageHash, Payload.Decoded memory payload, bytes memory encodedSig) =
-    _prepareTestValidExplicitSessionSignature(
+    (bytes32 imageHash, Payload.Decoded memory payload, bytes memory encodedSig) = _prepareTestValidExplicitSessionSignature(
       wallet, selector, param, value, explicitTarget, explicitTarget2, useChainId
     );
 
@@ -176,8 +179,7 @@ contract SessionManagerTest is SessionTestBase {
   ) public {
     vm.assume(padding.length > 0);
 
-    (bytes32 imageHash, Payload.Decoded memory payload, bytes memory encodedSig) =
-    _prepareTestValidExplicitSessionSignature(
+    (bytes32 imageHash, Payload.Decoded memory payload, bytes memory encodedSig) = _prepareTestValidExplicitSessionSignature(
       wallet, selector, param, value, explicitTarget, explicitTarget2, useChainId
     );
 
@@ -724,7 +726,10 @@ contract SessionManagerTest is SessionTestBase {
     sessionManager.recoverSapientSignature(payload, sig);
   }
 
-  function testInvalidSpaceReverts(uint160 space, bytes memory sig) public {
+  function testInvalidSpaceReverts(
+    uint160 space,
+    bytes memory sig
+  ) public {
     space = uint160(bound(space, sessionManager.MAX_SPACE() + 1, type(uint160).max));
 
     Payload.Decoded memory payload;
@@ -767,7 +772,10 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Valid implicit session test.
-  function testValidImplicitSessionSignature(address wallet, Attestation memory attestation) public {
+  function testValidImplicitSessionSignature(
+    address wallet,
+    Attestation memory attestation
+  ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
     attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
@@ -816,7 +824,11 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Test that calls with BEHAVIOR_ABORT_ON_ERROR will revert with InvalidBehavior
-  function testBehaviorAbortOnErrorCallsRevert(address wallet, address target, bytes memory data) public {
+  function testBehaviorAbortOnErrorCallsRevert(
+    address wallet,
+    address target,
+    bytes memory data
+  ) public {
     vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
@@ -832,7 +844,7 @@ contract SessionManagerTest is SessionTestBase {
       delegateCall: false,
       onlyFallback: false,
       behaviorOnError: Payload.BEHAVIOR_ABORT_ON_ERROR // This should revert
-     });
+    });
 
     (, bytes memory encodedSig) = _validImplicitSessionSignature(wallet, payload);
 
@@ -842,7 +854,11 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Test that calls with onlyFallback = true in explicit sessions are allowed
-  function testExplicitSessionOnlyFallbackAllowed(address wallet, address target, bytes memory data) public {
+  function testExplicitSessionOnlyFallbackAllowed(
+    address wallet,
+    address target,
+    bytes memory data
+  ) public {
     vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
@@ -884,7 +900,11 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Test that the increment call cannot have onlyFallback = true
-  function testIncrementCallOnlyFallbackReverts(address wallet, address target, bytes memory data) public {
+  function testIncrementCallOnlyFallbackReverts(
+    address wallet,
+    address target,
+    bytes memory data
+  ) public {
     vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
@@ -937,7 +957,11 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Test that calls with BEHAVIOR_IGNORE_ERROR in explicit sessions are allowed
-  function testExplicitSessionBehaviorIgnoreErrorAllowed(address wallet, address target, bytes memory data) public {
+  function testExplicitSessionBehaviorIgnoreErrorAllowed(
+    address wallet,
+    address target,
+    bytes memory data
+  ) public {
     vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
@@ -974,7 +998,11 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Test that calls with BEHAVIOR_ABORT_ON_ERROR in explicit sessions revert
-  function testExplicitSessionBehaviorAbortOnErrorReverts(address wallet, address target, bytes memory data) public {
+  function testExplicitSessionBehaviorAbortOnErrorReverts(
+    address wallet,
+    address target,
+    bytes memory data
+  ) public {
     vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
@@ -990,7 +1018,7 @@ contract SessionManagerTest is SessionTestBase {
       delegateCall: false,
       onlyFallback: false,
       behaviorOnError: Payload.BEHAVIOR_ABORT_ON_ERROR // This should revert
-     });
+    });
 
     // Session permissions
     SessionPermissions memory sessionPerms = SessionPermissions({
@@ -1010,7 +1038,11 @@ contract SessionManagerTest is SessionTestBase {
   }
 
   /// @notice Test that valid linear execution still works
-  function testValidLinearExecution(address wallet, address target, bytes memory data) public {
+  function testValidLinearExecution(
+    address wallet,
+    address target,
+    bytes memory data
+  ) public {
     vm.assume(target != wallet);
     vm.assume(target != address(sessionManager));
     vm.assume(target != address(sessionWallet.addr));
@@ -1026,7 +1058,7 @@ contract SessionManagerTest is SessionTestBase {
       delegateCall: false,
       onlyFallback: false,
       behaviorOnError: Payload.BEHAVIOR_REVERT_ON_ERROR // Valid behavior
-     });
+    });
 
     // Session permissions
     SessionPermissions memory sessionPerms = SessionPermissions({

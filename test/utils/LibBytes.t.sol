@@ -13,15 +13,24 @@ contract LibBytesImp {
     return LibBytes.readFirstUint8(data);
   }
 
-  function readUint8(bytes calldata data, uint256 index) external pure returns (uint8 a, uint256 newPointer) {
+  function readUint8(
+    bytes calldata data,
+    uint256 index
+  ) external pure returns (uint8 a, uint256 newPointer) {
     return LibBytes.readUint8(data, index);
   }
 
-  function readAddress(bytes calldata data, uint256 index) external pure returns (address a, uint256 newPointer) {
+  function readAddress(
+    bytes calldata data,
+    uint256 index
+  ) external pure returns (address a, uint256 newPointer) {
     return LibBytes.readAddress(data, index);
   }
 
-  function readUint16(bytes calldata data, uint256 index) external pure returns (uint16 a, uint256 newPointer) {
+  function readUint16(
+    bytes calldata data,
+    uint256 index
+  ) external pure returns (uint16 a, uint256 newPointer) {
     return LibBytes.readUint16(data, index);
   }
 
@@ -33,27 +42,45 @@ contract LibBytesImp {
     return LibBytes.readUintX(data, index, length);
   }
 
-  function readUint24(bytes calldata data, uint256 index) external pure returns (uint24 a, uint256 newPointer) {
+  function readUint24(
+    bytes calldata data,
+    uint256 index
+  ) external pure returns (uint24 a, uint256 newPointer) {
     return LibBytes.readUint24(data, index);
   }
 
-  function readUint64(bytes calldata data, uint256 index) external pure returns (uint64 a, uint256 newPointer) {
+  function readUint64(
+    bytes calldata data,
+    uint256 index
+  ) external pure returns (uint64 a, uint256 newPointer) {
     return LibBytes.readUint64(data, index);
   }
 
-  function readBytes4(bytes calldata data, uint256 pointer) external pure returns (bytes4 a, uint256 newPointer) {
+  function readBytes4(
+    bytes calldata data,
+    uint256 pointer
+  ) external pure returns (bytes4 a, uint256 newPointer) {
     return LibBytes.readBytes4(data, pointer);
   }
 
-  function readBytes32(bytes calldata data, uint256 pointer) external pure returns (bytes32 a, uint256 newPointer) {
+  function readBytes32(
+    bytes calldata data,
+    uint256 pointer
+  ) external pure returns (bytes32 a, uint256 newPointer) {
     return LibBytes.readBytes32(data, pointer);
   }
 
-  function readUint256(bytes calldata data, uint256 index) external pure returns (uint256 a, uint256 newPointer) {
+  function readUint256(
+    bytes calldata data,
+    uint256 index
+  ) external pure returns (uint256 a, uint256 newPointer) {
     return LibBytes.readUint256(data, index);
   }
 
-  function readUint160(bytes calldata data, uint256 index) external pure returns (uint160 a, uint256 newPointer) {
+  function readUint160(
+    bytes calldata data,
+    uint256 index
+  ) external pure returns (uint160 a, uint256 newPointer) {
     return LibBytes.readUint160(data, index);
   }
 
@@ -84,7 +111,11 @@ contract LibBytesTest is AdvTest {
     assertEq(newPointer, 1);
   }
 
-  function test_readUint8(bytes calldata prefix, uint8 value, bytes calldata suffix) external view {
+  function test_readUint8(
+    bytes calldata prefix,
+    uint8 value,
+    bytes calldata suffix
+  ) external view {
     bytes memory fullData = bytes.concat(prefix, abi.encodePacked(value), suffix);
     uint256 index = prefix.length;
     (uint8 result, uint256 newPointer) = bytesImp.readUint8(fullData, index);
@@ -92,7 +123,11 @@ contract LibBytesTest is AdvTest {
     assertEq(newPointer, index + 1);
   }
 
-  function test_readAddress(bytes calldata prefix, address value, bytes calldata suffix) external view {
+  function test_readAddress(
+    bytes calldata prefix,
+    address value,
+    bytes calldata suffix
+  ) external view {
     bytes memory fullData = bytes.concat(prefix, abi.encodePacked(value), suffix);
     uint256 index = prefix.length;
     (address result, uint256 newPointer) = bytesImp.readAddress(fullData, index);
@@ -100,7 +135,11 @@ contract LibBytesTest is AdvTest {
     assertEq(newPointer, index + 20);
   }
 
-  function test_readUint16(bytes calldata prefix, uint16 value, bytes calldata suffix) external view {
+  function test_readUint16(
+    bytes calldata prefix,
+    uint16 value,
+    bytes calldata suffix
+  ) external view {
     bytes memory fullData = bytes.concat(prefix, abi.encodePacked(value), suffix);
     uint256 index = prefix.length;
     (uint16 result, uint256 newPointer) = bytesImp.readUint16(fullData, index);
@@ -108,7 +147,12 @@ contract LibBytesTest is AdvTest {
     assertEq(newPointer, index + 2);
   }
 
-  function test_readUintX(bytes calldata prefix, uint256 value, uint256 length, bytes calldata suffix) external view {
+  function test_readUintX(
+    bytes calldata prefix,
+    uint256 value,
+    uint256 length,
+    bytes calldata suffix
+  ) external view {
     length = bound(length, 0, 32);
 
     uint256 mask = length == 32 ? type(uint256).max : ((1 << (length * 8)) - 1);
@@ -189,7 +233,11 @@ contract LibBytesTest is AdvTest {
     assertEq(newPointer, index + length);
   }
 
-  function test_readUint24(bytes calldata prefix, uint24 value, bytes calldata suffix) external view {
+  function test_readUint24(
+    bytes calldata prefix,
+    uint24 value,
+    bytes calldata suffix
+  ) external view {
     bytes memory fullData = bytes.concat(prefix, abi.encodePacked(value), suffix);
     uint256 index = prefix.length;
     (uint24 result, uint256 newPointer) = bytesImp.readUint24(fullData, index);
@@ -197,7 +245,11 @@ contract LibBytesTest is AdvTest {
     assertEq(newPointer, index + 3);
   }
 
-  function test_readUint64(bytes calldata prefix, uint64 value, bytes calldata suffix) external view {
+  function test_readUint64(
+    bytes calldata prefix,
+    uint64 value,
+    bytes calldata suffix
+  ) external view {
     bytes memory fullData = bytes.concat(prefix, abi.encodePacked(value), suffix);
     uint256 index = prefix.length;
     (uint64 result, uint256 newPointer) = bytesImp.readUint64(fullData, index);
@@ -205,7 +257,11 @@ contract LibBytesTest is AdvTest {
     assertEq(newPointer, index + 8);
   }
 
-  function test_readBytes4(bytes calldata prefix, bytes4 value, bytes calldata suffix) external view {
+  function test_readBytes4(
+    bytes calldata prefix,
+    bytes4 value,
+    bytes calldata suffix
+  ) external view {
     bytes memory fullData = bytes.concat(prefix, abi.encodePacked(value), suffix);
     uint256 pointer = prefix.length;
     (bytes4 result, uint256 newPointer) = bytesImp.readBytes4(fullData, pointer);
@@ -213,7 +269,11 @@ contract LibBytesTest is AdvTest {
     assertEq(newPointer, pointer + 4);
   }
 
-  function test_readBytes32(bytes calldata prefix, bytes32 value, bytes calldata suffix) external view {
+  function test_readBytes32(
+    bytes calldata prefix,
+    bytes32 value,
+    bytes calldata suffix
+  ) external view {
     bytes memory fullData = bytes.concat(prefix, abi.encodePacked(value), suffix);
     uint256 pointer = prefix.length;
     (bytes32 result, uint256 newPointer) = bytesImp.readBytes32(fullData, pointer);
@@ -221,7 +281,11 @@ contract LibBytesTest is AdvTest {
     assertEq(newPointer, pointer + 32);
   }
 
-  function test_readUint256(bytes calldata prefix, uint256 value, bytes calldata suffix) external view {
+  function test_readUint256(
+    bytes calldata prefix,
+    uint256 value,
+    bytes calldata suffix
+  ) external view {
     bytes memory fullData = bytes.concat(prefix, abi.encodePacked(value), suffix);
     uint256 index = prefix.length;
     (uint256 result, uint256 newPointer) = bytesImp.readUint256(fullData, index);
@@ -229,7 +293,11 @@ contract LibBytesTest is AdvTest {
     assertEq(newPointer, index + 32);
   }
 
-  function test_readUint160(bytes calldata prefix, uint160 value, bytes calldata suffix) external view {
+  function test_readUint160(
+    bytes calldata prefix,
+    uint160 value,
+    bytes calldata suffix
+  ) external view {
     bytes memory fullData = bytes.concat(prefix, abi.encodePacked(value), suffix);
     uint256 index = prefix.length;
     (uint160 result, uint256 newPointer) = bytesImp.readUint160(fullData, index);

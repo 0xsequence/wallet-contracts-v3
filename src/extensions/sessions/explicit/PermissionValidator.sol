@@ -22,7 +22,10 @@ abstract contract PermissionValidator {
   /// @param wallet The wallet address
   /// @param usageHash The usage hash
   /// @return The usage amount
-  function getLimitUsage(address wallet, bytes32 usageHash) public view returns (uint256) {
+  function getLimitUsage(
+    address wallet,
+    bytes32 usageHash
+  ) public view returns (uint256) {
     return limitUsage[wallet][usageHash];
   }
 
@@ -30,7 +33,11 @@ abstract contract PermissionValidator {
   /// @param wallet The wallet address
   /// @param usageHash The usage hash
   /// @param usageAmount The usage amount
-  function setLimitUsage(address wallet, bytes32 usageHash, uint256 usageAmount) internal {
+  function setLimitUsage(
+    address wallet,
+    bytes32 usageHash,
+    uint256 usageAmount
+  ) internal {
     limitUsage[wallet][usageHash] = usageAmount;
     emit LimitUsageUpdated(wallet, usageHash, usageAmount);
   }

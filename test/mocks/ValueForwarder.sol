@@ -6,7 +6,10 @@ pragma solidity ^0.8.27;
 /// @notice Forwarder for value
 contract ValueForwarder {
 
-  function forwardValue(address to, uint256 value) external payable {
+  function forwardValue(
+    address to,
+    uint256 value
+  ) external payable {
     (bool success,) = to.call{ value: value }("");
     require(success, "ValueForwarder: Failed to forward value");
   }

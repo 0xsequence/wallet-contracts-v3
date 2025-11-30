@@ -9,11 +9,17 @@ import { Vm } from "forge-std/Test.sol";
 
 contract NonceImp is Nonce {
 
-  function writeNonce(uint256 _space, uint256 _nonce) public {
+  function writeNonce(
+    uint256 _space,
+    uint256 _nonce
+  ) public {
     super._writeNonce(_space, _nonce);
   }
 
-  function consumeNonce(uint256 _space, uint256 _nonce) public {
+  function consumeNonce(
+    uint256 _space,
+    uint256 _nonce
+  ) public {
     super._consumeNonce(_space, _nonce);
   }
 
@@ -27,19 +33,29 @@ contract NonceTest is AdvTest {
     nonceImp = new NonceImp();
   }
 
-  function test_readNonce(uint256 _space, uint256 _nonce) public {
+  function test_readNonce(
+    uint256 _space,
+    uint256 _nonce
+  ) public {
     nonceImp.writeNonce(_space, _nonce);
     assertEq(nonceImp.readNonce(_space), _nonce);
   }
 
-  function test_consumeNonce(uint256 _space, uint256 _nonce) public {
+  function test_consumeNonce(
+    uint256 _space,
+    uint256 _nonce
+  ) public {
     vm.assume(_nonce < type(uint256).max - 1);
     nonceImp.writeNonce(_space, _nonce);
     nonceImp.consumeNonce(_space, _nonce);
     assertEq(nonceImp.readNonce(_space), _nonce + 1);
   }
 
-  function test_consumeNonce_revertWhenBadNonce(uint256 _space, uint256 _nonce, uint256 _badNonce) public {
+  function test_consumeNonce_revertWhenBadNonce(
+    uint256 _space,
+    uint256 _nonce,
+    uint256 _badNonce
+  ) public {
     vm.assume(_nonce < type(uint256).max - 1);
     vm.assume(_badNonce != _nonce);
     nonceImp.writeNonce(_space, _nonce);

@@ -13,7 +13,10 @@ library LibOptim {
    * @param _b The second 32 bytes of the hash.
    * @return c The keccak256 hash of the two 32-byte inputs.
    */
-  function fkeccak256(bytes32 _a, bytes32 _b) internal pure returns (bytes32 c) {
+  function fkeccak256(
+    bytes32 _a,
+    bytes32 _b
+  ) internal pure returns (bytes32 c) {
     assembly {
       mstore(0, _a)
       mstore(32, _b)
@@ -45,7 +48,12 @@ library LibOptim {
    * @param _data The data to send to the contract.
    * @return r The success status of the call.
    */
-  function call(address _to, uint256 _val, uint256 _gas, bytes memory _data) internal returns (bool r) {
+  function call(
+    address _to,
+    uint256 _val,
+    uint256 _gas,
+    bytes memory _data
+  ) internal returns (bool r) {
     assembly {
       r := call(_gas, _to, _val, add(_data, 32), mload(_data), 0, 0)
     }
@@ -59,7 +67,11 @@ library LibOptim {
    * @param _data The data to send to the contract.
    * @return r The success status of the call.
    */
-  function delegatecall(address _to, uint256 _gas, bytes memory _data) internal returns (bool r) {
+  function delegatecall(
+    address _to,
+    uint256 _gas,
+    bytes memory _data
+  ) internal returns (bool r) {
     assembly {
       r := delegatecall(_gas, _to, add(_data, 32), mload(_data), 0, 0)
     }

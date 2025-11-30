@@ -4,21 +4,31 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 
 import {
-  ParameterOperation, ParameterRule, Permission, UsageLimit
+  ParameterOperation,
+  ParameterRule,
+  Permission,
+  UsageLimit
 } from "src/extensions/sessions/explicit/Permission.sol";
 import { PermissionValidator } from "src/extensions/sessions/explicit/PermissionValidator.sol";
 import { Payload } from "src/modules/Payload.sol";
 
 contract PermissionValidatorHarness is PermissionValidator {
 
-  function incrementUsageLimit(address wallet, UsageLimit[] calldata limits) external {
+  function incrementUsageLimit(
+    address wallet,
+    UsageLimit[] calldata limits
+  ) external {
     for (uint256 i = 0; i < limits.length; i++) {
       uint256 current = getLimitUsage(wallet, limits[i].usageHash);
       setLimitUsage(wallet, limits[i].usageHash, current + limits[i].usageAmount);
     }
   }
 
-  function callSetLimitUsage(address wallet, bytes32 usageHash, uint256 usageAmount) public {
+  function callSetLimitUsage(
+    address wallet,
+    bytes32 usageHash,
+    uint256 usageAmount
+  ) public {
     setLimitUsage(wallet, usageHash, usageAmount);
   }
 
@@ -37,7 +47,11 @@ contract PermissionValidatorTest is Test {
     validator = new PermissionValidatorHarness();
   }
 
-  function test_LimitUsageUpdated(address wallet, bytes32 usageHash, uint256 usageAmount) public {
+  function test_LimitUsageUpdated(
+    address wallet,
+    bytes32 usageHash,
+    uint256 usageAmount
+  ) public {
     vm.expectEmit(true, true, true, true);
     emit PermissionValidator.LimitUsageUpdated(wallet, usageHash, usageAmount);
     validator.callSetLimitUsage(wallet, usageHash, usageAmount);
@@ -49,11 +63,7 @@ contract PermissionValidatorTest is Test {
   ) public view {
     Permission memory permission = Permission({ target: TARGET, rules: new ParameterRule[](1) });
     permission.rules[0] = ParameterRule({
-      cumulative: false,
-      operation: ParameterOperation.EQUAL,
-      value: bytes32(selector),
-      offset: 0,
-      mask: SELECTOR_MASK
+      cumulative: false, operation: ParameterOperation.EQUAL, value: bytes32(selector), offset: 0, mask: SELECTOR_MASK
     });
 
     // Create a matching call
@@ -78,7 +88,10 @@ contract PermissionValidatorTest is Test {
     assertFalse(success, "Permission validation should fail with non-matching selector");
   }
 
-  function test_validatePermission_Cumulative(uint256 value, uint256 limit) public {
+  function test_validatePermission_Cumulative(
+    uint256 value,
+    uint256 limit
+  ) public {
     limit = bound(limit, 0, type(uint256).max - 1);
     value = bound(value, 0, limit);
 
@@ -122,7 +135,10 @@ contract PermissionValidatorTest is Test {
     assertFalse(success, "Second call should fail as it would exceed limit");
   }
 
-  function test_validatePermission_GreaterThanOrEqual(uint256 threshold, uint256 testValue) public view {
+  function test_validatePermission_GreaterThanOrEqual(
+    uint256 threshold,
+    uint256 testValue
+  ) public view {
     Permission memory permission = Permission({ target: TARGET, rules: new ParameterRule[](1) });
     permission.rules[0] = ParameterRule({
       cumulative: false,
@@ -152,7 +168,10 @@ contract PermissionValidatorTest is Test {
     }
   }
 
-  function test_validatePermission_NotEqual(uint256 testValue, uint256 compareValue) public view {
+  function test_validatePermission_NotEqual(
+    uint256 testValue,
+    uint256 compareValue
+  ) public view {
     vm.assume(testValue != compareValue);
 
     Permission memory permission = Permission({ target: TARGET, rules: new ParameterRule[](1) });
@@ -226,11 +245,7 @@ contract PermissionValidatorTest is Test {
     bytes32 maskedValue = value & mask;
     Permission memory permission = Permission({ target: TARGET, rules: new ParameterRule[](1) });
     permission.rules[0] = ParameterRule({
-      cumulative: false,
-      operation: ParameterOperation.EQUAL,
-      value: maskedValue,
-      offset: offset,
-      mask: mask
+      cumulative: false, operation: ParameterOperation.EQUAL, value: maskedValue, offset: offset, mask: mask
     });
 
     Payload.Call memory call = Payload.Call({
@@ -314,7 +329,7 @@ contract PermissionValidatorTest is Test {
       value: value,
       offset: offset,
       mask: bytes32(type(uint256).max) // All bits mapped
-     });
+    });
 
     (bool success,) = validator.validatePermission(permission, call, TEST_WALLET, TEST_SIGNER, usageLimits);
     assertTrue(success, "Should succeed as overflowed calldata is treated as 0");

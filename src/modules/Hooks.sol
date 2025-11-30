@@ -37,7 +37,10 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, 
   /// @param selector The selector of the hook
   /// @param implementation The implementation address of the hook
   /// @dev Callable only by the contract itself
-  function addHook(bytes4 selector, address implementation) external payable onlySelf {
+  function addHook(
+    bytes4 selector,
+    address implementation
+  ) external payable onlySelf {
     if (_readHook(selector) != address(0)) {
       revert HookAlreadyExists(selector);
     }
@@ -62,13 +65,22 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, 
     return address(uint160(uint256(Storage.readBytes32Map(HOOKS_KEY, bytes32(selector)))));
   }
 
-  function _writeHook(bytes4 selector, address implementation) private {
+  function _writeHook(
+    bytes4 selector,
+    address implementation
+  ) private {
     Storage.writeBytes32Map(HOOKS_KEY, bytes32(selector), bytes32(uint256(uint160(implementation))));
     emit DefinedHook(selector, implementation);
   }
 
   /// @inheritdoc IERC1155Receiver
-  function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure returns (bytes4) {
+  function onERC1155Received(
+    address,
+    address,
+    uint256,
+    uint256,
+    bytes calldata
+  ) external pure returns (bytes4) {
     return Hooks.onERC1155Received.selector;
   }
 
@@ -94,12 +106,21 @@ contract Hooks is SelfAuth, IERC1155Receiver, IERC777Receiver, IERC721Receiver, 
   ) external { }
 
   /// @inheritdoc IERC721Receiver
-  function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+  function onERC721Received(
+    address,
+    address,
+    uint256,
+    bytes calldata
+  ) external pure returns (bytes4) {
     return Hooks.onERC721Received.selector;
   }
 
   /// @inheritdoc IERC223Receiver
-  function tokenReceived(address, uint256, bytes calldata) external pure returns (bytes4) {
+  function tokenReceived(
+    address,
+    uint256,
+    bytes calldata
+  ) external pure returns (bytes4) {
     return Hooks.tokenReceived.selector;
   }
 

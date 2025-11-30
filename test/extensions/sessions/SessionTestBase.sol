@@ -20,7 +20,10 @@ abstract contract SessionTestBase is AdvTest {
 
   address internal constant VALUE_TRACKING_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-  function _signAndEncodeRSV(bytes32 hash, Vm.Wallet memory wallet) internal pure returns (string memory) {
+  function _signAndEncodeRSV(
+    bytes32 hash,
+    Vm.Wallet memory wallet
+  ) internal pure returns (string memory) {
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(wallet.privateKey, hash);
     return string(abi.encodePacked(vm.toString(r), ":", vm.toString(s), ":", vm.toString(v)));
   }
@@ -163,20 +166,12 @@ abstract contract SessionTestBase is AdvTest {
     address signer
   ) internal pure returns (SessionPermissions memory) {
     SessionPermissions memory sessionPerms = SessionPermissions({
-      signer: signer,
-      chainId: chainId,
-      valueLimit: valueLimit,
-      deadline: deadline,
-      permissions: new Permission[](1)
+      signer: signer, chainId: chainId, valueLimit: valueLimit, deadline: deadline, permissions: new Permission[](1)
     });
 
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](1) });
     sessionPerms.permissions[0].rules[0] = ParameterRule({
-      cumulative: false,
-      operation: ParameterOperation.EQUAL,
-      value: bytes32(0),
-      offset: 0,
-      mask: bytes32(0)
+      cumulative: false, operation: ParameterOperation.EQUAL, value: bytes32(0), offset: 0, mask: bytes32(0)
     });
 
     return sessionPerms;

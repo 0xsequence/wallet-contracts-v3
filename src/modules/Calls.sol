@@ -33,7 +33,10 @@ abstract contract Calls is ReentrancyGuard, BaseAuth, Nonce {
   /// @notice Execute a call
   /// @param _payload The payload
   /// @param _signature The signature
-  function execute(bytes calldata _payload, bytes calldata _signature) external payable virtual nonReentrant {
+  function execute(
+    bytes calldata _payload,
+    bytes calldata _signature
+  ) external payable virtual nonReentrant {
     uint256 startingGas = gasleft();
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
 
@@ -59,7 +62,11 @@ abstract contract Calls is ReentrancyGuard, BaseAuth, Nonce {
     _execute(startingGas, opHash, decoded);
   }
 
-  function _execute(uint256 _startingGas, bytes32 _opHash, Payload.Decoded memory _decoded) private {
+  function _execute(
+    uint256 _startingGas,
+    bytes32 _opHash,
+    Payload.Decoded memory _decoded
+  ) private {
     bool errorFlag = false;
 
     uint256 numCalls = _decoded.calls.length;

@@ -50,7 +50,10 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     });
   }
 
-  function test_validImplicitCall(Attestation memory attestation, address[] memory blacklist) public view {
+  function test_validImplicitCall(
+    Attestation memory attestation,
+    address[] memory blacklist
+  ) public view {
     // Ensure the blacklist doesn't contain the signer or call target
     for (uint256 i = 0; i < blacklist.length; i++) {
       vm.assume(blacklist[i] != sessionWallet.addr);
@@ -149,7 +152,10 @@ contract ImplicitSessionManagerTest is SessionTestBase {
     sessionManager.validateImplicitCall(call, wallet, sessionWallet.addr, attestation, emptyBlacklist);
   }
 
-  function test_nonZeroValueNotAllowed(Attestation memory attestation, uint256 nonZeroValue) public {
+  function test_nonZeroValueNotAllowed(
+    Attestation memory attestation,
+    uint256 nonZeroValue
+  ) public {
     vm.assume(nonZeroValue > 0);
     attestation.approvedSigner = sessionWallet.addr;
     Payload.Call memory call =
@@ -214,7 +220,10 @@ contract ImplicitSessionManagerHarness is ImplicitSessionManager {
   }
 
   /// @notice Exposes the internal _isAddressBlacklisted function.
-  function isAddressBlacklisted(address target, address[] memory blacklist) public pure returns (bool) {
+  function isAddressBlacklisted(
+    address target,
+    address[] memory blacklist
+  ) public pure returns (bool) {
     return _isAddressBlacklisted(target, blacklist);
   }
 

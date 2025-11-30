@@ -90,7 +90,10 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testSingleExplicitSignature(address wallet, bool useChainId) public {
+  function testSingleExplicitSignature(
+    address wallet,
+    bool useChainId
+  ) public {
     Payload.Decoded memory payload = _buildPayload(1);
     {
       payload.calls[0] = Payload.Call({
@@ -113,11 +116,7 @@ contract SessionSigTest is SessionTestBase {
     {
       sessionPerms.permissions[0] = Permission({ target: address(0xBEEF), rules: new ParameterRule[](1) });
       sessionPerms.permissions[0].rules[0] = ParameterRule({
-        cumulative: false,
-        operation: ParameterOperation.EQUAL,
-        value: bytes32(0),
-        offset: 0,
-        mask: bytes32(0)
+        cumulative: false, operation: ParameterOperation.EQUAL, value: bytes32(0), offset: 0, mask: bytes32(0)
       });
     }
 
@@ -166,7 +165,10 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testSingleImplicitSignature(address wallet, Attestation memory attestation) public {
+  function testSingleImplicitSignature(
+    address wallet,
+    Attestation memory attestation
+  ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
     attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
@@ -221,7 +223,10 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testMultipleImplicitSignatures(address wallet, Attestation memory attestation) public {
+  function testMultipleImplicitSignatures(
+    address wallet,
+    Attestation memory attestation
+  ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
     attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
@@ -288,7 +293,10 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testMultipleExplicitSignatures(address wallet, bool useChainId) public {
+  function testMultipleExplicitSignatures(
+    address wallet,
+    bool useChainId
+  ) public {
     // Create a second session wallet
     Vm.Wallet memory sessionWallet2 = vm.createWallet("session2");
 
@@ -392,7 +400,10 @@ contract SessionSigTest is SessionTestBase {
     }
   }
 
-  function testRecover_invalidSessionSigner(address wallet, bool useChainId) public {
+  function testRecover_invalidSessionSigner(
+    address wallet,
+    bool useChainId
+  ) public {
     Payload.Decoded memory payload = _buildPayload(1);
     {
       payload.calls[0] = Payload.Call({
@@ -509,7 +520,10 @@ contract SessionSigTest is SessionTestBase {
     harness.recover(wallet, payload, encoded);
   }
 
-  function testRecover_invalidIdentitySigner_noSignersEncoded(address wallet, Attestation memory attestation) public {
+  function testRecover_invalidIdentitySigner_noSignersEncoded(
+    address wallet,
+    Attestation memory attestation
+  ) public {
     attestation.approvedSigner = sessionWallet.addr;
     attestation.authData.redirectUrl = "https://example.com"; // Normalise for safe JSONify
     attestation.authData.issuedAt = uint64(bound(attestation.authData.issuedAt, 0, block.timestamp));
@@ -697,7 +711,10 @@ contract SessionSigTest is SessionTestBase {
     assertEq(hasBlacklist, true, "Blacklist should be present");
   }
 
-  function testConfiguration_duplicateBlacklistNodes(address[5] memory fiveBlacklists, uint8 size) public {
+  function testConfiguration_duplicateBlacklistNodes(
+    address[5] memory fiveBlacklists,
+    uint8 size
+  ) public {
     size = uint8(bound(size, 0, 5));
     address[] memory blacklist = new address[](size);
     for (uint256 i = 0; i < size; i++) {
@@ -721,7 +738,10 @@ contract SessionSigTest is SessionTestBase {
     harness.recoverConfiguration(encoded);
   }
 
-  function testConfiguration_duplicateBlacklistNodes_inBranch(address[5] memory fiveBlacklists, uint8 size) public {
+  function testConfiguration_duplicateBlacklistNodes_inBranch(
+    address[5] memory fiveBlacklists,
+    uint8 size
+  ) public {
     size = uint8(bound(size, 0, 5));
     address[] memory blacklist = new address[](size);
     for (uint256 i = 0; i < size; i++) {
@@ -752,7 +772,10 @@ contract SessionSigTest is SessionTestBase {
     harness.recoverConfiguration(encoded);
   }
 
-  function testConfiguration_duplicateIdentityNodes(address identitySigner1, address identitySigner2) public {
+  function testConfiguration_duplicateIdentityNodes(
+    address identitySigner1,
+    address identitySigner2
+  ) public {
     vm.assume(identitySigner1 != address(0));
     vm.assume(identitySigner2 != address(0));
 
@@ -979,11 +1002,7 @@ contract SessionSigTest is SessionTestBase {
   ) public view {
     // Create an empty permissions struct
     SessionPermissions memory sessionPerms = SessionPermissions({
-      signer: signer,
-      chainId: chainId,
-      valueLimit: valueLimit,
-      deadline: deadline,
-      permissions: new Permission[](0)
+      signer: signer, chainId: chainId, valueLimit: valueLimit, deadline: deadline, permissions: new Permission[](0)
     });
 
     // Directly encode the permissions struct
