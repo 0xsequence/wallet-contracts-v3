@@ -27,7 +27,10 @@ contract CallsImp is Calls {
     expectedOpHash = _opHash;
   }
 
-  function writeNonce(uint256 _space, uint256 _nonce) external {
+  function writeNonce(
+    uint256 _space,
+    uint256 _nonce
+  ) external {
     _writeNonce(_space, _nonce);
   }
 
@@ -52,7 +55,9 @@ contract CallsImp is Calls {
 
 }
 
-contract MockDelegatecall { // extends IDelegatedExtension  (but we make it payable for the test)
+contract MockDelegatecall {
+
+  // extends IDelegatedExtension  (but we make it payable for the test)
 
   event OpHash(bytes32 _opHash);
   event StartingGas(uint256 _startingGas);
@@ -102,11 +107,6 @@ contract CallsTest is AdvTest {
 
   CallsImp public calls = new CallsImp();
 
-  event CallSucceeded(bytes32 _opHash, uint256 _index);
-  event CallSkipped(bytes32 _opHash, uint256 _index);
-  event CallFailed(bytes32 _opHash, uint256 _index, bytes _returnData);
-  event CallAborted(bytes32 _opHash, uint256 _index, bytes _returnData);
-
   function preparePayload(
     Payload.Decoded memory decoded
   ) internal {
@@ -131,7 +131,11 @@ contract CallsTest is AdvTest {
     vm.deal(address(calls), totalEther);
   }
 
-  function test_execute(bytes32 _opHash, CallsPayload memory _payload, bytes calldata _signature) external {
+  function test_execute(
+    bytes32 _opHash,
+    CallsPayload memory _payload,
+    bytes calldata _signature
+  ) external {
     vm.assume(_payload.calls.length < 3);
     address mockDelegatecall = address(new MockDelegatecall());
     Payload.Decoded memory decoded = toDecodedPayload(_payload);
@@ -147,7 +151,7 @@ contract CallsTest is AdvTest {
     for (uint256 i = 0; i < decoded.calls.length; i++) {
       if (decoded.calls[i].onlyFallback) {
         vm.expectEmit(true, true, true, true, address(calls));
-        emit CallSkipped(_opHash, i);
+        emit Calls.CallSkipped(_opHash, i);
       } else {
         vm.deal(decoded.calls[i].to, 0);
 
@@ -169,7 +173,7 @@ contract CallsTest is AdvTest {
           vm.expectCall(decoded.calls[i].to, decoded.calls[i].data);
         }
 
-        emit CallSucceeded(_opHash, i);
+        emit Calls.CallSucceeded(_opHash, i);
       }
     }
 
@@ -215,7 +219,7 @@ contract CallsTest is AdvTest {
     for (uint256 i = 0; i < decoded.calls.length; i++) {
       if (decoded.calls[i].onlyFallback) {
         vm.expectEmit(true, true, true, true, address(calls));
-        emit CallSkipped(opHash, i);
+        emit Calls.CallSkipped(opHash, i);
       } else {
         vm.deal(decoded.calls[i].to, 0);
         if (decoded.calls[i].delegateCall) {
@@ -235,7 +239,7 @@ contract CallsTest is AdvTest {
           vm.expectCall(decoded.calls[i].to, decoded.calls[i].data);
         }
         vm.expectEmit(true, true, true, true, address(calls));
-        emit CallSucceeded(opHash, i);
+        emit Calls.CallSucceeded(opHash, i);
       }
     }
 
@@ -325,16 +329,19 @@ contract CallsTest is AdvTest {
 
     // First call should fail and emit CallFailed
     vm.expectEmit(true, true, true, true, address(calls));
-    emit CallFailed(opHash, 0, revertData);
+    emit Calls.CallFailed(opHash, 0, revertData);
 
     // Second call should succeed as the previous error makes the fallback execute
     vm.expectEmit(true, true, true, true, address(calls));
-    emit CallSucceeded(opHash, 1);
+    emit Calls.CallSucceeded(opHash, 1);
 
     calls.execute(packed, _signature);
   }
 
-  function test_revert_on_error(Payload.Call calldata call, bytes calldata _signature) external {
+  function test_revert_on_error(
+    Payload.Call calldata call,
+    bytes calldata _signature
+  ) external {
     CallsPayload memory _payload;
     _payload.calls = new Payload.Call[](1);
 
@@ -369,7 +376,10 @@ contract CallsTest is AdvTest {
     calls.execute(packed, _signature);
   }
 
-  function test_abort_on_error(Payload.Call calldata call, bytes calldata _signature) external {
+  function test_abort_on_error(
+    Payload.Call calldata call,
+    bytes calldata _signature
+  ) external {
     CallsPayload memory _payload;
     _payload.calls = new Payload.Call[](1);
 
@@ -400,12 +410,16 @@ contract CallsTest is AdvTest {
 
     // Call should fail and emit CallAborted
     vm.expectEmit(true, true, true, true, address(calls));
-    emit CallAborted(opHash, 0, revertData);
+    emit Calls.CallAborted(opHash, 0, revertData);
 
     calls.execute(packed, _signature);
   }
 
-  function test_not_enough_gas(Payload.Call calldata call, uint256 txGasLimit, bytes calldata _signature) external {
+  function test_not_enough_gas(
+    Payload.Call calldata call,
+    uint256 txGasLimit,
+    bytes calldata _signature
+  ) external {
     CallsPayload memory _payload;
     _payload.calls = new Payload.Call[](1);
 
@@ -437,7 +451,11 @@ contract CallsTest is AdvTest {
     calls.execute{ gas: txGasLimit }(packed, _signature);
   }
 
-  function test_empty_payload_consumes_nonce(uint256 space, uint256 nonce, bytes calldata signature) external {
+  function test_empty_payload_consumes_nonce(
+    uint256 space,
+    uint256 nonce,
+    bytes calldata signature
+  ) external {
     Payload.Decoded memory decoded;
     decoded.kind = Payload.KIND_TRANSACTIONS;
     decoded.space = space;

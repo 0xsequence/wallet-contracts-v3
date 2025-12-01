@@ -15,13 +15,13 @@ import { IDelegatedExtension } from "./interfaces/IDelegatedExtension.sol";
 abstract contract Calls is ReentrancyGuard, BaseAuth, Nonce {
 
   /// @notice Emitted when a call succeeds
-  event CallSucceeded(bytes32 _opHash, uint256 _index);
+  event CallSucceeded(bytes32 indexed _opHash, uint256 _index);
   /// @notice Emitted when a call fails
-  event CallFailed(bytes32 _opHash, uint256 _index, bytes _returnData);
+  event CallFailed(bytes32 indexed _opHash, uint256 _index, bytes _returnData);
   /// @notice Emitted when a call is aborted
-  event CallAborted(bytes32 _opHash, uint256 _index, bytes _returnData);
+  event CallAborted(bytes32 indexed _opHash, uint256 _index, bytes _returnData);
   /// @notice Emitted when a call is skipped
-  event CallSkipped(bytes32 _opHash, uint256 _index);
+  event CallSkipped(bytes32 indexed _opHash, uint256 _index);
 
   /// @notice Error thrown when a call reverts
   error Reverted(Payload.Decoded _payload, uint256 _index, bytes _returnData);
@@ -33,7 +33,10 @@ abstract contract Calls is ReentrancyGuard, BaseAuth, Nonce {
   /// @notice Execute a call
   /// @param _payload The payload
   /// @param _signature The signature
-  function execute(bytes calldata _payload, bytes calldata _signature) external payable virtual nonReentrant {
+  function execute(
+    bytes calldata _payload,
+    bytes calldata _signature
+  ) external payable virtual nonReentrant {
     uint256 startingGas = gasleft();
     Payload.Decoded memory decoded = Payload.fromPackedCalls(_payload);
 
@@ -59,7 +62,11 @@ abstract contract Calls is ReentrancyGuard, BaseAuth, Nonce {
     _execute(startingGas, opHash, decoded);
   }
 
-  function _execute(uint256 _startingGas, bytes32 _opHash, Payload.Decoded memory _decoded) private {
+  function _execute(
+    uint256 _startingGas,
+    bytes32 _opHash,
+    Payload.Decoded memory _decoded
+  ) private {
     bool errorFlag = false;
 
     uint256 numCalls = _decoded.calls.length;

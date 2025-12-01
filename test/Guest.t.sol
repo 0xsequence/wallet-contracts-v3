@@ -28,11 +28,6 @@ contract GuestTest is AdvTest {
 
   Guest public guest;
 
-  event CallSucceeded(bytes32 _opHash, uint256 _index);
-  event CallFailed(bytes32 _opHash, uint256 _index, bytes _returnData);
-  event CallAborted(bytes32 _opHash, uint256 _index, bytes _returnData);
-  event CallSkipped(bytes32 _opHash, uint256 _index);
-
   function setUp() external {
     guest = new Guest();
   }
@@ -57,18 +52,21 @@ contract GuestTest is AdvTest {
     for (uint256 i = 0; i < decoded.calls.length; i++) {
       if (decoded.calls[i].onlyFallback) {
         vm.expectEmit(true, true, true, true);
-        emit CallSkipped(opHash, i);
+        emit Calls.CallSkipped(opHash, i);
       } else {
         vm.expectCall(decoded.calls[i].to, decoded.calls[i].data);
         // vm.expectEmit(true, true, true, true);
-        // emit CallSucceeded(opHash, i);
+        // emit Calls.CallSucceeded(opHash, i);
       }
     }
     (bool ok,) = address(guest).call(packed);
     assertTrue(ok);
   }
 
-  function test_notEnoughGas(GuestPayload memory p, uint256 callIndex) external {
+  function test_notEnoughGas(
+    GuestPayload memory p,
+    uint256 callIndex
+  ) external {
     vm.assume(p.calls.length > 0);
     callIndex = bound(callIndex, 0, p.calls.length - 1);
 
@@ -98,7 +96,10 @@ contract GuestTest is AdvTest {
     assertTrue(ok);
   }
 
-  function test_delegateCallNotAllowed(GuestPayload memory p, uint256 callIndex) external {
+  function test_delegateCallNotAllowed(
+    GuestPayload memory p,
+    uint256 callIndex
+  ) external {
     vm.assume(p.calls.length > 0);
     callIndex = bound(callIndex, 0, p.calls.length - 1);
 
@@ -126,7 +127,10 @@ contract GuestTest is AdvTest {
     assertTrue(ok);
   }
 
-  function test_callFailsWithIgnoreBehavior(GuestPayload memory p, uint256 callIndex) external {
+  function test_callFailsWithIgnoreBehavior(
+    GuestPayload memory p,
+    uint256 callIndex
+  ) external {
     vm.assume(p.calls.length > 0);
     callIndex = bound(callIndex, 0, p.calls.length - 1);
 
@@ -163,12 +167,12 @@ contract GuestTest is AdvTest {
       vm.expectEmit(true, true, true, true);
 
       if (!errorFlag && decoded.calls[i].onlyFallback) {
-        emit CallSkipped(opHash, i);
+        emit Calls.CallSkipped(opHash, i);
       } else if (decoded.calls[i].to == failureAddress && keccak256(decoded.calls[i].data) == failureDataHash) {
-        emit CallFailed(opHash, i, revertData);
+        emit Calls.CallFailed(opHash, i, revertData);
         errorFlag = true;
       } else {
-        emit CallSucceeded(opHash, i);
+        emit Calls.CallSucceeded(opHash, i);
         vm.expectCall(decoded.calls[i].to, decoded.calls[i].data);
         errorFlag = false;
       }
@@ -178,7 +182,10 @@ contract GuestTest is AdvTest {
     assertTrue(ok);
   }
 
-  function test_callFailsWithRevertBehavior(GuestPayload memory p, uint256 callIndex) external {
+  function test_callFailsWithRevertBehavior(
+    GuestPayload memory p,
+    uint256 callIndex
+  ) external {
     vm.assume(p.calls.length > 0);
     callIndex = bound(callIndex, 0, p.calls.length - 1);
 
@@ -216,7 +223,10 @@ contract GuestTest is AdvTest {
     assertTrue(ok);
   }
 
-  function test_callFailsWithAbortBehavior(GuestPayload memory p, uint256 callIndex) external {
+  function test_callFailsWithAbortBehavior(
+    GuestPayload memory p,
+    uint256 callIndex
+  ) external {
     vm.assume(p.calls.length > 0);
     callIndex = bound(callIndex, 0, p.calls.length - 1);
 
@@ -250,13 +260,16 @@ contract GuestTest is AdvTest {
 
     // Expect the abort event
     vm.expectEmit(true, true, true, true);
-    emit CallAborted(opHash, callIndex, revertData);
+    emit Calls.CallAborted(opHash, callIndex, revertData);
 
     (bool ok,) = address(guest).call(packed);
     assertTrue(ok);
   }
 
-  function test_forwardPayment(uint256 _value1, uint256 _value2) external {
+  function test_forwardPayment(
+    uint256 _value1,
+    uint256 _value2
+  ) external {
     address to1 = address(0x100001);
     address to2 = address(0x100002);
 
