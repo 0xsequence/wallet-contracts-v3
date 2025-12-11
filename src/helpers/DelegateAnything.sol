@@ -2,6 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { IDelegatedExtension } from "../modules/interfaces/IDelegatedExtension.sol";
+import { LibBytes } from "../utils/LibBytes.sol";
 import { LibOptim } from "../utils/LibOptim.sol";
 
 /// @title DelegateAnything
@@ -30,10 +31,10 @@ contract DelegateAnything is IDelegatedExtension {
       revert NotDelegateCall();
     }
 
-    (address to, bytes memory inner) = abi.decode(data, (address, bytes));
+    (address to, uint256 pointer) = LibBytes.readAddress(data, 0);
 
     bool success;
-    (success) = LibOptim.delegatecall(to, gasleft(), inner);
+    (success) = LibOptim.delegatecall(to, gasleft(), data[pointer:]);
     if (!success) {
       revert DelegateCallFailed(LibOptim.returnData());
     }

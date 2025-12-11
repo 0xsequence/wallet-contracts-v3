@@ -71,7 +71,7 @@ contract DelegateAnythingTest is AdvTest {
 
   function test_directCallReverts() external {
     bytes memory inner = abi.encodeWithSelector(Target.setStorageSlot.selector, STORAGE_SLOT, 42);
-    bytes memory data = abi.encode(address(target), inner);
+    bytes memory data = abi.encodePacked(address(target), inner);
 
     vm.expectRevert(DelegateAnything.NotDelegateCall.selector);
     delegateAnything.handleSequenceDelegateCall(bytes32(0), 0, 0, 0, 0, data);
@@ -81,7 +81,7 @@ contract DelegateAnythingTest is AdvTest {
     uint256 expectedValue = 42;
     bytes32 slot = STORAGE_SLOT;
     bytes memory inner = abi.encodeWithSelector(Target.setStorageSlot.selector, slot, expectedValue);
-    bytes memory data = abi.encode(address(target), inner);
+    bytes memory data = abi.encodePacked(address(target), inner);
 
     // Call via delegatecall through wrapper
     wrapper.delegateCall(bytes32(0), 0, 0, 0, 0, data);
@@ -93,7 +93,7 @@ contract DelegateAnythingTest is AdvTest {
 
   function test_failedDelegateCall() external {
     bytes memory inner = abi.encodeWithSelector(Target.revertCall.selector);
-    bytes memory data = abi.encode(address(target), inner);
+    bytes memory data = abi.encodePacked(address(target), inner);
 
     vm.expectRevert(
       abi.encodeWithSelector(
