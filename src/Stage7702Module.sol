@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { Stage2Module } from "./Stage2Module.sol";
 import { Calls } from "./modules/Calls.sol";
 
 import { ERC4337v07 } from "./modules/ERC4337v07.sol";
