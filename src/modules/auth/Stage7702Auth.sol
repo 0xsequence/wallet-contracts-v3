@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import { Wallet } from "../../Wallet.sol";
+import { LibOptim } from "../../utils/LibOptim.sol";
+import { Implementation7702 } from "../Implementation7702.sol";
 import { Storage } from "../Storage.sol";
 import { BaseAuth } from "./BaseAuth.sol";
 import { BaseSig } from "./BaseSig.sol";
-import { LibOptim } from "../../utils/LibOptim.sol";
 
 /// @title Stage7702Auth
 /// @author Agustin Aguilar
 /// @notice EIP-7702 version auth contract (single stage)
-contract Stage7702Auth is BaseAuth {
+contract Stage7702Auth is BaseAuth, Implementation7702 {
+
   /// @dev keccak256("org.arcadeum.module.auth.upgradable.image.hash")
-  bytes32 internal constant IMAGE_HASH_KEY = bytes32(0xea7157fa25e3aa17d0ae2d5280fa4e24d421c61842aa85e45194e1145aa72bf8);
+  bytes32 internal constant IMAGE_HASH_KEY =
+    bytes32(0xea7157fa25e3aa17d0ae2d5280fa4e24d421c61842aa85e45194e1145aa72bf8);
 
   /// @notice Emitted when the image hash is updated
   event ImageHashUpdated(bytes32 newImageHash);
@@ -23,7 +25,9 @@ contract Stage7702Auth is BaseAuth {
   /// @notice Checkpointer used at the wallet creation
   address public immutable DEFAULT_CHECKPOINTER;
 
-  constructor(address _defaultCheckpointer) {
+  constructor(
+    address _defaultCheckpointer
+  ) {
     DEFAULT_CHECKPOINTER = _defaultCheckpointer;
   }
 
@@ -61,4 +65,5 @@ contract Stage7702Auth is BaseAuth {
   ) internal view virtual override returns (bool) {
     return _imageHash == imageHash();
   }
+
 }

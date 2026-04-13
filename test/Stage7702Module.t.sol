@@ -68,6 +68,22 @@ contract TestStage7702Module is AdvTest {
     assertEq(_imageHash(authority, authorityPk), initial.imageHash);
   }
 
+  function test_getImplementation_reads_current_7702_delegate(
+    uint256 authorityPk
+  ) external {
+    authorityPk = boundPk(authorityPk);
+
+    address authority = vm.addr(authorityPk);
+    Stage7702Module alternateModule = new Stage7702Module(address(entryPoint), address(checkpointer));
+
+    assertEq(_getImplementation(authority, authorityPk), address(stage7702Module));
+    assertEq(_getImplementation(authority, authorityPk, address(alternateModule)), address(alternateModule));
+  }
+
+  function test_getImplementation_returns_zero_without_7702_delegation() external view {
+    assertEq(stage7702Module.getImplementation(), address(0));
+  }
+
   function test_execute_updates_image_hash_and_switches_signature_validation(
     uint256 authorityPk,
     uint256 nextSignerPk,
@@ -1080,6 +1096,32 @@ contract TestStage7702Module is AdvTest {
     bytes memory result =
       _delegatedCall(authority, authorityPk, abi.encodeWithSelector(Stage7702Auth.imageHash.selector));
     return abi.decode(result, (bytes32));
+  }
+
+  function _getImplementation(
+    address authority,
+    uint256 authorityPk
+  ) internal returns (address) {
+    return _getImplementation(authority, authorityPk, address(stage7702Module));
+  }
+
+  function _getImplementation(
+    address authority,
+    uint256 authorityPk,
+    address delegate
+  ) internal returns (address) {
+    bytes memory data = abi.encodeWithSignature("getImplementation()");
+
+    _attachDelegation(delegate, authorityPk);
+
+    (bool success, bytes memory returnData) = authority.call(data);
+    if (!success) {
+      assembly {
+        revert(add(returnData, 0x20), mload(returnData))
+      }
+    }
+
+    return abi.decode(returnData, (address));
   }
 
   function _isValidSignature(
