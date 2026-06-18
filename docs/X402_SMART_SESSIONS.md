@@ -9,6 +9,8 @@ The signer has two validation paths that both return `hashPolicy(policy)`:
 
 The wallet configuration commits to the policy root once. That policy can authorize both x402 payments and the setup transaction needed to approve Permit2 for the policy token.
 
+Payments are organized as a policy-specific Permit2 nonce tape. A moving acceptance mask slides over that tape as `block.timestamp` advances. Consumed Permit2 bits stay consumed forever, but capacity renews because the mask moves onto fresh nonce positions.
+
 ```
                  payload.kind
                        │
@@ -71,7 +73,7 @@ For a payment digest, the x402 sapient signer:
       │
       ├─ 1. reconstruct the canonical Permit2 digest
       ├─ 2. require  digest == payload.digest
-      ├─ 3. policy limits: token · amount · nonce slot · expiry · chain
+      ├─ 3. policy limits: token · amount · nonce tape index · expiry · chain
       ├─ 4. session-key sig over (wallet, policyRoot, digest)
       │
       ▼
@@ -172,6 +174,9 @@ struct Policy {
   uint256 chainId;
   address token;
   uint256 maxAmountPerPayment;
+  uint64 windowStart;
+  uint64 windowDuration;
+  uint32 maxWindows;
   uint16 maxPayments;
   uint256 validBefore;
 }
@@ -205,23 +210,50 @@ The maximum allowed Permit2 `permitted.amount` for one payment.
 
 For x402 `exact`, this is the exact payment amount being authorized. The signer rejects zero amounts and amounts above this cap.
 
+#### `windowStart`
+
+The anchor timestamp for tape position `0`, and the policy's effective `validFrom`.
+
+The signer reverts any payment whose settlement block is before `windowStart`.
+
+#### `windowDuration`
+
+The time over which the full `maxPayments` capacity refills, in seconds.
+
+At `windowStart`, the live nonce mask is `[0, maxPayments - 1]`. Over one `windowDuration`, the mask advances by `maxPayments` positions. For example, with `maxPayments = 24` and `windowDuration = 24 hours`, one new nonce position becomes live about every hour.
+
+The refill math is integer-rounded:
+
+```
+minNonceIndex = (block.timestamp - windowStart) * maxPayments / windowDuration
+maxNonceIndex = minNonceIndex + maxPayments - 1
+```
+
+`windowDuration` must be greater than zero.
+
+#### `maxWindows`
+
+The optional lifetime cap, measured in full refill windows.
+
+If `maxWindows != 0`, the policy can use at most `maxWindows * maxPayments` tape positions. Once the moving mask has slid past the last position, payments revert with `RefillWindowsExhausted`. If `maxWindows == 0`, the policy is open-ended and bounded only by `validBefore` and revocation.
+
 #### `maxPayments`
 
-The number of allowed Permit2 nonce slots in the policy's deterministic nonce word.
+The number of live Permit2 nonce positions in the moving acceptance mask.
 
-The signer derives a Permit2 unordered nonce word from the wallet and policy root. The low 8 bits of the Permit2 nonce are treated as a slot index. The payment is valid only if:
+The signer accepts exactly this many logical nonce positions at a time:
 
 ```
-uint8(payment.nonce) < maxPayments
+minNonceIndex <= nonceIndex <= maxNonceIndex
 ```
 
-`maxPayments` must be greater than zero and at most `256`.
+`maxPayments` must be greater than zero. It is a `uint16`, so the maximum expressible value is `65535`. Unlike a single Permit2 word, the sliding mask can span many Permit2 words.
 
 #### `validBefore`
 
-The policy expiry timestamp.
+The hard backstop expiry for the whole policy.
 
-The signer rejects the policy after `validBefore`. Individual Permit2 `deadline` and x402 witness `validAfter` remain part of the payment digest and are enforced by Permit2 and the x402 proxy during settlement.
+The signer rejects the policy after `validBefore`, independent of the window schedule. Individual Permit2 `deadline` and x402 witness `validAfter` remain part of the payment digest and are enforced by Permit2 and the x402 proxy during settlement.
 
 ---
 
@@ -253,7 +285,16 @@ The signer uses this field in `TokenPermissions(token, amount)` and enforces `am
 
 The Permit2 unordered nonce.
 
-The high 248 bits must equal the deterministic nonce word for `(signer, wallet, policyRoot)`. The low 8 bits select the payment slot and must be below `policy.maxPayments`.
+The signer treats Permit2 nonce space as a policy-specific linear tape:
+
+```
+Permit2 nonce = (word << 8) | bit
+word          = wordBase + wordOffset
+nonceIndex    = wordOffset * 256 + bit
+```
+
+The `word` must be inside the policy's reserved word range, and `nonceIndex` must be inside the moving acceptance
+mask at settlement time.
 
 #### `deadline`
 
@@ -395,7 +436,7 @@ The call must satisfy:
 
 The signer checks `call.to == policy.token`.
 
-This approval does not spend funds by itself. It grants Permit2 allowance for the same token the policy can later spend through x402. The later payment path still requires a valid x402 Permit2 digest, policy root, session key signature, amount cap, nonce slot, and token match.
+This approval does not spend funds by itself. It grants Permit2 allowance for the same token the policy can later spend through x402. The later payment path still requires a valid x402 Permit2 digest, policy root, session key signature, amount cap, nonce word/range, and token match.
 
 ```
   wallet.execute(packedCalls, sequenceSignature)
@@ -479,54 +520,91 @@ For approval setup, `payloadDigest` is `Payload.hashFor(payload, wallet)`, so th
 
 ---
 
-## 10. Deterministic Permit2 Nonce Word
+## 10. Sliding Permit2 Nonce Tape
 
-Permit2 unordered nonces are partitioned into 248-bit words with 8-bit slots. The signer reserves one deterministic nonce word per wallet and policy:
-
-```
-permit2NonceWord(wallet, policyRoot) =
-  uint256(
-    keccak256(
-      abi.encode(
-        PERMIT2_NONCE_WORD_TYPEHASH,
-        address(this),
-        wallet,
-        policyRoot
-      )
-    )
-  ) >> 8
-```
-
-The payment nonce must satisfy:
+Permit2 unordered nonces are partitioned into 248-bit words with 8-bit bits/slots:
 
 ```
-payment.nonce >> 8 == permit2NonceWord(wallet, policyRoot)
-uint8(payment.nonce) < policy.maxPayments
+Permit2 nonce = (word << 8) | bit
 ```
 
-This gives each `(signer, wallet, policy)` tuple its own Permit2 nonce namespace without adding a nonce word field to the policy.
+The signer interprets those words as a policy-specific linear tape:
 
 ```
-  256-bit Permit2 nonce
-  ┌──────────────────────────────────────────────────┬───────────┐
-  │ word = nonce >> 8                     (248 bits) │ slot (8b) │
-  └──────────────────────────────────────────────────┴───────────┘
-        │                                            │
-        │ must equal                                 │ must be < maxPayments
-        ▼                                            ▼
-  permit2NonceWord(wallet, policyRoot)         slot ∈ [0, maxPayments)
-   = keccak( PERMIT2_NONCE_WORD_TYPEHASH,
-             address(this), wallet, policyRoot ) >> 8
-
-  Permit2 unordered-nonce bitmap for that word — one bit per payment:
-
-     slot     0    1    2    3   ···  maxPayments-1        255
-            ┌────┬────┬────┬────┬─   ─┬──────────────┬─   ─┬─────┐
-            │ ██ │ ██ │    │    │ ··· │              │ ··· │  ×  │
-            └────┴────┴────┴────┴─   ─┴──────────────┴─   ─┴─────┘
-               ▲    ▲          └──── usable ────┘     └ rejected (slot ≥ maxPayments)
-               consumed by settled payments
+full Permit2 nonce = [ 184-bit wordBase ][ 64-bit wordOffset ][ 8-bit bitIndex ]
+Permit2 word       = wordBase + wordOffset
+nonceIndex         = wordOffset * 256 + bitIndex
 ```
+
+The base word is deterministic and aligned to reserve 64 low bits for the moving tape offset:
+
+```
+wordBase = (
+  keccak(
+    PERMIT2_NONCE_WORD_BASE_TYPEHASH,
+    address(this),
+    policyRoot
+  ) >> (256 - 184)
+) << 64
+```
+
+The signer derives payment nonces from that base:
+
+```
+word  = wordBase + (nonceIndex / 256)
+nonce = (word << 8) | uint8(nonceIndex)
+```
+
+Using the hash as the raw word offset would require modulo wraparound or could overflow Permit2's 248-bit word space
+when the hash lands near the top. Aligning the hash-derived base keeps the offset form, while guaranteeing room for
+`2^64` Permit2 words of tape:
+
+```
+wordBase <= word <= wordBase + type(uint64).max
+```
+
+The typehash includes the signer and policy root:
+
+```
+PERMIT2_NONCE_WORD_BASE_TYPEHASH,
+  address(this),
+  policyRoot
+```
+
+`wallet` is not part of the nonce derivation. Permit2 scopes nonce consumption by owner, and the session-key
+authorization still commits to the wallet.
+
+The moving acceptance mask is derived from settlement time:
+
+```
+minNonceIndex = (block.timestamp - windowStart) * maxPayments / windowDuration
+maxNonceIndex = minNonceIndex + maxPayments - 1
+```
+
+If `maxWindows != 0`, `maxNonceIndex` is capped to:
+
+```
+maxWindows * maxPayments - 1
+```
+
+A payment nonce is valid only if:
+
+```
+wordBase <= word <= wordBase + type(uint64).max
+minNonceIndex <= nonceIndex <= maxNonceIndex
+```
+
+This is the "sliding mask over a tape" model:
+
+```
+time T:      [  0   1   2   3   4 ]                         maxPayments = 5
+time T + q:      [  1   2   3   4   5 ]
+time T + 2q:         [  2   3   4   5   6 ]
+
+q = windowDuration / maxPayments, rounded by integer division in the formula above
+```
+
+Consumed Permit2 bits never clear. Capacity returns because the accepted range moves onto fresh tape positions. A facilitator should use the oldest live nonce positions first if it wants capacity to refill as soon as possible.
 
 ---
 
@@ -541,12 +619,15 @@ For `Payload.KIND_DIGEST`, it validates:
    - `token != address(0)`
    - `chainId == 0 || chainId == block.chainid`
    - `block.timestamp <= validBefore`
-   - `0 < maxPayments <= 256`
+   - `windowDuration != 0`
+   - `maxPayments != 0`
 2. The payment is in policy:
    - `amount > 0`
    - `amount <= maxAmountPerPayment`
-   - nonce word equals the deterministic policy nonce word
-   - nonce slot is below `maxPayments`
+   - `block.timestamp >= windowStart` (otherwise `WindowNotStarted`)
+   - the nonce word is inside the policy's reserved word range
+   - the linear nonce index is inside the current sliding mask
+   - the optional `maxWindows` lifetime cap has not been exhausted
 3. The reconstructed Permit2 digest equals `payload.digest`.
 4. The session key signature recovers `policy.sessionKey`.
 
@@ -600,9 +681,11 @@ The payment path enforces:
 - one token per policy
 - optional chain scoping
 - per-payment amount cap
-- maximum number of payments
-- policy expiry
-- deterministic Permit2 nonce namespace
+- a sliding refill schedule (`windowStart`, `windowDuration`)
+- maximum live tape positions (`maxPayments`)
+- optional lifetime cap (`maxWindows * maxPayments`)
+- policy backstop expiry (`validBefore`)
+- deterministic Permit2 nonce word base and moving accepted tape range
 - canonical x402 Permit2 digest reconstruction
 - wallet-bound session authorization
 
@@ -633,10 +716,10 @@ This signer does not enforce:
 The maximum stateless payment exposure for a policy is:
 
 ```
-maxPayments * maxAmountPerPayment
+maxWindows * maxPayments * maxAmountPerPayment
 ```
 
-This is an upper bound, not exact cumulative accounting.
+This is an upper bound, not exact cumulative accounting. When `maxWindows == 0` the policy is open-ended and bounded only by `validBefore` (and revocation), so lifetime exposure is unbounded over time.
 
 ---
 
@@ -662,9 +745,15 @@ An SDK creating a payment should:
 
 1. Build the policy and compute `policyRoot = hashPolicy(policy)`.
 2. Ensure the wallet configuration includes the sapient signer leaf for `policyRoot`.
-3. Derive `nonceWord = permit2NonceWord(wallet, policyRoot)`.
-4. Choose an unused slot `slot < policy.maxPayments`.
-5. Build `nonce = (nonceWord << 8) | slot`.
+3. Determine the live tape range:
+
+   ```
+   minNonceIndex = (block.timestamp - windowStart) * maxPayments / windowDuration
+   maxNonceIndex = minNonceIndex + maxPayments - 1
+   ```
+
+4. Choose an unused `nonceIndex` inside that range. Prefer the lowest live index so capacity refills sooner.
+5. Build `nonce = permit2Nonce(policyRoot, nonceIndex)`.
 6. Construct the x402 Permit2 payment using:
    - token: `policy.token`
    - amount: payment amount
@@ -681,10 +770,18 @@ An SDK creating a payment should:
 
 ## 15. Limitations
 
-Because ERC-1271 validation is `view`, this signer cannot update a spend counter. It uses Permit2 nonce slots to bound payment count, not to sum exact spend.
+Because ERC-1271 validation is `view`, this signer cannot update a spend counter. It uses a moving Permit2 nonce mask to bound payment count, not to sum exact spend.
 
 For exact cumulative accounting, use a state-changing settlement path or a separate accounting mechanism. Examples include a custom settlement helper, an escrow, a delegation manager, or a policy that maps nonce buckets to fixed denominations.
 
 The signer also assumes the x402 Permit2 proxy enforces its own witness semantics during settlement. The signer reconstructs and approves the digest; it does not replace Permit2 or proxy settlement checks.
 
 The approval setup path only approves Permit2 at max allowance for `policy.token`. It does not approve the x402 proxy, facilitators, or arbitrary spenders. It also cannot be used to lower Permit2 allowance.
+
+### Sliding-window timing
+
+A payment must settle while its `nonceIndex` is still inside the live mask. If settlement is delayed until the mask has moved past that index, validation fails with `InvalidNonceTapeIndex`. Align each payment's Permit2 `deadline` with the expected mask lifetime, and have the facilitator settle promptly. There is no built-in grace for expired tape positions.
+
+### Cancellation
+
+Auto-renewing policies are open-ended when `maxWindows == 0`, so stopping future tape positions requires removing the sapient leaf from the wallet configuration. There is no cheap per-position cancel in a `view` signer. If mid-stream cancellation must be a non-configuration action, use a state-changing settlement module instead.

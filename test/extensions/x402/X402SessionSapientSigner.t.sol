@@ -46,6 +46,10 @@ contract X402SessionSapientSignerTest is Test {
   address internal constant PAY_TO = address(0x209693Bc6afc0C5328bA36FaF03C514EF312287C);
   bytes4 internal constant APPROVE_SELECTOR = bytes4(keccak256("approve(address,uint256)"));
 
+  uint64 internal constant WINDOW_START = 1000;
+  uint64 internal constant WINDOW_DURATION = 30 days;
+  uint32 internal constant MAX_WINDOWS = 12;
+
   bytes32 internal constant CANONICAL_TOKEN_PERMISSIONS_TYPEHASH =
     keccak256("TokenPermissions(address token,uint256 amount)");
   bytes32 internal constant CANONICAL_WITNESS_TYPEHASH = keccak256("Witness(address to,uint256 validAfter)");
@@ -60,7 +64,7 @@ contract X402SessionSapientSignerTest is Test {
     signer = new X402SessionSapientSigner(PERMIT2, X402_PERMIT2_PROXY);
     wallet = new X402AuthHarness();
     sessionKey = vm.createWallet("x402-session-key");
-    vm.warp(1000);
+    vm.warp(WINDOW_START); // start at the beginning of window 0
   }
 
   function test_recoverSapientSignature_acceptsValidPermit2Payment() external {
@@ -87,6 +91,168 @@ contract X402SessionSapientSignerTest is Test {
 
     assertEq(signer.hashPermit2Payment(policy, payment), _canonicalX402ProxyDigest(policy, payment));
   }
+
+  // --- sliding, auto-renewing Permit2 nonce tape ---------------------------------------------------------------
+
+  function test_recoverSapientSignature_slidesAcceptedNonceRangeWithoutReconfiguring() external {
+    X402SessionSapientSigner.Policy memory policy = _validPolicy();
+    bytes32 policyRoot = signer.hashPolicy(policy);
+
+    (uint256 min0, uint256 max0) = signer.currentNonceTapeRange(policy);
+    assertEq(min0, 0);
+    assertEq(max0, policy.maxPayments - 1);
+
+    // At the policy start, the full initial mask is live.
+    (Payload.Decoded memory p0, bytes memory s0,) = _payloadAndSignature(policy, _paymentAtIndex(policy, 0));
+    vm.prank(address(wallet));
+    assertEq(signer.recoverSapientSignature(p0, s0), policyRoot, "oldest live position should be accepted");
+
+    (Payload.Decoded memory p4, bytes memory s4,) = _payloadAndSignature(policy, _paymentAtIndex(policy, 4));
+    vm.prank(address(wallet));
+    assertEq(signer.recoverSapientSignature(p4, s4), policyRoot, "newest live position should be accepted");
+
+    // The first not-yet-live tape position is rejected.
+    (Payload.Decoded memory p5, bytes memory s5,) = _payloadAndSignature(policy, _paymentAtIndex(policy, 5));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        X402SessionSapientSigner.InvalidNonceTapeIndex.selector, uint256(5), uint256(0), uint256(4)
+      )
+    );
+    vm.prank(address(wallet));
+    signer.recoverSapientSignature(p5, s5);
+
+    // Advance by one refill quantum. The accepted mask moves from [0..4] to [1..5].
+    vm.warp(WINDOW_START + WINDOW_DURATION / policy.maxPayments);
+    (uint256 min1, uint256 max1) = signer.currentNonceTapeRange(policy);
+    assertEq(min1, 1);
+    assertEq(max1, 5);
+
+    vm.prank(address(wallet));
+    assertEq(signer.recoverSapientSignature(p5, s5), policyRoot, "new tape position should now be accepted");
+
+    // The oldest position fell out of the mask.
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        X402SessionSapientSigner.InvalidNonceTapeIndex.selector, uint256(0), uint256(1), uint256(5)
+      )
+    );
+    vm.prank(address(wallet));
+    signer.recoverSapientSignature(p0, s0);
+  }
+
+  function test_permit2Nonce_sameBitDifferentTapeWordsYieldDistinctNonces() external view {
+    bytes32 policyRoot = signer.hashPolicy(_validPolicy());
+    uint256 firstNonce = signer.permit2Nonce(policyRoot, 2);
+    uint256 secondNonce = signer.permit2Nonce(policyRoot, 258);
+
+    assertEq(uint8(firstNonce), uint8(2));
+    assertEq(uint8(secondNonce), uint8(2));
+    assertTrue(firstNonce != secondNonce);
+
+    uint256 wordBase = signer.permit2NonceWordBase(policyRoot);
+    assertEq(firstNonce >> signer.PERMIT2_NONCE_BIT_INDEX_BITS(), wordBase);
+    assertEq(secondNonce >> signer.PERMIT2_NONCE_BIT_INDEX_BITS(), wordBase + 1);
+    assertEq(signer.decodePermit2Nonce(policyRoot, firstNonce), 2);
+    assertEq(signer.decodePermit2Nonce(policyRoot, secondNonce), 258);
+  }
+
+  function test_recoverSapientSignature_rejectsPaymentBeforeWindowStart() external {
+    X402SessionSapientSigner.Policy memory policy = _validPolicy();
+    (Payload.Decoded memory payload, bytes memory encoded,) = _payloadAndSignature(policy, _paymentAtIndex(policy, 0));
+
+    vm.warp(WINDOW_START - 1);
+    vm.expectRevert(
+      abi.encodeWithSelector(X402SessionSapientSigner.WindowNotStarted.selector, WINDOW_START, WINDOW_START - 1)
+    );
+    vm.prank(address(wallet));
+    signer.recoverSapientSignature(payload, encoded);
+  }
+
+  function test_recoverSapientSignature_rejectsOnceWindowsAreExhausted() external {
+    X402SessionSapientSigner.Policy memory policy = _validPolicy();
+    uint256 firstExpiredIndex = uint256(policy.maxWindows) * uint256(policy.maxPayments);
+    (Payload.Decoded memory payload, bytes memory encoded,) =
+      _payloadAndSignature(policy, _paymentAtIndex(policy, firstExpiredIndex));
+
+    // Jump to the first full refill window after the lifetime cap.
+    vm.warp(WINDOW_START + uint256(WINDOW_DURATION) * MAX_WINDOWS);
+    vm.expectRevert(
+      abi.encodeWithSelector(X402SessionSapientSigner.RefillWindowsExhausted.selector, MAX_WINDOWS, MAX_WINDOWS)
+    );
+    vm.prank(address(wallet));
+    signer.recoverSapientSignature(payload, encoded);
+  }
+
+  function test_recoverSapientSignature_acceptsPaymentInLastAllowedWindow() external {
+    X402SessionSapientSigner.Policy memory policy = _validPolicy();
+    bytes32 policyRoot = signer.hashPolicy(policy);
+    uint256 lastWindow = MAX_WINDOWS - 1;
+    uint256 lastAllowedIndex = uint256(policy.maxWindows) * uint256(policy.maxPayments) - 1;
+    (Payload.Decoded memory payload, bytes memory encoded,) =
+      _payloadAndSignature(policy, _paymentAtIndex(policy, lastAllowedIndex));
+
+    vm.warp(WINDOW_START + uint256(WINDOW_DURATION) * lastWindow);
+    vm.prank(address(wallet));
+    assertEq(signer.recoverSapientSignature(payload, encoded), policyRoot);
+  }
+
+  function test_recoverSapientSignature_allowsMultiplePaymentsWithinSlidingMaskUpToCap() external {
+    X402SessionSapientSigner.Policy memory policy = _validPolicy();
+    policy.maxPayments = 3;
+    bytes32 policyRoot = signer.hashPolicy(policy);
+
+    for (uint256 nonceIndex = 0; nonceIndex < 3; nonceIndex++) {
+      (Payload.Decoded memory payload, bytes memory encoded,) =
+        _payloadAndSignature(policy, _paymentAtIndex(policy, nonceIndex));
+      vm.prank(address(wallet));
+      assertEq(signer.recoverSapientSignature(payload, encoded), policyRoot, "index within mask should be accepted");
+    }
+
+    (Payload.Decoded memory overPayload, bytes memory overEncoded,) =
+      _payloadAndSignature(policy, _paymentAtIndex(policy, 3));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        X402SessionSapientSigner.InvalidNonceTapeIndex.selector, uint256(3), uint256(0), uint256(2)
+      )
+    );
+    vm.prank(address(wallet));
+    signer.recoverSapientSignature(overPayload, overEncoded);
+  }
+
+  function test_recoverSapientSignature_slidingMaskCanSpanPermit2Words() external {
+    X402SessionSapientSigner.Policy memory policy = _validPolicy();
+    policy.maxPayments = 300;
+    bytes32 policyRoot = signer.hashPolicy(policy);
+
+    (Payload.Decoded memory payload, bytes memory encoded,) = _payloadAndSignature(policy, _paymentAtIndex(policy, 299));
+
+    vm.prank(address(wallet));
+    assertEq(signer.recoverSapientSignature(payload, encoded), policyRoot);
+
+    (Payload.Decoded memory overPayload, bytes memory overEncoded,) =
+      _payloadAndSignature(policy, _paymentAtIndex(policy, 300));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        X402SessionSapientSigner.InvalidNonceTapeIndex.selector, uint256(300), uint256(0), uint256(299)
+      )
+    );
+    vm.prank(address(wallet));
+    signer.recoverSapientSignature(overPayload, overEncoded);
+  }
+
+  function test_recoverSapientSignature_allowsVariableAmountUnderCap() external {
+    // "utility bill" case: a different (smaller) amount is fine, as long as it is <= the cap.
+    X402SessionSapientSigner.Policy memory policy = _validPolicy();
+    bytes32 policyRoot = signer.hashPolicy(policy);
+    X402SessionSapientSigner.Permit2Payment memory payment = _paymentAtIndex(policy, 0);
+    payment.amount = policy.maxAmountPerPayment / 3;
+    (Payload.Decoded memory payload, bytes memory encoded,) = _payloadAndSignature(policy, payment);
+
+    vm.prank(address(wallet));
+    assertEq(signer.recoverSapientSignature(payload, encoded), policyRoot);
+  }
+
+  // --- approval setup path -------------------------------------------------------------------------------------
 
   function test_recoverSapientSignature_acceptsPermit2ApprovalTransaction() external {
     X402SessionSapientSigner.Policy memory policy = _validPolicy();
@@ -227,6 +393,8 @@ contract X402SessionSapientSignerTest is Test {
     assertEq(token.allowance(address(wallet), PERMIT2), 0);
   }
 
+  // --- structural validation -----------------------------------------------------------------------------------
+
   function test_constructor_rejectsZeroPermit2() external {
     vm.expectRevert(X402SessionSapientSigner.InvalidPermit2.selector);
     new X402SessionSapientSigner(address(0), X402_PERMIT2_PROXY);
@@ -280,6 +448,17 @@ contract X402SessionSapientSignerTest is Test {
     signer.recoverSapientSignature(payload, encoded);
   }
 
+  function test_recoverSapientSignature_rejectsZeroWindowDuration() external {
+    X402SessionSapientSigner.Policy memory policy = _validPolicy();
+    policy.windowDuration = 0;
+    X402SessionSapientSigner.Permit2Payment memory payment = _validPayment(policy);
+    (Payload.Decoded memory payload, bytes memory encoded,) = _payloadAndSignature(policy, payment);
+
+    vm.expectRevert(X402SessionSapientSigner.InvalidWindowDuration.selector);
+    vm.prank(address(wallet));
+    signer.recoverSapientSignature(payload, encoded);
+  }
+
   function test_recoverSapientSignature_rejectsZeroMaxPayments() external {
     X402SessionSapientSigner.Policy memory policy = _validPolicy();
     policy.maxPayments = 0;
@@ -288,35 +467,18 @@ contract X402SessionSapientSignerTest is Test {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        X402SessionSapientSigner.InvalidMaxPayments.selector, uint16(0), signer.MAX_PERMIT2_NONCE_SLOTS()
+        X402SessionSapientSigner.InvalidMaxPayments.selector, uint16(0), signer.MAX_SLIDING_WINDOW_PAYMENTS()
       )
     );
     vm.prank(address(wallet));
     signer.recoverSapientSignature(payload, encoded);
   }
 
-  function test_recoverSapientSignature_rejectsMaxPaymentsAboveLimit() external {
+  function test_recoverSapientSignature_acceptsMaxPaymentsBoundaryIndex() external {
     X402SessionSapientSigner.Policy memory policy = _validPolicy();
-    policy.maxPayments = signer.MAX_PERMIT2_NONCE_SLOTS() + 1;
-    X402SessionSapientSigner.Permit2Payment memory payment = _validPayment(policy);
-    (Payload.Decoded memory payload, bytes memory encoded,) = _payloadAndSignature(policy, payment);
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        X402SessionSapientSigner.InvalidMaxPayments.selector, policy.maxPayments, signer.MAX_PERMIT2_NONCE_SLOTS()
-      )
-    );
-    vm.prank(address(wallet));
-    signer.recoverSapientSignature(payload, encoded);
-  }
-
-  function test_recoverSapientSignature_acceptsMaxPaymentsBoundarySlot() external {
-    X402SessionSapientSigner.Policy memory policy = _validPolicy();
-    policy.maxPayments = signer.MAX_PERMIT2_NONCE_SLOTS();
+    policy.maxPayments = signer.MAX_SLIDING_WINDOW_PAYMENTS();
     bytes32 policyRoot = signer.hashPolicy(policy);
-    uint256 nonceWord = signer.permit2NonceWord(address(wallet), policyRoot);
-    X402SessionSapientSigner.Permit2Payment memory payment = _validPayment(policy);
-    payment.nonce = (nonceWord << 8) | 255;
+    X402SessionSapientSigner.Permit2Payment memory payment = _paymentAtIndex(policy, policy.maxPayments - 1);
     (Payload.Decoded memory payload, bytes memory encoded,) = _payloadAndSignature(policy, payment);
 
     vm.prank(address(wallet));
@@ -434,32 +596,32 @@ contract X402SessionSapientSignerTest is Test {
     signer.recoverSapientSignature(payload, encoded);
   }
 
-  function test_recoverSapientSignature_rejectsNonceOutsideSessionWord() external {
+  function test_recoverSapientSignature_rejectsNonceOutsidePolicyWordBase() external {
     X402SessionSapientSigner.Policy memory policy = _validPolicy();
     bytes32 policyRoot = signer.hashPolicy(policy);
-    uint256 nonceWord = signer.permit2NonceWord(address(wallet), policyRoot);
-    X402SessionSapientSigner.Permit2Payment memory payment = _validPayment(policy);
-    payment.nonce = ((nonceWord + 1) << 8) | 1;
+    X402SessionSapientSigner.Permit2Payment memory payment = _paymentAtIndex(policy, 1);
+    payment.nonce ^= uint256(1) << (signer.PERMIT2_NONCE_BIT_INDEX_BITS() + signer.NONCE_TAPE_WORD_OFFSET_BITS());
     (Payload.Decoded memory payload, bytes memory encoded,) = _payloadAndSignature(policy, payment);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(X402SessionSapientSigner.InvalidNonceWord.selector, nonceWord + 1, nonceWord)
-    );
+    uint256 word = payment.nonce >> signer.PERMIT2_NONCE_BIT_INDEX_BITS();
+    uint256 minWord = signer.permit2NonceWordBase(policyRoot);
+    uint256 maxWord = minWord + signer.NONCE_TAPE_WORD_OFFSET_MASK();
+    vm.expectRevert(abi.encodeWithSelector(X402SessionSapientSigner.InvalidNonceWord.selector, word, minWord, maxWord));
     vm.prank(address(wallet));
     signer.recoverSapientSignature(payload, encoded);
   }
 
-  function test_recoverSapientSignature_rejectsNonceSlotAbovePaymentLimit() external {
+  function test_recoverSapientSignature_rejectsNonceIndexOutsideSlidingMask() external {
     X402SessionSapientSigner.Policy memory policy = _validPolicy();
-    bytes32 policyRoot = signer.hashPolicy(policy);
-    uint256 nonceWord = signer.permit2NonceWord(address(wallet), policyRoot);
-    X402SessionSapientSigner.Permit2Payment memory payment = _validPayment(policy);
-    payment.nonce = (nonceWord << 8) | policy.maxPayments;
+    X402SessionSapientSigner.Permit2Payment memory payment = _paymentAtIndex(policy, policy.maxPayments);
     (Payload.Decoded memory payload, bytes memory encoded,) = _payloadAndSignature(policy, payment);
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        X402SessionSapientSigner.InvalidNonceSlot.selector, uint256(policy.maxPayments), policy.maxPayments
+        X402SessionSapientSigner.InvalidNonceTapeIndex.selector,
+        uint256(policy.maxPayments),
+        uint256(0),
+        uint256(policy.maxPayments) - 1
       )
     );
     vm.prank(address(wallet));
@@ -551,6 +713,8 @@ contract X402SessionSapientSignerTest is Test {
     vm.prank(address(wallet));
     signer.recoverSapientSignature(payload, encoded);
   }
+
+  // --- helpers -------------------------------------------------------------------------------------------------
 
   function _validPayloadAndSignature()
     internal
@@ -649,19 +813,29 @@ contract X402SessionSapientSignerTest is Test {
     policy.chainId = block.chainid;
     policy.token = TOKEN;
     policy.maxAmountPerPayment = 1e6;
+    policy.windowStart = WINDOW_START;
+    policy.windowDuration = WINDOW_DURATION;
+    policy.maxWindows = MAX_WINDOWS;
     policy.maxPayments = 5;
-    policy.validBefore = 2000;
+    // Backstop expiry comfortably beyond the lifetime cap so exhaustion tests do not hit SessionExpired first.
+    policy.validBefore = uint256(WINDOW_START) + uint256(WINDOW_DURATION) * (uint256(MAX_WINDOWS) + 2);
   }
 
   function _validPayment(
     X402SessionSapientSigner.Policy memory policy
   ) internal view returns (X402SessionSapientSigner.Permit2Payment memory payment) {
-    uint256 nonceWord = signer.permit2NonceWord(address(wallet), signer.hashPolicy(policy));
-    payment.amount = 1e6;
-    payment.nonce = (nonceWord << 8) | 2;
-    payment.deadline = 1800;
+    return _paymentAtIndex(policy, 2);
+  }
+
+  function _paymentAtIndex(
+    X402SessionSapientSigner.Policy memory policy,
+    uint256 nonceIndex
+  ) internal view returns (X402SessionSapientSigner.Permit2Payment memory payment) {
+    payment.amount = policy.maxAmountPerPayment;
+    payment.nonce = signer.permit2Nonce(signer.hashPolicy(policy), nonceIndex);
+    payment.deadline = uint256(policy.windowStart) + uint256(policy.windowDuration);
     payment.witnessTo = PAY_TO;
-    payment.witnessValidAfter = 1000;
+    payment.witnessValidAfter = uint256(policy.windowStart);
   }
 
   function _canonicalX402ProxyDigest(
