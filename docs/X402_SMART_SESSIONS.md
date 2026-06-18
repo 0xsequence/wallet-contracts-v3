@@ -9,6 +9,25 @@ The signer has two validation paths that both return `hashPolicy(policy)`:
 
 The wallet configuration commits to the policy root once. That policy can authorize both x402 payments and the setup transaction needed to approve Permit2 for the policy token.
 
+```
+                 payload.kind
+                       │
+        ┌──────────────┴──────────────┐
+        ▼                              ▼
+   KIND_DIGEST                    KIND_TRANSACTIONS
+   x402 payment                   approve(PERMIT2, max) setup
+        │                              │
+        ▼                              ▼
+   reconstruct & match            match the single approve
+   the Permit2 digest             call to policy.token
+        │                              │
+        └──────────────┬──────────────┘
+                       ▼
+              return hashPolicy(policy)
+       ── the sapient image hash the wallet
+          committed in its configuration ──
+```
+
 ---
 
 ## 1. Overview
@@ -34,6 +53,37 @@ For a payment digest, the x402 sapient signer:
 5. Checks the stateless policy limits.
 6. Verifies the session key signature over the wallet, policy root, and external digest.
 7. Returns the policy root as the sapient image hash.
+
+```
+  x402 facilitator
+      │
+      │ permitWitnessTransferFrom(owner = wallet, signature, …)
+      ▼
+  Permit2  ───────────►  consumes the unordered nonce  (word, slot)
+      │
+      │ isValidSignature(permit2Digest, sequenceSignature)
+      ▼
+  Sequence wallet  (ERC-1271)
+      │
+      │ Payload.fromDigest(permit2Digest) = KIND_DIGEST  ▸  BaseSig walks config
+      ▼
+  X402SessionSapientSigner.recoverSapientSignature
+      │
+      ├─ 1. reconstruct the canonical Permit2 digest
+      ├─ 2. require  digest == payload.digest
+      ├─ 3. policy limits: token · amount · nonce slot · expiry · chain
+      ├─ 4. session-key sig over (wallet, policyRoot, digest)
+      │
+      ▼
+  returns  policyRoot = hashPolicy(policy)
+      │
+      ▼
+  policyRoot == committed sapient leaf ?  ──no──►  bytes4(0)   (rejected)
+      │
+     yes
+      ▼
+  wallet returns 0x1626ba7e  ──►  Permit2 transfers the token to witnessTo
+```
 
 The returned policy root must match the sapient signer leaf committed in the wallet image hash. If it does not match, the wallet rejects the ERC-1271 signature.
 
@@ -286,6 +336,32 @@ TokenPermissions(address token,uint256 amount)
 Witness(address to,uint256 validAfter)
 ```
 
+```
+  tokenPermissionsHash = keccak( TOKEN_PERMISSIONS_TYPEHASH,
+                                 policy.token, payment.amount )
+
+  witnessHash          = keccak( WITNESS_TYPEHASH,
+                                 payment.witnessTo, payment.witnessValidAfter )
+        │
+        │  both feed into
+        ▼
+  structHash = keccak( PERMIT2_WITNESS_TRANSFER_TYPEHASH,
+                       tokenPermissionsHash,
+                       X402_PERMIT2_PROXY,        ◄─ the Permit2 spender
+                       payment.nonce,
+                       payment.deadline,
+                       witnessHash )
+        │
+        ▼
+  permit2Digest = keccak( 0x1901, permit2DomainSeparator, structHash )
+
+        where  permit2DomainSeparator =
+               keccak( EIP712Domain, keccak("Permit2"), block.chainid, PERMIT2 )
+        │
+        ▼
+  require  permit2Digest == payload.digest        ◄─ the ERC-1271 hash
+```
+
 If the reconstructed digest does not equal `payload.digest`, validation fails.
 
 ---
@@ -320,6 +396,25 @@ The call must satisfy:
 The signer checks `call.to == policy.token`.
 
 This approval does not spend funds by itself. It grants Permit2 allowance for the same token the policy can later spend through x402. The later payment path still requires a valid x402 Permit2 digest, policy root, session key signature, amount cap, nonce slot, and token match.
+
+```
+  wallet.execute(packedCalls, sequenceSignature)
+      │
+      │ consume (space, nonce)        [ space ≤ type(uint80).max - 1 ]
+      ▼
+  Sequence wallet  ▸  KIND_TRANSACTIONS  ▸  BaseSig walks config
+      │
+      ▼
+  X402SessionSapientSigner.recoverSapientSignature
+      │
+      ├─ exactly one call, call.to == policy.token
+      ├─ approve(PERMIT2, type(uint256).max)
+      ├─ no value · no delegatecall · no fallback · revert-on-error
+      ├─ session-key sig over Payload.hashFor(payload, wallet)
+      │
+      ▼
+  returns policyRoot  ──►  matches committed leaf  ──►  wallet runs the approve
+```
 
 ---
 
@@ -364,6 +459,24 @@ This binds the session key signature to:
 
 For approval setup, `payloadDigest` is `Payload.hashFor(payload, wallet)`, so the signature covers the target token, calldata, nonce, nonce space, and parent wallets.
 
+```
+  ┌─ payloadDigest ─────────────────────────────────────────────
+  │    KIND_DIGEST        →  canonical Permit2 witness digest
+  │    KIND_TRANSACTIONS  →  Payload.hashFor(payload, wallet)
+  └──────────────────────────────────────────────────────────────
+                          │  embedded as `payloadDigest`
+                          ▼
+  ┌─ session authorization ─────────────────────────────────────
+  │    domain:  "Sequence X402 Session" · v1 · chainId · this signer
+  │    struct:  X402SessionAuthorization(wallet, policyRoot,
+  │                                      payloadDigest)
+  │    authDigest = keccak( 0x1901, sessionDomainSeparator, struct )
+  └──────────────────────────────────────────────────────────────
+                          │  ECDSA.recover(authDigest, sessionSig)
+                          ▼
+                must equal  policy.sessionKey
+```
+
 ---
 
 ## 10. Deterministic Permit2 Nonce Word
@@ -392,6 +505,28 @@ uint8(payment.nonce) < policy.maxPayments
 ```
 
 This gives each `(signer, wallet, policy)` tuple its own Permit2 nonce namespace without adding a nonce word field to the policy.
+
+```
+  256-bit Permit2 nonce
+  ┌──────────────────────────────────────────────────┬───────────┐
+  │ word = nonce >> 8                     (248 bits) │ slot (8b) │
+  └──────────────────────────────────────────────────┴───────────┘
+        │                                            │
+        │ must equal                                 │ must be < maxPayments
+        ▼                                            ▼
+  permit2NonceWord(wallet, policyRoot)         slot ∈ [0, maxPayments)
+   = keccak( PERMIT2_NONCE_WORD_TYPEHASH,
+             address(this), wallet, policyRoot ) >> 8
+
+  Permit2 unordered-nonce bitmap for that word — one bit per payment:
+
+     slot     0    1    2    3   ···  maxPayments-1        255
+            ┌────┬────┬────┬────┬─   ─┬──────────────┬─   ─┬─────┐
+            │ ██ │ ██ │    │    │ ··· │              │ ··· │  ×  │
+            └────┴────┴────┴────┴─   ─┴──────────────┴─   ─┴─────┘
+               ▲    ▲          └──── usable ────┘     └ rejected (slot ≥ maxPayments)
+               consumed by settled payments
+```
 
 ---
 
