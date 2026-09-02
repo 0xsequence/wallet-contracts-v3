@@ -102,16 +102,7 @@ jobs:
         id: run_tests
         continue-on-error: true
         run: |
-          forge test --mp test/modules/BaseSig.t.sol
-          forge test --mp test/modules/Calls.t.sol
-          forge test --mp test/modules/Hooks.t.sol
-          forge test --mp test/modules/Implementation.t.sol
-          forge test --mp test/modules/Nonce.t.sol
-          forge test --mp test/modules/Payload.t.sol
-          forge test --mp test/Factory.t.sol
-          forge test --mp test/Guest.t.sol
-          forge test --mp test/Stage1Module.t.sol
-          forge test --mp test/Wallet.t.sol
+          forge test
         env:
           SEQ_SDK_RPC_URL_PREFIX: 'http://localhost:'
           SEQ_SDK_RPC_URL_SUFFIX: '/rpc'
