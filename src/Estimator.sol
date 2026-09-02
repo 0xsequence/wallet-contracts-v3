@@ -10,12 +10,15 @@ import { LibOptim } from "./utils/LibOptim.sol";
 /// @title Estimator
 /// @author William Hua
 /// @notice Helper for estimating the gas used for payload validation and execution
+/// @dev This is an off-chain helper. The intended use is an `eth_call` with a state override that replaces a wallet's code with this contract's code; the on-chain deployment only exists so that the bytecode can be copied.
+/// @dev This contract MUST NOT hold assets and MUST NOT be set as a wallet implementation. `_isValidImage` accepts any image hash, so any signature passes and anyone can perform arbitrary calls, including `delegatecall`, from this contract's address.
 contract Estimator is Stage2Module {
 
   constructor(
     address _entryPoint
   ) Stage2Module(_entryPoint) { }
 
+  /// @dev Accepts any image hash, so every signature passes validation.
   function _isValidImage(
     bytes32 _imageHash
   ) internal view virtual override returns (bool) {
@@ -27,6 +30,7 @@ contract Estimator is Stage2Module {
   /// @param _payload The payload to estimate the gas used for
   /// @param _signature The signature to validate the payload with
   /// @return gasUsed The gas used for payload validation and execution
+  /// @dev Signature validation always passes, so any caller can perform arbitrary calls, including `delegatecall`, from this contract's address.
   function estimate(
     bytes calldata _payload,
     bytes calldata _signature

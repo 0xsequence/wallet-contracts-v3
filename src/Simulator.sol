@@ -10,6 +10,8 @@ import { LibOptim } from "./utils/LibOptim.sol";
 /// @title Simulator
 /// @author William Hua
 /// @notice Helper for simulating the execution of a payload
+/// @dev This is an off-chain helper. The intended use is an `eth_call` with a state override that replaces a wallet's code with this contract's code; the on-chain deployment only exists so that the bytecode can be copied.
+/// @dev This contract MUST NOT hold assets and MUST NOT be set as a wallet implementation. `simulate` is permissionless and performs arbitrary calls, including `delegatecall`, from this contract's address, so anyone can move anything it holds and write any of its storage slots.
 contract Simulator is Stage2Module {
 
   constructor(
@@ -36,6 +38,7 @@ contract Simulator is Stage2Module {
   /// @notice Simulate the execution of a payload
   /// @param _calls The calls to simulate
   /// @return results The results of the calls
+  /// @dev Permissionless. Performs arbitrary calls, including `delegatecall`, from this contract's address.
   function simulate(
     Payload.Call[] calldata _calls
   ) external returns (Result[] memory results) {
