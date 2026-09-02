@@ -53,7 +53,7 @@ For a payment digest, the x402 sapient signer:
 3. Recomputes the canonical x402 Permit2 digest.
 4. Requires the recomputed digest to equal `payload.digest`.
 5. Checks the stateless policy limits.
-6. Verifies the session key signature over the wallet, policy root, and external digest.
+6. Verifies the session key signature over `hashSessionAuthorization(wallet, policyRoot, Payload.hashFor(payload, wallet))`, where the payload wraps the Permit2 digest and carries the `parentWallets` chain that reached the signer.
 7. Returns the policy root as the sapient image hash.
 
 ```
@@ -74,7 +74,8 @@ For a payment digest, the x402 sapient signer:
       ├─ 1. reconstruct the canonical Permit2 digest
       ├─ 2. require  digest == payload.digest
       ├─ 3. policy limits: token · amount · nonce tape index · expiry · chain
-      ├─ 4. session-key sig over (wallet, policyRoot, digest)
+      ├─ 4. session-key sig over (wallet, policyRoot,
+      │        Payload.hashFor(payload, wallet))  ▸ binds wallet · parentWallets
       │
       ▼
   returns  policyRoot = hashPolicy(policy)
