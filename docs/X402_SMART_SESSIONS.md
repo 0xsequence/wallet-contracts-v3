@@ -710,7 +710,7 @@ This signer does not enforce:
 - recipient restrictions
 - merchant/resource restrictions
 - facilitator restrictions
-- revocation without a wallet configuration update
+- revocation without a wallet configuration update (section 15 covers the Permit2-level cancel, which is a wallet action rather than a signer feature)
 - arbitrary spender approvals
 
 The maximum stateless payment exposure for a policy is:
@@ -720,6 +720,16 @@ maxWindows * maxPayments * maxAmountPerPayment
 ```
 
 This is an upper bound, not exact cumulative accounting. When `maxWindows == 0` the policy is open-ended and bounded only by `validBefore` (and revocation), so lifetime exposure is unbounded over time.
+
+That bound is per Permit2 owner, not per policy root. Permit2 keys unordered nonces as `nonceBitmap[owner][word]`, and the tape word base commits only to the signer address and the policy root. The wallet is deliberately not part of the nonce derivation (section 10), so every distinct Permit2 owner that can route a valid ERC-1271 signature through this sapient leaf starts from an untouched copy of the tape.
+
+Nesting is how a second owner appears. The session authorization binds `wallet = msg.sender`, which is the wallet holding the sapient leaf. If a parent wallet lists that wallet as a signer, the parent becomes the Permit2 owner for a payment settled against the same policy root: the signature chain still terminates in the same leaf, and the parent's bitmap is empty at those words. The parent needs its own Permit2 allowance and its own token balance, so this is not automatic, but it is not bounded by the policy either. Real exposure is:
+
+```
+maxWindows * maxPayments * maxAmountPerPayment * (Permit2 owners reachable through the leaf)
+```
+
+Note that "reachable" counts every wallet whose configuration can route a signature into the leaf, including wallets that add it after the policy was signed. Nesting must be signed for explicitly rather than treated as something the policy bounds. A policy root meant for one wallet should appear in exactly one wallet configuration.
 
 ---
 
@@ -784,4 +794,79 @@ A payment must settle while its `nonceIndex` is still inside the live mask. If s
 
 ### Cancellation
 
-Auto-renewing policies are open-ended when `maxWindows == 0`, so stopping future tape positions requires removing the sapient leaf from the wallet configuration. There is no cheap per-position cancel in a `view` signer. If mid-stream cancellation must be a non-configuration action, use a state-changing settlement module instead.
+Removing the sapient leaf from the wallet configuration is the full revocation. It is permanent and it stops every position of every policy that routed through that leaf.
+
+There is also a cheap per-position cancel that does not touch the configuration. The wallet is the Permit2 owner, so it can burn its own nonce bits directly, in an ordinary wallet transaction:
+
+```
+Permit2.invalidateUnorderedNonces(uint256 wordPos, uint256 mask)
+```
+
+The signer exposes the derivation needed to target a tape position. `permit2NonceWord(policyRoot, nonceIndex)` returns the Permit2 word holding a given index, and the bit inside that word is the low byte of the index:
+
+```
+wordPos = permit2NonceWord(policyRoot, nonceIndex)
+mask    = 1 << uint8(nonceIndex)
+```
+
+A word covers a contiguous run of 256 tape indices, so `mask = type(uint256).max` burns all 256 positions in one call. Walking words upward from `permit2NonceWord(policyRoot, minNonceIndex)` pre-burns a range of future positions and pauses the policy until the mask slides past that range. Permit2 ORs the mask into the bitmap, so these calls only ever set bits and are idempotent.
+
+Two things follow. First, this kills a signed-but-unsettled payment: settlement goes through Permit2, Permit2 sees the bit already set and reverts, and that payment can never be replayed. It closes the window between handing a payment to a facilitator and the facilitator settling it, which a `view` signer cannot close on its own. Second, pre-burning is a pause, not a revocation. The tape is `2^64` words long and the accepted range keeps moving, so the pause lasts exactly as far ahead as you burned. Only removing the leaf is permanent.
+
+Bits burned this way are burned per owner, for the same reason exposure is counted per owner in section 13. A parent wallet nesting the same policy root has its own bitmap and is not affected by the payer's burns.
+
+What is still not available is cancellation enforced against the payer's will, or cancellation of a policy whose owner will not send a transaction. For that, use a state-changing settlement module instead.
+
+### ERC-4337 validation
+
+`recoverSapientSignature` reads `block.timestamp` for the sliding mask, the refill-window cap and the `validBefore` backstop. The ERC-4337 validation rules (ERC-7562) ban `TIMESTAMP` inside `validateUserOp`, so a rule-enforcing bundler will reject a user operation whose signature validation routes through this signer. This is expected and not a bug.
+
+In practice this only constrains the approval setup path, which is the `KIND_TRANSACTIONS` branch. Send that transaction through a normal Sequence relayer rather than as a user operation. The payment path is unaffected: Permit2 calls `isValidSignature` while executing the facilitator's settlement transaction, which is execution and not bundler validation.
+
+---
+
+## 16. Deployment
+
+`script/Deploy.s.sol` deploys the signer through the ERC-2470 singleton factory, after `SessionManager`:
+
+```
+initCode = abi.encodePacked(
+  type(X402SessionSapientSigner).creationCode,
+  abi.encode(permit2, x402Permit2Proxy)
+);
+_deployIfNotAlready("X402SessionSapientSigner", initCode, salt, pk);
+```
+
+Both constructor arguments are read from the environment and fall back to the canonical addresses:
+
+| Variable | Default | Role in the signer |
+| --- | --- | --- |
+| `PERMIT2` | `0x000000000022D473030F116dDEE9F6B43aC78BA3` | EIP-712 `verifyingContract` for the payment digest, and the only spender the approval path accepts |
+| `X402_PERMIT2_PROXY` | `0x402085c248EeA27D92E8b30b2C58ed07f9E20001` | Permit2 `spender` inside the signed payment digest |
+
+Leave both empty in `.env` to take the defaults. Set them explicitly when the target chain uses different deployments.
+
+### Verify the proxy before deploying
+
+Both addresses are immutable, and the witness typestring the signer rebuilds the digest from is a compile-time constant:
+
+```
+PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Witness witness)TokenPermissions(address token,uint256 amount)Witness(address to,uint256 validAfter)
+```
+
+The x402 exact-EVM scheme has already changed this struct once, when `extra` was removed from `Witness`. Note that nothing in the signer detects a proxy that disagrees with the constant. Read both values off the target chain before deploying:
+
+```
+cast call <x402Permit2Proxy> "WITNESS_TYPE_STRING()(string)" --rpc-url <rpc>
+cast call <x402Permit2Proxy> "PERMIT2()(address)" --rpc-url <rpc>
+```
+
+The first must equal the typestring above byte for byte. The second must equal the `PERMIT2` address the signer is constructed with. On 2 September 2026 the canonical proxy `0x402085c248EeA27D92E8b30b2C58ed07f9E20001` on Base mainnet returned exactly that typestring and `0x000000000022D473030F116dDEE9F6B43aC78BA3`. Re-verify per chain, and re-verify after any x402 scheme revision.
+
+A mismatch fails closed. The signer rebuilds the digest from its own constants, compares it against `payload.digest` and reverts with `InvalidDigest` when the two differ, so every payment under every policy reverts. No funds are at risk, but the deployment is unusable and has to be replaced at a new address.
+
+### The signer address is part of the nonce tape
+
+`permit2NonceWordBase` hashes `address(this)` together with the policy root, so two signer deployments at different addresses give the same policy disjoint Permit2 tapes. The deploy salt is `bytes32(0)`, which means the address is the same across chains only while the constructor arguments are the same. A chain that needs a different `PERMIT2` or `X402_PERMIT2_PROXY` gets a different signer address, and therefore a different tape.
+
+Replacing a signer deployment resets tape state for every policy under it. Consumed positions do not migrate, and any pre-burned cancellation range (section 15) has to be burned again against the new address.
