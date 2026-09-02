@@ -229,6 +229,8 @@ minNonceIndex = (block.timestamp - windowStart) * maxPayments / windowDuration
 maxNonceIndex = minNonceIndex + maxPayments - 1
 ```
 
+`windowDuration` is a refill rate, not a bucket boundary. The mask advances continuously, so `windowStart + windowDuration` is not a reset point and no part of the schedule is aligned to it. Note that the long-run rate is `maxPayments` tape positions per `windowDuration`, but a single span of length `windowDuration` can admit more than `maxPayments` positions. Section 10 states the exact bound.
+
 `windowDuration` must be greater than zero.
 
 #### `maxWindows`
@@ -239,13 +241,21 @@ If `maxWindows != 0`, the policy can use at most `maxWindows * maxPayments` tape
 
 #### `maxPayments`
 
-The number of live Permit2 nonce positions in the moving acceptance mask.
+The width of the moving acceptance mask, measured in Permit2 nonce positions.
 
-The signer accepts exactly this many logical nonce positions at a time:
+At any single instant the signer accepts exactly `maxPayments` logical nonce positions:
 
 ```
 minNonceIndex <= nonceIndex <= maxNonceIndex
 ```
+
+`maxPayments` is a mask width, not a per-window quota. The mask starts full at `windowStart` and its lower edge advances by `maxPayments` over one `windowDuration`, so a span of length `windowDuration` can admit up to `2 * maxPayments - 1` distinct positions. Note that sizing `maxPayments` as "payments per window" therefore understates the worst case by almost a factor of two. The largest spend reachable inside the first window is:
+
+```
+(2 * maxPayments - 1) * maxAmountPerPayment
+```
+
+Section 10 derives the bound and works through an example.
 
 `maxPayments` must be greater than zero. It is a `uint16`, so the maximum expressible value is `65535`. Unlike a single Permit2 word, the sliding mask can span many Permit2 words.
 
@@ -603,6 +613,49 @@ time T + 2q:         [  2   3   4   5   6 ]
 
 q = windowDuration / maxPayments, rounded by integer division in the formula above
 ```
+
+### How many positions one window admits
+
+At any single instant exactly `maxPayments` positions are live, because the accepted range is always
+`[minNonceIndex, minNonceIndex + maxPayments - 1]`. The count of positions that have ever been live grows with the
+floor in `minNonceIndex`:
+
+```
+e                  = block.timestamp - windowStart
+positionsEverLive  = floor(e * maxPayments / windowDuration) + maxPayments
+                  <= maxPayments * (1 + e / windowDuration)
+```
+
+The mask starts full at `e = 0` and its lower edge advances by `maxPayments` over each `windowDuration`. So any span of
+length `windowDuration` can admit up to:
+
+```
+2 * maxPayments - 1
+```
+
+distinct positions: the `maxPayments` live at the start of the span, plus the `maxPayments - 1` that slide in before the
+span ends. The long-run rate is still `maxPayments` positions per `windowDuration`, and the optional `maxWindows`
+lifetime cap of `maxWindows * maxPayments` positions is unaffected.
+
+Worked example with `maxPayments = 5` and `windowDuration = 30 days`:
+
+```
+e = 0             min = 0   max = 4    live [0..4]     5 positions ever live
+e = 6 days        min = 1   max = 5    live [1..5]     6
+e = 12 days       min = 2   max = 6    live [2..6]     7
+e = 18 days       min = 3   max = 7    live [3..7]     8
+e = 30 days - 1   min = 4   max = 8    live [4..8]     9 = 2 * 5 - 1
+e = 30 days       min = 5   max = 9    live [5..9]    10
+```
+
+A facilitator holding session-key signatures can settle positions `0..4` at `windowStart` and positions `5..8` a second
+before `windowStart + 30 days`. That is nine payments inside the first 30 days, and five more per 30 days after that.
+Integrators should budget `(2 * maxPayments - 1) * maxAmountPerPayment` for the first window rather than
+`maxPayments * maxAmountPerPayment`.
+
+Note that a stepwise schedule would behave differently: taking the lower edge as
+`floor(e / windowDuration) * maxPayments` would admit exactly `maxPayments` positions per window with no burst, at the
+cost of a hard cliff at every window boundary, and that is not what this contract implements.
 
 Consumed Permit2 bits never clear. Capacity returns because the accepted range moves onto fresh tape positions. A facilitator should use the oldest live nonce positions first if it wants capacity to refill as soon as possible.
 
