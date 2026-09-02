@@ -12,6 +12,8 @@ import { ISapient } from "../../modules/interfaces/ISapient.sol";
 ///      The signer is stateless (`recoverSapientSignature` is `view`): the moving mask comes from `block.timestamp`
 ///      and one-time use comes from Permit2's nonce bitmap. The Permit2 nonce is treated as a policy-specific tape:
 ///      the Permit2 word starts from a policy-specific hash base, and the linear tape index is an offset from it.
+///      For both payload kinds the session key signs over `Payload.hashFor(payload, wallet)`, so an authorization is
+///      bound to the wallet that validates it and to the `parentWallets` chain that reached it.
 contract X402SessionSapientSigner is ISapient {
 
   bytes4 public constant APPROVE_SELECTOR = bytes4(keccak256("approve(address,uint256)"));
@@ -145,7 +147,8 @@ contract X402SessionSapientSigner is ISapient {
       revert InvalidDigest(expectedDigest, payload.digest);
     }
 
-    bytes32 authDigest = hashSessionAuthorization(wallet, policyRoot, payload.digest);
+    bytes32 payloadDigest = _payloadHashFor(payload, wallet);
+    bytes32 authDigest = hashSessionAuthorization(wallet, policyRoot, payloadDigest);
     address recovered = ECDSA.recover(authDigest, sig.sessionKeySignature);
     if (recovered != sig.policy.sessionKey) {
       revert InvalidSessionKeySignature(recovered, sig.policy.sessionKey);
@@ -295,7 +298,11 @@ contract X402SessionSapientSigner is ISapient {
     return keccak256(abi.encodePacked("\x19\x01", _permit2DomainSeparator(), structHash));
   }
 
-  /// @notice Hashes the session-key authorization over the already reconstructed external payment digest.
+  /// @notice Hashes the session-key authorization over a wallet-scoped payload hash.
+  /// @dev `payloadDigest` is always `Payload.hashFor(payload, wallet)`, for both payload kinds. For a payment the
+  ///      payload is `Payload.fromDigest(permit2Digest)`, so the authorization commits to the Permit2 digest plus the
+  ///      validating wallet, its `parentWallets` and the `noChainId` flag. Note that without the `parentWallets`
+  ///      commitment a payment signed for one wallet could be replayed against another wallet that delegates to it.
   function hashSessionAuthorization(
     address wallet,
     bytes32 policyRoot,
