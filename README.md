@@ -52,3 +52,9 @@ forge script Deploy --rpc-url <xxx> --broadcast
 
 > [!NOTE]
 > Deployments use ERC-2470 for counter factual deployments.
+
+## Simulator and Estimator
+
+`Simulator` and `Estimator` are helpers for `eth_call` only. They are meant to be used with a state override that replaces a wallet's code with theirs, and the on-chain deployments only exist so that the bytecode can be copied.
+
+Neither contract has any access control. `Simulator.simulate` is permissionless and performs arbitrary calls, including `delegatecall`, from the contract's address, and `Estimator` accepts any image hash so every signature passes. They must not hold assets and must not be set as a wallet implementation.
