@@ -23,8 +23,29 @@ contract Stage7702Auth is BaseAuth, Implementation7702 {
   error ImageHashIsZero();
 
   /// @notice Checkpointer used at the wallet creation
+  /// @dev This address is committed into the counterfactual configuration of every fresh wallet
+  ///      using this module, see `imageHash()`. It is fixed for all of them at module deploy time
+  ///      and can only be changed by replacing the configuration of each wallet individually.
+  ///
+  ///      A non-zero value makes the first signature of every fresh wallet depend on this contract:
+  ///      the signature must carry the checkpointer flag, and `BaseSig.recover` will call
+  ///      `snapshotFor` on it. That call must not revert, and it must return either an empty
+  ///      snapshot or the counterfactual image hash, otherwise recovery reverts with
+  ///      `UnusedSnapshot` and the wallet cannot execute, validate ERC-1271 signatures or pass
+  ///      ERC-4337 validation until its configuration is replaced.
+  ///
+  ///      A checkpointer can therefore block a fresh wallet, but it can never forge a
+  ///      configuration for it, since the image hash is still derived from the signature itself.
+  ///
+  ///      `address(0)` is the recommended value. A checkpointer should only be set when it is
+  ///      actually required, and such a contract MUST NOT revert and MUST return an empty snapshot
+  ///      for wallets it does not know about.
   address public immutable DEFAULT_CHECKPOINTER;
 
+  /// @param _defaultCheckpointer Checkpointer committed into the counterfactual configuration of
+  ///        every fresh wallet using this module, see `DEFAULT_CHECKPOINTER`. Use `address(0)`
+  ///        unless a checkpointer is required, as a non-zero value makes the first signature of
+  ///        every fresh wallet depend on `snapshotFor` succeeding on that contract.
   constructor(
     address _defaultCheckpointer
   ) {
