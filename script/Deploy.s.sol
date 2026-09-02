@@ -6,6 +6,7 @@ import { ERC4337FactoryWrapper } from "src/ERC4337FactoryWrapper.sol";
 import { Factory } from "src/Factory.sol";
 import { Guest } from "src/Guest.sol";
 import { Stage1Module } from "src/Stage1Module.sol";
+import { Stage7702Module } from "src/Stage7702Module.sol";
 import { SessionManager } from "src/extensions/sessions/SessionManager.sol";
 
 contract Deploy is SingletonDeployer {
@@ -14,6 +15,7 @@ contract Deploy is SingletonDeployer {
     uint256 pk = vm.envUint("PRIVATE_KEY");
     address entryPoint = vm.envAddress("ERC4337_ENTRY_POINT_V7");
     address senderCreator = vm.envAddress("ERC4337_SENDER_CREATOR_V7");
+    address defaultCheckpointer = vm.envOr("ERC7702_DEFAULT_CHECKPOINTER", address(0));
     if (entryPoint == address(0)) {
       entryPoint = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
       senderCreator = 0xEFC2c1444eBCC4Db75e7613d20C6a62fF67A167C;
@@ -31,6 +33,11 @@ contract Deploy is SingletonDeployer {
     address stage1Module = _deployIfNotAlready("Stage1Module", initCode, salt, pk);
 
     console.log("Stage2Module for Stage1Module is", Stage1Module(payable(stage1Module)).STAGE_2_IMPLEMENTATION());
+
+    initCode = abi.encodePacked(type(Stage7702Module).creationCode, abi.encode(entryPoint, defaultCheckpointer));
+    _deployIfNotAlready("Stage7702Module", initCode, salt, pk);
+
+    console.log("DEFAULT_CHECKPOINTER for Stage7702Module is", defaultCheckpointer);
 
     initCode = abi.encodePacked(type(Guest).creationCode);
     _deployIfNotAlready("Guest", initCode, salt, pk);
