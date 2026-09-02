@@ -7,6 +7,7 @@ import { Factory } from "src/Factory.sol";
 import { Guest } from "src/Guest.sol";
 import { Stage1Module } from "src/Stage1Module.sol";
 import { SessionManager } from "src/extensions/sessions/SessionManager.sol";
+import { X402SessionSapientSigner } from "src/extensions/x402/X402SessionSapientSigner.sol";
 
 contract Deploy is SingletonDeployer {
 
@@ -37,6 +38,15 @@ contract Deploy is SingletonDeployer {
 
     initCode = abi.encodePacked(type(SessionManager).creationCode);
     _deployIfNotAlready("SessionManager", initCode, salt, pk);
+
+    address permit2 = vm.envOr("PERMIT2", address(0x000000000022D473030F116dDEE9F6B43aC78BA3));
+    address x402Permit2Proxy = vm.envOr("X402_PERMIT2_PROXY", address(0x402085c248EeA27D92E8b30b2C58ed07f9E20001));
+
+    console.log("Permit2 for X402SessionSapientSigner is", permit2);
+    console.log("x402 Permit2 proxy for X402SessionSapientSigner is", x402Permit2Proxy);
+
+    initCode = abi.encodePacked(type(X402SessionSapientSigner).creationCode, abi.encode(permit2, x402Permit2Proxy));
+    _deployIfNotAlready("X402SessionSapientSigner", initCode, salt, pk);
   }
 
 }
