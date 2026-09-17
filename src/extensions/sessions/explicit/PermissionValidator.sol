@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import { Payload } from "../../../modules/Payload.sol";
 import { LibBytes } from "../../../utils/LibBytes.sol";
+import { SessionErrors } from "../SessionErrors.sol";
 import { ParameterOperation, ParameterRule, Permission, UsageLimit } from "./Permission.sol";
 
 /// @title PermissionValidator
@@ -15,10 +16,11 @@ abstract contract PermissionValidator {
   /// @notice Emitted when the usage amount for a given wallet and usage hash is updated
   event LimitUsageUpdated(address wallet, bytes32 usageHash, uint256 usageAmount);
 
-  /// @notice Mapping of usage limit hashes to their usage amounts
+  /// @notice Usage amounts; renewable counters pack [period:uint64 | amount:uint192]
   mapping(address => mapping(bytes32 => uint256)) private limitUsage;
 
   /// @notice Get the usage amount for a given usage hash and wallet
+  /// @dev Renewable keys return the packed period and amount; use getLimitUsageForPeriod to decode them
   /// @param wallet The wallet address
   /// @param usageHash The usage hash
   /// @return The usage amount
@@ -33,6 +35,42 @@ abstract contract PermissionValidator {
   function setLimitUsage(address wallet, bytes32 usageHash, uint256 usageAmount) internal {
     limitUsage[wallet][usageHash] = usageAmount;
     emit LimitUsageUpdated(wallet, usageHash, usageAmount);
+  }
+
+  /// @notice Reads current-period usage, treating an expired counter as zero
+  /// @param period One-based renewal period (0 = lifetime limit)
+  function getLimitUsageForPeriod(
+    address wallet,
+    bytes32 usageHash,
+    uint256 period
+  ) public view returns (uint256) {
+    uint256 usage = getLimitUsage(wallet, usageHash);
+    if (period == 0) {
+      return usage;
+    }
+    return usage >> 192 == period ? usage & type(uint192).max : 0;
+  }
+
+  /// @notice Packs renewable usage so the existing monotonic increment also enforces period ordering
+  function _packUsageAmount(
+    uint256 usageAmount,
+    uint256 period
+  ) internal pure returns (uint256) {
+    if (period == 0) {
+      return usageAmount;
+    }
+    if (period > type(uint64).max || usageAmount > type(uint192).max) {
+      revert SessionErrors.InvalidLimitUsageIncrement();
+    }
+    return (period << 192) | usageAmount;
+  }
+
+  /// @notice Keeps lifetime counters unchanged and separates renewable counters by schedule.
+  function _getUsageHash(
+    bytes32 usageHash,
+    bytes32 usageNamespace
+  ) internal pure returns (bytes32) {
+    return usageNamespace == bytes32(0) ? usageHash : keccak256(abi.encode(usageHash, usageNamespace));
   }
 
   /// @notice Validates a rules permission
@@ -50,6 +88,18 @@ abstract contract PermissionValidator {
     address signer,
     UsageLimit[] memory usageLimits
   ) public view returns (bool, UsageLimit[] memory newUsageLimits) {
+    return _validatePermission(permission, call, wallet, signer, usageLimits, bytes32(0), 0);
+  }
+
+  function _validatePermission(
+    Permission memory permission,
+    Payload.Call calldata call,
+    address wallet,
+    address signer,
+    UsageLimit[] memory usageLimits,
+    bytes32 usageNamespace,
+    uint256 usagePeriod
+  ) internal view returns (bool, UsageLimit[] memory newUsageLimits) {
     if (permission.target != call.to) {
       return (false, usageLimits);
     }
@@ -75,7 +125,7 @@ abstract contract PermissionValidator {
         // Calculate cumulative usage
         uint256 value256 = uint256(value);
         // Find the usage limit for the current rule
-        bytes32 usageHash = keccak256(abi.encode(signer, permission, i));
+        bytes32 usageHash = _getUsageHash(keccak256(abi.encode(signer, permission, i)), usageNamespace);
         uint256 previousUsage;
         UsageLimit memory usageLimit;
         for (uint256 j = 0; j < newUsageLimits.length; j++) {
@@ -95,7 +145,7 @@ abstract contract PermissionValidator {
         }
         if (previousUsage == 0) {
           // Not in current payload, use storage
-          previousUsage = getLimitUsage(wallet, usageHash);
+          previousUsage = getLimitUsageForPeriod(wallet, usageHash, usagePeriod);
         }
         // Cumulate usage
         value256 += previousUsage;

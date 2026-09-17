@@ -7,7 +7,6 @@ import { ISapient } from "../../modules/interfaces/ISapient.sol";
 import { SessionErrors } from "./SessionErrors.sol";
 import { SessionSig } from "./SessionSig.sol";
 import { ExplicitSessionManager, SessionUsageLimits } from "./explicit/ExplicitSessionManager.sol";
-import { UsageLimit } from "./explicit/Permission.sol";
 import { ImplicitSessionManager } from "./implicit/ImplicitSessionManager.sol";
 
 /// @title SessionManager
@@ -72,11 +71,7 @@ contract SessionManager is ISapient, ImplicitSessionManager, ExplicitSessionMana
         uint256 limitsIdx;
         for (limitsIdx = 0; limitsIdx < sessionUsageLimits.length; limitsIdx++) {
           if (sessionUsageLimits[limitsIdx].signer == address(0)) {
-            // Initialize new session usage limits
-            limits.signer = callSignature.sessionSigner;
-            limits.limits = new UsageLimit[](0);
-            bytes32 usageHash = keccak256(abi.encode(callSignature.sessionSigner, VALUE_TRACKING_ADDRESS));
-            limits.totalValueUsed = getLimitUsage(wallet, usageHash);
+            // Initialize usage after resolving this signer's permissions and renewal period.
             break;
           }
           if (sessionUsageLimits[limitsIdx].signer == callSignature.sessionSigner) {

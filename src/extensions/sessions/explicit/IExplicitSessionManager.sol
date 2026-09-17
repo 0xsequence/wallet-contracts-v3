@@ -8,12 +8,16 @@ import { Permission, UsageLimit } from "./Permission.sol";
 /// @param chainId Chain ID of the session (0 = any chain)
 /// @param valueLimit Maximum native token value this signer can send
 /// @param deadline Deadline for the session. (0 = no deadline)
+/// @param start First renewal period's start timestamp (renewable permissions only)
+/// @param period Renewal interval in seconds (0 = lifetime limits)
 /// @param permissions Array of encoded permissions granted to this signer
 struct SessionPermissions {
   address signer;
   uint256 chainId;
   uint256 valueLimit;
   uint64 deadline;
+  uint64 start;
+  uint64 period;
   Permission[] permissions;
 }
 
@@ -21,10 +25,14 @@ struct SessionPermissions {
 /// @param signer Address of the session signer these limits apply to
 /// @param limits Array of usage limits
 /// @param totalValueUsed Total native token value used
+/// @param usageNamespace Namespace for the renewal schedule (0 = lifetime limits)
+/// @param usagePeriod One-based renewal period (0 = lifetime limits)
 struct SessionUsageLimits {
   address signer;
   UsageLimit[] limits;
   uint256 totalValueUsed;
+  bytes32 usageNamespace;
+  uint256 usagePeriod;
 }
 
 /// @title IExplicitSessionManager

@@ -62,6 +62,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       chainId: chainId,
       valueLimit: 0, // no native token usage for this test
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     // Allow calls to the target if the selector matches..
@@ -128,6 +130,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       chainId: invalidChainId,
       valueLimit: 0, // no native token usage for this test
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     // Allow calls to the target if the selector matches..
@@ -178,6 +182,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       chainId: chainId,
       valueLimit: 100,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     perms.permissions[0] = Permission({ target: address(0x1234), rules: new ParameterRule[](0) });
@@ -222,6 +228,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       chainId: chainId,
       valueLimit: 100,
       deadline: expiredTimestamp, // expired
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     perms.permissions[0] = Permission({ target: address(0x1234), rules: new ParameterRule[](1) });
@@ -267,6 +275,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       chainId: chainId,
       valueLimit: 100,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     perms.permissions[0] = Permission({ target: address(0x1234), rules: new ParameterRule[](1) });
@@ -311,6 +321,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       chainId: chainId,
       valueLimit: 100,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     perms.permissions[0] = Permission({ target: address(harness), rules: new ParameterRule[](0) });
@@ -347,6 +359,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       chainId: chainId,
       valueLimit: 100,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](0)
     });
 
@@ -384,6 +398,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       chainId: chainId,
       valueLimit: 10, // limit too low
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     perms.permissions[0] = Permission({ target: address(0x1234), rules: new ParameterRule[](1) });
@@ -428,6 +444,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       chainId: chainId,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     perms.permissions[0] = Permission({ target: payload.calls[0].to, rules: new ParameterRule[](1) });
@@ -787,6 +805,8 @@ contract ExplicitSessionManagerTest is SessionTestBase {
       chainId: chainId,
       valueLimit: valueLimit,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](3)
     });
 

@@ -67,6 +67,22 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
       revert SessionErrors.SessionExpired(sessionPermissions.deadline);
     }
 
+    if (sessionPermissions.period != 0) {
+      if (block.timestamp < sessionPermissions.start) {
+        revert SessionErrors.SessionNotStarted(sessionPermissions.start);
+      }
+      sessionUsageLimits.usageNamespace = keccak256(abi.encode(sessionPermissions.start, sessionPermissions.period));
+      sessionUsageLimits.usagePeriod = (block.timestamp - sessionPermissions.start) / sessionPermissions.period + 1;
+    }
+    if (sessionUsageLimits.signer == address(0)) {
+      sessionUsageLimits.signer = sessionSigner;
+      sessionUsageLimits.limits = new UsageLimit[](0);
+      bytes32 usageHash = _getUsageHash(
+        keccak256(abi.encode(sessionSigner, VALUE_TRACKING_ADDRESS)), sessionUsageLimits.usageNamespace
+      );
+      sessionUsageLimits.totalValueUsed = getLimitUsageForPeriod(wallet, usageHash, sessionUsageLimits.usagePeriod);
+    }
+
     // Delegate calls are not allowed
     Payload.Call calldata call = payload.calls[callIdx];
     if (call.delegateCall) {
@@ -93,8 +109,15 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
     Permission memory permission = sessionPermissions.permissions[permissionIdx];
 
     // Validate the permission for the current call
-    (bool isValid, UsageLimit[] memory limits) =
-      validatePermission(permission, call, wallet, sessionSigner, sessionUsageLimits.limits);
+    (bool isValid, UsageLimit[] memory limits) = _validatePermission(
+      permission,
+      call,
+      wallet,
+      sessionSigner,
+      sessionUsageLimits.limits,
+      sessionUsageLimits.usageNamespace,
+      sessionUsageLimits.usagePeriod
+    );
     if (!isValid) {
       revert SessionErrors.InvalidPermission();
     }
@@ -139,13 +162,19 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
       UsageLimit[] memory limits = new UsageLimit[](totalLimitsLength);
       uint256 limitIndex = 0;
       for (uint256 i = 0; i < sessionUsageLimits.length; i++) {
+        uint256 period = sessionUsageLimits[i].usagePeriod;
         for (uint256 j = 0; j < sessionUsageLimits[i].limits.length; j++) {
-          limits[limitIndex++] = sessionUsageLimits[i].limits[j];
+          UsageLimit memory limit = sessionUsageLimits[i].limits[j];
+          limits[limitIndex++] =
+            UsageLimit({ usageHash: limit.usageHash, usageAmount: _packUsageAmount(limit.usageAmount, period) });
         }
         if (sessionUsageLimits[i].totalValueUsed > 0) {
           limits[limitIndex++] = UsageLimit({
-            usageHash: keccak256(abi.encode(sessionUsageLimits[i].signer, VALUE_TRACKING_ADDRESS)),
-            usageAmount: sessionUsageLimits[i].totalValueUsed
+            usageHash: _getUsageHash(
+              keccak256(abi.encode(sessionUsageLimits[i].signer, VALUE_TRACKING_ADDRESS)),
+              sessionUsageLimits[i].usageNamespace
+            ),
+            usageAmount: _packUsageAmount(sessionUsageLimits[i].totalValueUsed, period)
           });
         }
       }
