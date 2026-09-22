@@ -87,17 +87,21 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
           sessionPermissions.start, sessionPermissions.period, _usageTimestamp(payload.calls[0])
         );
         if (usagePeriod != currentPeriod) {
-          uint256 earliest = block.timestamp > RENEWAL_GRACE_PERIOD ? block.timestamp - RENEWAL_GRACE_PERIOD : 0;
-          if (
-            usagePeriod + 1 != currentPeriod
-              || usagePeriod
-                < SessionPeriod.periodAt(
-                  sessionPermissions.start,
-                  sessionPermissions.period,
-                  earliest < sessionPermissions.start ? sessionPermissions.start : earliest
-                )
-          ) {
-            revert SessionErrors.InvalidLimitUsageIncrement();
+          // _usageTimestamp() <= block.timestamp and periods are monotonic, so usagePeriod < currentPeriod.
+          // The grace subtraction is guarded by its comparison.
+          unchecked {
+            uint256 earliest = block.timestamp > RENEWAL_GRACE_PERIOD ? block.timestamp - RENEWAL_GRACE_PERIOD : 0;
+            if (
+              usagePeriod + 1 != currentPeriod
+                || usagePeriod
+                  < SessionPeriod.periodAt(
+                    sessionPermissions.start,
+                    sessionPermissions.period,
+                    earliest < sessionPermissions.start ? sessionPermissions.start : earliest
+                  )
+            ) {
+              revert SessionErrors.InvalidLimitUsageIncrement();
+            }
           }
         }
         sessionUsageLimits.usagePeriod = usagePeriod;
