@@ -129,7 +129,7 @@ Parameter Rule Encoding:
 #### Renewable Permissions Node (FLAG 0x05)
 
 Renewable permissions use the same signer, targets, parameter rules and call
-signatures as ordinary explicit sessions. One fixed interval applies to the
+signatures as ordinary explicit sessions. One renewal schedule applies to the
 signer's native value limit and all cumulative parameter rules in this permission
 set. Non-cumulative rules continue to apply to each call.
 
@@ -140,11 +140,14 @@ The node is encoded as:
      | start:uint64 | period:uint64 | permissionsCount:uint8 | permissions...
 ```
 
-`period` must be positive and is measured in seconds. The first interval starts
-at `start`, which is inclusive; calls before it are rejected. Intervals are
+`period` must be positive. Values below `type(uint64).max` are intervals in seconds.
+The first interval starts at `start`, which is inclusive; calls before it are
+rejected. Intervals are
 `[start + n * period, start + (n + 1) * period)`. For example, `period = 86400`
-renews the limits every 24 hours. These are fixed intervals, not calendar months.
-The existing inclusive `deadline` still ends the entire session.
+renews the limits every 24 hours. The reserved value `type(uint64).max` selects
+UTC calendar months, renewing on the first of each month at 00:00 UTC.
+A mid-month start gives the first partial month its full cap, without proration.
+The existing inclusive `deadline` still ends the entire session, including during grace.
 
 The leaf hash is `keccak256(abi.encodePacked(uint8(5), encodedFields))`, where
 `encodedFields` is everything after the flag byte. This commits both the start
@@ -153,18 +156,18 @@ their existing encoding, leaf hashes and lifetime counters; their decoded
 `start` and `period` are zero.
 
 For a renewable node, derive the usual rule or native-value usage hash first,
-then qualify it with the schedule. The counter's key stays the same across intervals:
+then qualify it with the schedule and the selected period's parity:
 
 ```solidity
-uint256 usagePeriod = (block.timestamp - start) / period + 1;
-bytes32 usageNamespace = keccak256(abi.encode(start, period));
+uint256 usagePeriod = SessionPeriod.periodAt(start, period, timestamp);
+bytes32 usageNamespace = keccak256(abi.encode(start, period, usagePeriod % 2));
 bytes32 usageHash = keccak256(abi.encode(baseUsageHash, usageNamespace));
 ```
 
 The base hashes remain `keccak256(abi.encode(signer, permission, ruleIdx))` for
 cumulative rules and `keccak256(abi.encode(signer, VALUE_TRACKING_ADDRESS))` for
-native value. Each counter reuses one slot in the existing usage mapping, packing
-the period into the high 64 bits and the amount into the low 192 bits:
+native value. Each counter alternates between two slots in the existing usage
+mapping, packing the period into the high 64 bits and the amount into the low 192 bits:
 
 ```solidity
 uint256 packedUsage = (usagePeriod << 192) | usageAmount;
@@ -181,22 +184,38 @@ period; a newer period's packed word is larger even if its amount is smaller.
 
 `getLimitUsageForPeriod(wallet, usageHash, usagePeriod)` returns the decoded amount,
 or zero if the stored period differs. The first successful accounting call in a
-new interval replaces the old word. Storage does not grow with elapsed intervals,
-and unused capacity expires without a reset transaction. Historical period totals
-are not retained in storage. For renewable keys, both `getLimitUsage` and the
+new interval replaces the older word in that slot. The immediately previous
+period remains available during grace, even when the current period is already in use.
+Storage does not grow with elapsed intervals, and unused capacity expires without
+a reset transaction. For renewable keys, both `getLimitUsage` and the
 `LimitUsageUpdated` event expose the packed word, which may belong to an expired
 period; legacy keys continue to expose their unmodified amounts.
 
-Because signatures cover the accounting call, a batch signed for one interval
-cannot be settled against another interval's counters. Changing the schedule
-creates different counters; restoring the same schedule restores its usage for
+To tolerate mining across a renewal boundary, use
+`incrementUsageLimitAt(uint64 timestamp, UsageLimit[] limits)` as the first call.
+The timestamp selects the period to charge for each renewable signer. It cannot
+be in the future; the selected period must be current, or immediately previous
+while less than five minutes have passed since renewal. A timestamp in the current
+period does not expire after five minutes. Lifetime limits ignore the period selection.
+The original `incrementUsageLimit(limits)` remains available and uses the mined
+block's period, so it retains its original boundary behavior.
+
+The full accounting call, including the timestamp and totals, is signed normally.
+For example, a transaction signed at 23:59:50 can execute at 00:00:05 against the
+previous period's remaining cap, without changing its payload or signature.
+It cannot borrow from the new period or exceed the previous period's cap.
+At five minutes after renewal it is rejected. Other spending can still make the
+signed totals stale; such a transaction must be rebuilt and signed again.
+
+Changing the schedule creates different counters; restoring the same schedule restores its usage for
 the current interval. A session can make multiple calls up to each cap, including
 across multiple batches. A reverted transaction rolls back accounting; the
 existing behavior for calls that ignore errors is unchanged.
 
 This alternative extends `SessionManager` itself. SDK support is needed to encode
-the new node, derive schedule-specific usage hashes, and pack renewable amounts
-in the accounting call; its ABI and legacy session encoders remain unchanged.
+the new node, derive the two schedule-specific usage hashes, and pack renewable
+amounts in the accounting call. Clients opting into grace use the timestamped
+entry point; signature hashing and legacy session encoders remain unchanged.
 There is no separate renewal configuration transaction. New wallets,
 limits, or authorized schedules still need their own counters; the bounded
 storage guarantee applies to repeated intervals of the same counter and schedule.

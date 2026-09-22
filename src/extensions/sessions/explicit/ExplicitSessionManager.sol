@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import { Payload } from "../../../modules/Payload.sol";
 
 import { SessionErrors } from "../SessionErrors.sol";
+import { SessionPeriod } from "../SessionPeriod.sol";
 import { IExplicitSessionManager, SessionPermissions, SessionUsageLimits } from "./IExplicitSessionManager.sol";
 import { Permission, UsageLimit } from "./Permission.sol";
 import { PermissionValidator } from "./PermissionValidator.sol";
@@ -13,10 +14,13 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
   /// @notice Special address used for tracking native token value limits
   address public constant VALUE_TRACKING_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
+  /// @notice Time after renewal during which the previous period can still be charged.
+  uint256 public constant RENEWAL_GRACE_PERIOD = 5 minutes;
+
   /// @inheritdoc IExplicitSessionManager
   function incrementUsageLimit(
     UsageLimit[] calldata limits
-  ) external {
+  ) public {
     address wallet = msg.sender;
     for (uint256 i = 0; i < limits.length; i++) {
       if (limits[i].usageAmount < getLimitUsage(wallet, limits[i].usageHash)) {
@@ -25,6 +29,14 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
       }
       setLimitUsage(wallet, limits[i].usageHash, limits[i].usageAmount);
     }
+  }
+
+  /// @inheritdoc IExplicitSessionManager
+  function incrementUsageLimitAt(
+    uint64,
+    UsageLimit[] calldata limits
+  ) external {
+    incrementUsageLimit(limits);
   }
 
   /// @notice Validates an explicit call
@@ -67,14 +79,32 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
       revert SessionErrors.SessionExpired(sessionPermissions.deadline);
     }
 
-    if (sessionPermissions.period != 0) {
-      if (block.timestamp < sessionPermissions.start) {
-        revert SessionErrors.SessionNotStarted(sessionPermissions.start);
-      }
-      sessionUsageLimits.usageNamespace = keccak256(abi.encode(sessionPermissions.start, sessionPermissions.period));
-      sessionUsageLimits.usagePeriod = (block.timestamp - sessionPermissions.start) / sessionPermissions.period + 1;
-    }
     if (sessionUsageLimits.signer == address(0)) {
+      if (sessionPermissions.period != 0) {
+        uint256 currentPeriod =
+          SessionPeriod.periodAt(sessionPermissions.start, sessionPermissions.period, block.timestamp);
+        uint256 usagePeriod = SessionPeriod.periodAt(
+          sessionPermissions.start, sessionPermissions.period, _usageTimestamp(payload.calls[0])
+        );
+        if (usagePeriod != currentPeriod) {
+          uint256 earliest = block.timestamp > RENEWAL_GRACE_PERIOD ? block.timestamp - RENEWAL_GRACE_PERIOD : 0;
+          if (
+            usagePeriod + 1 != currentPeriod
+              || usagePeriod
+                < SessionPeriod.periodAt(
+                  sessionPermissions.start,
+                  sessionPermissions.period,
+                  earliest < sessionPermissions.start ? sessionPermissions.start : earliest
+                )
+          ) {
+            revert SessionErrors.InvalidLimitUsageIncrement();
+          }
+        }
+        sessionUsageLimits.usagePeriod = usagePeriod;
+        // Two alternating slots preserve the previous period while the current one is in use.
+        sessionUsageLimits.usageNamespace =
+          keccak256(abi.encode(sessionPermissions.start, sessionPermissions.period, usagePeriod % 2));
+      }
       sessionUsageLimits.signer = sessionSigner;
       sessionUsageLimits.limits = new UsageLimit[](0);
       bytes32 usageHash = _getUsageHash(
@@ -180,7 +210,9 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
       }
 
       // Verify the increment call data
-      bytes memory expectedData = abi.encodeWithSelector(this.incrementUsageLimit.selector, limits);
+      bytes memory expectedData = bytes4(call.data) == this.incrementUsageLimitAt.selector
+        ? abi.encodeCall(this.incrementUsageLimitAt, (uint64(_usageTimestamp(call)), limits))
+        : abi.encodeCall(this.incrementUsageLimit, (limits));
       bytes32 expectedDataHash = keccak256(expectedData);
       bytes32 actualDataHash = keccak256(call.data);
       if (actualDataHash != expectedDataHash) {
@@ -189,6 +221,19 @@ abstract contract ExplicitSessionManager is IExplicitSessionManager, PermissionV
     } else {
       // Do not allow self calls if there are no usage limits
       if (call.to == address(this)) {
+        revert SessionErrors.InvalidLimitUsageIncrement();
+      }
+    }
+  }
+
+  /// @dev The optional timestamp is part of the ordinary signed accounting call.
+  function _usageTimestamp(
+    Payload.Call calldata call
+  ) private view returns (uint256 timestamp) {
+    timestamp = block.timestamp;
+    if (call.to == address(this) && bytes4(call.data) == this.incrementUsageLimitAt.selector) {
+      timestamp = abi.decode(call.data[4:], (uint64));
+      if (timestamp > block.timestamp) {
         revert SessionErrors.InvalidLimitUsageIncrement();
       }
     }

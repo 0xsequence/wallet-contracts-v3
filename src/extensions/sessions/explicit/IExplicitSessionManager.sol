@@ -9,7 +9,7 @@ import { Permission, UsageLimit } from "./Permission.sol";
 /// @param valueLimit Maximum native token value this signer can send
 /// @param deadline Deadline for the session. (0 = no deadline)
 /// @param start First renewal period's start timestamp (renewable permissions only)
-/// @param period Renewal interval in seconds (0 = lifetime limits)
+/// @param period Renewal interval in seconds (uint64 max = UTC calendar month, 0 = lifetime limits)
 /// @param permissions Array of encoded permissions granted to this signer
 struct SessionPermissions {
   address signer;
@@ -43,6 +43,15 @@ interface IExplicitSessionManager {
   /// @notice Increment usage for a caller's given session and target
   /// @param limits Array of limit/session/target combinations
   function incrementUsageLimit(
+    UsageLimit[] calldata limits
+  ) external;
+
+  /// @notice Increment usage against the renewal period containing the signed timestamp
+  /// @dev The session manager validates the timestamp and totals before the wallet executes this call.
+  /// @param timestamp Timestamp selecting the current period or the previous period during renewal grace
+  /// @param limits Absolute usage totals for the selected period
+  function incrementUsageLimitAt(
+    uint64 timestamp,
     UsageLimit[] calldata limits
   ) external;
 

@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 
 import { SessionErrors } from "src/extensions/sessions/SessionErrors.sol";
 import { SessionManager } from "src/extensions/sessions/SessionManager.sol";
+import { SessionPeriod } from "src/extensions/sessions/SessionPeriod.sol";
 import { SessionSig } from "src/extensions/sessions/SessionSig.sol";
 import {
   IExplicitSessionManager,
@@ -194,9 +195,9 @@ contract RenewableLimitsTest is Test {
     _execute(payload);
     _execute(_payload(100, 0));
     assertEq(_ruleUsage(), 100);
-    assertEq(_ruleUsageHash(), firstUsageHash);
-    assertEq(manager.getLimitUsageForPeriod(address(wallet), firstUsageHash, 1), 0);
-    assertEq(manager.getLimitUsage(address(wallet), firstUsageHash), _packedUsage(100));
+    assertEq(_ruleUsageHash() == firstUsageHash, skipped % 2 == 0);
+    assertEq(manager.getLimitUsageForPeriod(address(wallet), firstUsageHash, 1), skipped % 2 == 0 ? 0 : 100);
+    assertEq(manager.getLimitUsage(address(wallet), _ruleUsageHash()), _packedUsage(100));
   }
 
   function test_nativeLimitRenewsAlongsideParameterLimit() public {
@@ -499,7 +500,7 @@ contract RenewableLimitsTest is Test {
     _execute(payload);
     assertEq(_ruleUsage(), 10);
     assertEq(_valueUsage(), 0.1 ether);
-    assertEq(manager.getLimitUsageForPeriod(address(wallet), usageHash, 1), 0);
+    assertEq(manager.getLimitUsageForPeriod(address(wallet), usageHash, 1), 40);
   }
 
   function test_amountPackingBounds(
@@ -540,6 +541,182 @@ contract RenewableLimitsTest is Test {
     _execute(_payload(type(uint256).max, 0));
     assertEq(_ruleUsage(), type(uint256).max);
     assertEq(manager.getLimitUsage(address(wallet), _ruleUsageHash()), type(uint256).max);
+  }
+
+  function test_signedPeriodSurvivesRenewal(
+    bool monthly,
+    bool currentFirst,
+    uint256 delay
+  ) public {
+    uint256 boundary = _configureRenewal(monthly);
+    delay = bound(delay, 0, manager.RENEWAL_GRACE_PERIOD() - 1);
+    _execute(_payload(40, 0.4 ether));
+    bytes32 previousRuleHash = _ruleUsageHash();
+    bytes32 previousValueHash = _valueUsageHash();
+    vm.warp(boundary - 10);
+    Payload.Decoded memory pending = _timestampedPayload(60, 0.6 ether);
+    pending.space = 1;
+    pending.nonce = 0;
+    bytes memory signature = _signature(pending);
+
+    vm.warp(boundary + delay);
+    if (currentFirst) {
+      _execute(_payload(100, 1 ether));
+    }
+    wallet.execute(_pack(pending), signature);
+    assertEq(manager.getLimitUsageForPeriod(address(wallet), previousRuleHash, 1), 100);
+    assertEq(manager.getLimitUsageForPeriod(address(wallet), previousValueHash, 1), 1 ether);
+    assertEq(_ruleUsage(), currentFirst ? 100 : 0);
+    assertEq(_valueUsage(), currentFirst ? 1 ether : 0);
+    if (!currentFirst) {
+      _execute(_payload(100, 1 ether));
+    }
+    assertEq(target.spent(), 200);
+  }
+
+  function test_previousPeriodRejectedAtGraceEnd(
+    bool monthly,
+    uint256 delay
+  ) public {
+    uint256 boundary = _configureRenewal(monthly);
+    delay = bound(delay, manager.RENEWAL_GRACE_PERIOD(), 1 days);
+    vm.warp(boundary - 10);
+    Payload.Decoded memory pending = _timestampedPayload(10, 0);
+    bytes memory signature = _signature(pending);
+    vm.warp(boundary + delay);
+    vm.expectRevert(SessionErrors.InvalidLimitUsageIncrement.selector);
+    wallet.execute(_pack(pending), signature);
+  }
+
+  function test_graceCannotExceedPreviousPeriodCap(
+    bool native
+  ) public {
+    _execute(_payload(100, 1 ether));
+    Payload.Decoded memory pending = _timestampedPayload(native ? 0 : 1, native ? 1 : 0);
+    bytes memory signature = _signature(pending);
+    vm.warp(uint256(permission.start) + permission.period);
+    vm.expectRevert(native ? SessionErrors.InvalidValue.selector : SessionErrors.InvalidPermission.selector);
+    wallet.execute(_pack(pending), signature);
+    assertEq(_ruleUsage(), 0);
+    assertEq(_valueUsage(), 0);
+  }
+
+  function test_timestampCannotSelectFutureOrOlderPeriods(
+    bool future
+  ) public {
+    permission.period = 30;
+    _configure();
+    Payload.Decoded memory pending = _timestampedPayload(10, 0);
+    if (future) {
+      (uint64 timestamp, UsageLimit[] memory limits) =
+        abi.decode(_stripSelector(pending.calls[0].data), (uint64, UsageLimit[]));
+      pending.calls[0].data = abi.encodeCall(IExplicitSessionManager.incrementUsageLimitAt, (timestamp + 1, limits));
+    } else {
+      // Even within five minutes, only the immediately previous period is allowed.
+      vm.warp(block.timestamp + 2 * permission.period);
+    }
+    vm.expectRevert(SessionErrors.InvalidLimitUsageIncrement.selector);
+    _execute(pending);
+  }
+
+  function test_currentPeriodTimestampDoesNotExpireAfterFiveMinutes() public {
+    Payload.Decoded memory pending = _timestampedPayload(10, 0);
+    bytes memory signature = _signature(pending);
+    vm.warp(block.timestamp + 1 hours);
+    wallet.execute(_pack(pending), signature);
+    assertEq(_ruleUsage(), 10);
+  }
+
+  function test_graceDoesNotExtendSessionDeadline() public {
+    permission.deadline = permission.start + permission.period - 1;
+    _configure();
+    Payload.Decoded memory pending = _timestampedPayload(10, 0);
+    vm.warp(uint256(permission.start) + permission.period);
+    vm.expectPartialRevert(SessionErrors.SessionExpired.selector);
+    _execute(pending);
+  }
+
+  function test_timestampAndTotalsRemainSigned(
+    bool changeTimestamp
+  ) public {
+    vm.warp(block.timestamp + 1);
+    Payload.Decoded memory pending = _timestampedPayload(10, 0);
+    bytes memory signature = _signature(pending);
+    (uint64 timestamp, UsageLimit[] memory limits) =
+      abi.decode(_stripSelector(pending.calls[0].data), (uint64, UsageLimit[]));
+    if (changeTimestamp) {
+      timestamp--;
+    } else {
+      limits[0].usageAmount++;
+    }
+    pending.calls[0].data = abi.encodeCall(IExplicitSessionManager.incrementUsageLimitAt, (timestamp, limits));
+    vm.expectPartialRevert(SessionErrors.InvalidSessionSigner.selector);
+    wallet.execute(_pack(pending), signature);
+  }
+
+  function test_timestampedAccountingStillRequiresExactTotals() public {
+    Payload.Decoded memory pending = _timestampedPayload(10, 0);
+    pending.space = 1;
+    bytes memory signature = _signature(pending);
+    _execute(_payload(10, 0));
+    vm.expectRevert(SessionErrors.InvalidLimitUsageIncrement.selector);
+    wallet.execute(_pack(pending), signature);
+  }
+
+  function test_twoCounterSlotsAreReused() public {
+    bytes32[2] memory hashes;
+    for (uint256 i = 0; i < 8; i++) {
+      vm.warp(uint256(permission.start) + i * permission.period);
+      assertEq(_ruleUsage(), 0);
+      if (i < 2) {
+        hashes[i] = _ruleUsageHash();
+      } else {
+        assertEq(_ruleUsageHash(), hashes[i % 2]);
+      }
+      _execute(_payload(100, 0));
+      assertEq(_ruleUsage(), 100);
+    }
+    assertNotEq(hashes[0], hashes[1]);
+    assertEq(manager.getLimitUsageForPeriod(address(wallet), hashes[0], 7), 100);
+    assertEq(manager.getLimitUsageForPeriod(address(wallet), hashes[1], 8), 100);
+  }
+
+  function test_calendarMonthsDoNotDrift() public {
+    _configureRenewal(true); // January 15, 2024: the first partial month has the full cap.
+    _execute(_payload(100, 1 ether));
+    vm.warp(1706745599); // January 31, 23:59:59 UTC
+    Payload.Decoded memory payload = _payload(1, 0);
+    vm.expectRevert(SessionErrors.InvalidPermission.selector);
+    _execute(payload);
+    vm.warp(1706745600); // February 1
+    _execute(_payload(100, 1 ether));
+    vm.warp(1709251199); // February 29, 23:59:59 UTC
+    payload = _payload(1, 0);
+    vm.expectRevert(SessionErrors.InvalidPermission.selector);
+    _execute(payload);
+    vm.warp(1709251200); // March 1
+    _execute(_payload(100, 1 ether));
+    assertEq(_usagePeriod(), 3);
+  }
+
+  function _configureRenewal(
+    bool monthly
+  ) internal returns (uint256 boundary) {
+    permission.start = 1705276800; // January 15, 2024
+    permission.period = monthly ? type(uint64).max : uint64(1 days);
+    vm.warp(permission.start);
+    _configure();
+    return monthly ? 1706745600 : uint256(permission.start) + 1 days;
+  }
+
+  function _timestampedPayload(
+    uint256 amount,
+    uint256 value
+  ) internal view returns (Payload.Decoded memory payload) {
+    payload = _payload(amount, value);
+    UsageLimit[] memory limits = abi.decode(_stripSelector(payload.calls[0].data), (UsageLimit[]));
+    payload.calls[0].data =
+      abi.encodeCall(IExplicitSessionManager.incrementUsageLimitAt, (uint64(block.timestamp), limits));
   }
 
   function _configure() internal {
@@ -596,7 +773,7 @@ contract RenewableLimitsTest is Test {
     if (permission.period == 0) {
       return base;
     }
-    bytes32 usageNamespace = keccak256(abi.encode(permission.start, permission.period));
+    bytes32 usageNamespace = keccak256(abi.encode(permission.start, permission.period, _usagePeriod() % 2));
     return keccak256(abi.encode(base, usageNamespace));
   }
 
@@ -617,7 +794,7 @@ contract RenewableLimitsTest is Test {
   }
 
   function _usagePeriod() internal view returns (uint256) {
-    return permission.period == 0 ? 0 : (block.timestamp - permission.start) / permission.period + 1;
+    return permission.period == 0 ? 0 : SessionPeriod.periodAt(permission.start, permission.period, block.timestamp);
   }
 
   function _packedUsage(
@@ -679,7 +856,7 @@ contract RenewableLimitsTest is Test {
   function _pack(
     Payload.Decoded memory payload
   ) internal pure returns (bytes memory packed) {
-    packed = abi.encodePacked(uint8(0x0f), uint56(payload.nonce), uint8(payload.calls.length));
+    packed = abi.encodePacked(uint8(0x0e), uint160(payload.space), uint56(payload.nonce), uint8(payload.calls.length));
     for (uint256 i = 0; i < payload.calls.length; i++) {
       Payload.Call memory call = payload.calls[i];
       uint8 flags = 0x06 | uint8(call.behaviorOnError << 6);
