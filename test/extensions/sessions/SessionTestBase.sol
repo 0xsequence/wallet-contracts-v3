@@ -167,6 +167,8 @@ abstract contract SessionTestBase is AdvTest {
       chainId: chainId,
       valueLimit: valueLimit,
       deadline: deadline,
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
 

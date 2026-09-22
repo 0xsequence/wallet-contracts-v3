@@ -108,6 +108,8 @@ contract SessionSigTest is SessionTestBase {
       chainId: useChainId ? block.chainid : 0,
       valueLimit: 1000,
       deadline: 2000,
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     {
@@ -410,6 +412,8 @@ contract SessionSigTest is SessionTestBase {
       chainId: useChainId ? block.chainid : 0,
       valueLimit: 1000,
       deadline: 2000,
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: address(0xBEEF), rules: new ParameterRule[](0) });
@@ -788,7 +792,7 @@ contract SessionSigTest is SessionTestBase {
   function testConfiguration_invalidNode(
     uint8 invalidNodeFlag
   ) public {
-    invalidNodeFlag = uint8(bound(invalidNodeFlag, 0x05, 0x0f));
+    invalidNodeFlag = uint8(bound(invalidNodeFlag, 0x06, 0x0f));
 
     bytes memory encoded = abi.encodePacked(invalidNodeFlag << 4);
 
@@ -983,6 +987,8 @@ contract SessionSigTest is SessionTestBase {
       chainId: chainId,
       valueLimit: valueLimit,
       deadline: deadline,
+      start: 0,
+      period: 0,
       permissions: new Permission[](0)
     });
 

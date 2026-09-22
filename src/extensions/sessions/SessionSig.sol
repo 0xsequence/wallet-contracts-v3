@@ -22,6 +22,7 @@ library SessionSig {
   uint256 internal constant FLAG_BRANCH = 2;
   uint256 internal constant FLAG_BLACKLIST = 3;
   uint256 internal constant FLAG_IDENTITY_SIGNER = 4;
+  uint256 internal constant FLAG_RENEWABLE_PERMISSIONS = 5;
 
   uint256 internal constant MIN_ENCODED_PERMISSION_SIZE = 94;
 
@@ -218,8 +219,8 @@ library SessionSig {
       // The top 4 bits are the flag
       uint256 flag = (firstByte & 0xf0) >> 4;
 
-      // Permissions configuration (0x00)
-      if (flag == FLAG_PERMISSIONS) {
+      // Lifetime (0x00) or renewable (0x05) permissions configuration
+      if (flag == FLAG_PERMISSIONS || flag == FLAG_RENEWABLE_PERMISSIONS) {
         SessionPermissions memory nodePermissions;
         uint256 pointerStart = pointer;
 
@@ -235,12 +236,20 @@ library SessionSig {
         // Read deadline
         (nodePermissions.deadline, pointer) = encoded.readUint64(pointer);
 
+        if (flag == FLAG_RENEWABLE_PERMISSIONS) {
+          (nodePermissions.start, pointer) = encoded.readUint64(pointer);
+          (nodePermissions.period, pointer) = encoded.readUint64(pointer);
+          if (nodePermissions.period == 0) {
+            revert SessionErrors.InvalidRenewalPeriod();
+          }
+        }
+
         // Read permissions array
         (nodePermissions.permissions, pointer) = _decodePermissions(encoded, pointer);
 
         // Update root
         {
-          bytes32 permissionHash = _leafHashForPermissions(encoded[pointerStart:pointer]);
+          bytes32 permissionHash = keccak256(abi.encodePacked(uint8(flag), encoded[pointerStart:pointer]));
           sig.imageHash =
             sig.imageHash != bytes32(0) ? LibOptim.fkeccak256(sig.imageHash, permissionHash) : permissionHash;
         }

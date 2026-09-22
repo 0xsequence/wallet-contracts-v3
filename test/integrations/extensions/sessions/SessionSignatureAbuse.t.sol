@@ -68,6 +68,8 @@ contract IntegrationSessionSignatureAbuseTest is ExtendedSessionTestBase {
       chainId: block.chainid,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: permissions
     });
 

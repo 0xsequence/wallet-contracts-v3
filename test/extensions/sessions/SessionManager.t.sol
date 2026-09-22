@@ -65,6 +65,8 @@ contract SessionManagerTest is SessionTestBase {
       chainId: useChainId ? block.chainid : 0,
       valueLimit: value,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](2)
     });
     // Permission with an empty rules set allows all calls to the target.
@@ -211,6 +213,8 @@ contract SessionManagerTest is SessionTestBase {
       chainId: useChainId ? block.chainid : 0,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     // Permission with an empty rules set allows all calls to the target.
@@ -238,6 +242,8 @@ contract SessionManagerTest is SessionTestBase {
       chainId: useChainId ? block.chainid : 0,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     // Permission with an empty rules set allows all calls to the target.
@@ -376,6 +382,8 @@ contract SessionManagerTest is SessionTestBase {
       chainId: 0,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](2)
     });
     // Permission with an empty rules set allows all calls to the target.
@@ -588,6 +596,8 @@ contract SessionManagerTest is SessionTestBase {
       chainId: 0,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](1) });
@@ -868,6 +878,8 @@ contract SessionManagerTest is SessionTestBase {
       chainId: 0,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });
@@ -921,6 +933,8 @@ contract SessionManagerTest is SessionTestBase {
       chainId: 0,
       valueLimit: 1, // Set value limit to trigger usage tracking
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });
@@ -961,6 +975,8 @@ contract SessionManagerTest is SessionTestBase {
       chainId: 0,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });
@@ -998,6 +1014,8 @@ contract SessionManagerTest is SessionTestBase {
       chainId: 0,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });
@@ -1034,6 +1052,8 @@ contract SessionManagerTest is SessionTestBase {
       chainId: 0,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: target, rules: new ParameterRule[](0) });

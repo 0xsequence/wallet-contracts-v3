@@ -44,6 +44,8 @@ contract ExtendedSessionTestBase is SessionTestBase {
       chainId: 0,
       valueLimit: 0,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: address(mockTarget), rules: new ParameterRule[](0) });

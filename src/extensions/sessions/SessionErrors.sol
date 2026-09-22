@@ -37,6 +37,10 @@ library SessionErrors {
   error InvalidPermission();
   /// @notice Session expired
   error SessionExpired(uint256 deadline);
+  /// @notice Renewable session has not started
+  error SessionNotStarted(uint256 start);
+  /// @notice Renewable permissions require a positive interval
+  error InvalidRenewalPeriod();
   /// @notice Invalid limit usage increment
   error InvalidLimitUsageIncrement();
 

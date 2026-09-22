@@ -53,6 +53,8 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
       chainId: chainId,
       valueLimit: valueCap,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: address(valueForwarder), rules: new ParameterRule[](0) });
@@ -141,6 +143,8 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
       chainId: chainId,
       valueLimit: valueCap,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: address(valueForwarder), rules: new ParameterRule[](0) });
@@ -234,6 +238,8 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
       chainId: chainId,
       valueLimit: valueCap,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](2)
     });
     sessionPerms.permissions[0] = Permission({ target: address(valueForwarder), rules: new ParameterRule[](0) });

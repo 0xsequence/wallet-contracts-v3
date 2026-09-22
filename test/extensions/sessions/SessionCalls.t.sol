@@ -97,6 +97,8 @@ contract SessionCallsTest is SessionTestBase {
       chainId: 0,
       valueLimit: totalValue,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: address(target), rules: new ParameterRule[](0) });
@@ -209,6 +211,8 @@ contract SessionCallsTest is SessionTestBase {
       chainId: 0,
       valueLimit: totalValue,
       deadline: uint64(block.timestamp + 1 days),
+      start: 0,
+      period: 0,
       permissions: new Permission[](1)
     });
     sessionPerms.permissions[0] = Permission({ target: address(target), rules: new ParameterRule[](0) });
