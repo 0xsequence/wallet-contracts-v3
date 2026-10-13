@@ -53,7 +53,7 @@ For a payment digest, the x402 sapient signer:
 3. Recomputes the canonical x402 Permit2 digest.
 4. Requires the recomputed digest to equal `payload.digest`.
 5. Checks the stateless policy limits.
-6. Verifies the session key signature over the wallet, policy root, and external digest.
+6. Verifies the session key signature over `hashSessionAuthorization(wallet, policyRoot, Payload.hashFor(payload, wallet))`, where the payload wraps the Permit2 digest and carries the `parentWallets` chain that reached the signer.
 7. Returns the policy root as the sapient image hash.
 
 ```
@@ -74,7 +74,8 @@ For a payment digest, the x402 sapient signer:
       ├─ 1. reconstruct the canonical Permit2 digest
       ├─ 2. require  digest == payload.digest
       ├─ 3. policy limits: token · amount · nonce tape index · expiry · chain
-      ├─ 4. session-key sig over (wallet, policyRoot, digest)
+      ├─ 4. session-key sig over (wallet, policyRoot,
+      │        Payload.hashFor(payload, wallet))  ▸ binds wallet · parentWallets
       │
       ▼
   returns  policyRoot = hashPolicy(policy)
@@ -339,7 +340,7 @@ struct ApprovalSignature {
 }
 ```
 
-The session key signs the wallet transaction payload hash, wrapped in the same session authorization type used by payments.
+In both cases the session key signs `Payload.hashFor(payload, wallet)`, wrapped in the same session authorization type. For a payment the payload is the `Payload.KIND_DIGEST` wrapper around the canonical Permit2 digest, so the signature covers the Permit2 digest plus the wallet domain and the parent wallets that reached the signer.
 
 ---
 
@@ -496,14 +497,20 @@ This binds the session key signature to:
 - the wallet currently being validated
 - the policy committed in the wallet configuration
 - the exact external x402 Permit2 digest or wallet transaction payload hash
+- the chain of parent wallets that reached this signer
 - this sapient signer contract and chain
 
-For approval setup, `payloadDigest` is `Payload.hashFor(payload, wallet)`, so the signature covers the target token, calldata, nonce, nonce space, and parent wallets.
+For both payload kinds, `payloadDigest` is `Payload.hashFor(payload, wallet)`.
+
+For approval setup the payload is the wallet transaction itself, so the signature covers the target token, calldata, nonce, nonce space, and parent wallets.
+
+For a payment the payload is `Payload.fromDigest(permit2Digest)`, carrying the wallet's `noChainId` flag and the `parentWallets` chain, so the signature covers the Permit2 digest plus the wallet domain and every wallet that delegated down to this one. Note that the Permit2 digest itself carries no owner, and Permit2 nonces are tracked per owner. Without the `parentWallets` commitment, a payment signed for a child wallet could be replayed against a parent wallet that lists the child as a sapient signer, settling a second transfer from the parent off a single authorization.
 
 ```
   ┌─ payloadDigest ─────────────────────────────────────────────
-  │    KIND_DIGEST        →  canonical Permit2 witness digest
-  │    KIND_TRANSACTIONS  →  Payload.hashFor(payload, wallet)
+  │    both kinds  →  Payload.hashFor(payload, wallet)
+  │      KIND_DIGEST        payload = fromDigest(permit2Digest)
+  │      KIND_TRANSACTIONS  payload = the wallet transaction
   └──────────────────────────────────────────────────────────────
                           │  embedded as `payloadDigest`
                           ▼
@@ -762,9 +769,10 @@ An SDK creating a payment should:
    - deadline: Permit2 deadline
    - witness: `Witness({to, validAfter})`
 7. Compute the canonical Permit2 digest.
-8. Have the session key sign `hashSessionAuthorization(wallet, policyRoot, permit2Digest)`.
-9. ABI-encode `X402Signature(policy, payment, sessionKeySignature)`.
-10. Embed that as the sapient signature in the Sequence signature.
+8. Wrap it as `payload = Payload.fromDigest(permit2Digest)`, setting `noChainId` and `parentWallets` to match the signature the wallet will submit. For a payment settled directly against the wallet, `parentWallets` is empty.
+9. Have the session key sign `hashSessionAuthorization(wallet, policyRoot, Payload.hashFor(payload, wallet))`.
+10. ABI-encode `X402Signature(policy, payment, sessionKeySignature)`.
+11. Embed that as the sapient signature in the Sequence signature.
 
 ---
 

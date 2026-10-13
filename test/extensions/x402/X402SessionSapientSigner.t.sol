@@ -85,6 +85,68 @@ contract X402SessionSapientSignerTest is Test {
     assertEq(wallet.isValidSignature(payload.digest, sequenceSignature), IERC1271_MAGIC_VALUE_HASH);
   }
 
+  /// A payment authorized for the wallet itself must not be replayable through a parent wallet that lists the
+  /// wallet as a sapient signer. Permit2 nonces are per owner, so a replay would settle a second transfer from
+  /// the parent off a single authorization.
+  function test_isValidSignature_rejectsPaymentReplayThroughParentWallet() external {
+    X402AuthHarness parent = new X402AuthHarness();
+    X402SessionSapientSigner.Policy memory policy = _validPolicy();
+    X402SessionSapientSigner.Permit2Payment memory payment = _validPayment(policy);
+    bytes32 policyRoot = signer.hashPolicy(policy);
+    bytes32 externalDigest = signer.hashPermit2Payment(policy, payment);
+
+    // The session key signs for a direct payment from `wallet`, so `parentWallets` is empty.
+    bytes memory sessionKeySignature =
+      _sign(sessionKey.privateKey, _paymentAuthDigest(policyRoot, externalDigest, _noParents()));
+    bytes memory x402Signature = _encode(policy, payment, sessionKeySignature);
+
+    wallet.setImageHash(_sequenceImageHash(address(signer), 1, policyRoot));
+    parent.setImageHash(_sequenceImageHash(address(wallet), 1, bytes32(uint256(1))));
+
+    bytes memory walletSignature = _encodeSequenceSapientSignature(address(signer), 1, x402Signature);
+    assertEq(wallet.isValidSignature(externalDigest, walletSignature), IERC1271_MAGIC_VALUE_HASH);
+
+    // The same x402 signature bytes, rewrapped for the parent, now recover a different address because the
+    // authorization commits to `parentWallets`.
+    bytes memory parentSignature = _encodeSequenceSapientSignature(address(wallet), 1, walletSignature);
+    address recovered =
+      _recover(_paymentAuthDigest(policyRoot, externalDigest, _oneParent(address(parent))), sessionKeySignature);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(X402SessionSapientSigner.InvalidSessionKeySignature.selector, recovered, policy.sessionKey)
+    );
+    parent.isValidSignature(externalDigest, parentSignature);
+  }
+
+  /// Nesting is still usable when the session key intends it: signing with the parent in `parentWallets` validates
+  /// through the parent, and that same signature no longer validates for a direct payment from the wallet.
+  function test_isValidSignature_acceptsPaymentAuthorizedForParentWallet() external {
+    X402AuthHarness parent = new X402AuthHarness();
+    X402SessionSapientSigner.Policy memory policy = _validPolicy();
+    X402SessionSapientSigner.Permit2Payment memory payment = _validPayment(policy);
+    bytes32 policyRoot = signer.hashPolicy(policy);
+    bytes32 externalDigest = signer.hashPermit2Payment(policy, payment);
+
+    bytes memory sessionKeySignature =
+      _sign(sessionKey.privateKey, _paymentAuthDigest(policyRoot, externalDigest, _oneParent(address(parent))));
+    bytes memory x402Signature = _encode(policy, payment, sessionKeySignature);
+
+    wallet.setImageHash(_sequenceImageHash(address(signer), 1, policyRoot));
+    parent.setImageHash(_sequenceImageHash(address(wallet), 1, bytes32(uint256(1))));
+
+    bytes memory walletSignature = _encodeSequenceSapientSignature(address(signer), 1, x402Signature);
+    bytes memory parentSignature = _encodeSequenceSapientSignature(address(wallet), 1, walletSignature);
+
+    assertEq(parent.isValidSignature(externalDigest, parentSignature), IERC1271_MAGIC_VALUE_HASH);
+
+    address recovered = _recover(_paymentAuthDigest(policyRoot, externalDigest, _noParents()), sessionKeySignature);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(X402SessionSapientSigner.InvalidSessionKeySignature.selector, recovered, policy.sessionKey)
+    );
+    wallet.isValidSignature(externalDigest, walletSignature);
+  }
+
   function test_hashPermit2Payment_matchesCanonicalX402ProxyDigest() external view {
     X402SessionSapientSigner.Policy memory policy = _validPolicy();
     X402SessionSapientSigner.Permit2Payment memory payment = _validPayment(policy);
@@ -702,7 +764,8 @@ contract X402SessionSapientSignerTest is Test {
     bytes32 policyRoot = signer.hashPolicy(policy);
 
     Vm.Wallet memory wrongKey = vm.createWallet("wrong-key");
-    bytes32 authDigest = signer.hashSessionAuthorization(address(wallet), policyRoot, externalDigest);
+    bytes32 payloadDigest = Payload.hashFor(payload, address(wallet));
+    bytes32 authDigest = signer.hashSessionAuthorization(address(wallet), policyRoot, payloadDigest);
     bytes memory badSignature = _sign(wrongKey.privateKey, authDigest);
     bytes memory encoded = _encode(policy, payment, badSignature);
     address recovered = _recover(authDigest, badSignature);
@@ -804,8 +867,32 @@ contract X402SessionSapientSignerTest is Test {
     bytes32 externalDigest = signer.hashPermit2Payment(policy, payment);
     payload = Payload.fromDigest(externalDigest);
     policyRoot = signer.hashPolicy(policy);
-    bytes32 authDigest = signer.hashSessionAuthorization(address(wallet), policyRoot, externalDigest);
+    bytes32 payloadDigest = Payload.hashFor(payload, address(wallet));
+    bytes32 authDigest = signer.hashSessionAuthorization(address(wallet), policyRoot, payloadDigest);
     encoded = _encode(policy, payment, _sign(sessionKey.privateKey, authDigest));
+  }
+
+  /// The session-key authorization digest for a payment validated by `wallet` under the given parent chain.
+  /// `noChainId` stays false to match the `0x00` leading signature flag the sequence signature helpers emit.
+  function _paymentAuthDigest(
+    bytes32 policyRoot,
+    bytes32 externalDigest,
+    address[] memory parentWallets
+  ) internal view returns (bytes32) {
+    Payload.Decoded memory payload = Payload.fromDigest(externalDigest);
+    payload.parentWallets = parentWallets;
+    return signer.hashSessionAuthorization(address(wallet), policyRoot, Payload.hashFor(payload, address(wallet)));
+  }
+
+  function _noParents() internal pure returns (address[] memory) {
+    return new address[](0);
+  }
+
+  function _oneParent(
+    address parent
+  ) internal pure returns (address[] memory parents) {
+    parents = new address[](1);
+    parents[0] = parent;
   }
 
   function _validPolicy() internal view returns (X402SessionSapientSigner.Policy memory policy) {
