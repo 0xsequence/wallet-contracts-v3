@@ -250,10 +250,11 @@ At any single instant the signer accepts exactly `maxPayments` logical nonce pos
 minNonceIndex <= nonceIndex <= maxNonceIndex
 ```
 
-`maxPayments` is a mask width, not a per-window quota. The mask starts full at `windowStart` and its lower edge advances by `maxPayments` over one `windowDuration`, so a span of length `windowDuration` can admit up to `2 * maxPayments - 1` distinct positions. Note that sizing `maxPayments` as "payments per window" therefore understates the worst case by almost a factor of two. The largest spend reachable inside the first window is:
+`maxPayments` is a mask width, not a per-window quota. The mask starts full at `windowStart` and its lower edge advances by `maxPayments` over one `windowDuration`, so the first window can admit up to `2 * maxPayments - 1` distinct positions, and a span of length `windowDuration` that starts after `windowStart` up to `2 * maxPayments`. Note that sizing `maxPayments` as "payments per window" therefore understates the worst case by a factor of two. The largest spend reachable inside the first window, and inside any rolling span of length `windowDuration`, is:
 
 ```
-(2 * maxPayments - 1) * maxAmountPerPayment
+(2 * maxPayments - 1) * maxAmountPerPayment   first window
+2 * maxPayments * maxAmountPerPayment         any rolling span
 ```
 
 Section 10 derives the bound and works through an example.
@@ -633,16 +634,25 @@ positionsEverLive  = floor(e * maxPayments / windowDuration) + maxPayments
                   <= maxPayments * (1 + e / windowDuration)
 ```
 
-The mask starts full at `e = 0` and its lower edge advances by `maxPayments` over each `windowDuration`. So any span of
-length `windowDuration` can admit up to:
+The mask starts full at `e = 0` and its lower edge advances by `maxPayments` over each `windowDuration`. So the first
+window, `[windowStart, windowStart + windowDuration)`, can admit up to:
 
 ```
 2 * maxPayments - 1
 ```
 
-distinct positions: the `maxPayments` live at the start of the span, plus the `maxPayments - 1` that slide in before the
-span ends. The long-run rate is still `maxPayments` positions per `windowDuration`, and the optional `maxWindows`
-lifetime cap of `maxWindows * maxPayments` positions is unaffected.
+distinct positions: the `maxPayments` live at `windowStart`, plus the `maxPayments - 1` that slide in before the window
+ends. A span of the same length that starts after `windowStart` is not aligned to the floor, so the lower edge can
+complete a full `maxPayments` step inside it. Any such span can admit up to:
+
+```
+2 * maxPayments
+```
+
+For example, a span starting one second after `windowStart` sees `[0..maxPayments - 1]` at its start and
+`[maxPayments..2 * maxPayments - 1]` at `windowStart + windowDuration`, which is still inside it. The long-run rate is
+still `maxPayments` positions per `windowDuration`, and the optional `maxWindows` lifetime cap of
+`maxWindows * maxPayments` positions is unaffected.
 
 Worked example with `maxPayments = 5` and `windowDuration = 30 days`:
 
@@ -657,7 +667,8 @@ e = 30 days       min = 5   max = 9    live [5..9]    10
 
 A facilitator holding session-key signatures can settle positions `0..4` at `windowStart` and positions `5..8` a second
 before `windowStart + 30 days`. That is nine payments inside the first 30 days, and five more per 30 days after that.
-Integrators should budget `(2 * maxPayments - 1) * maxAmountPerPayment` for the first window rather than
+Integrators should budget `(2 * maxPayments - 1) * maxAmountPerPayment` for the first window, and
+`2 * maxPayments * maxAmountPerPayment` for any rolling span of length `windowDuration`, rather than
 `maxPayments * maxAmountPerPayment`.
 
 Note that a stepwise schedule would behave differently: taking the lower edge as

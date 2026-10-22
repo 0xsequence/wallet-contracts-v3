@@ -33,8 +33,9 @@ contract X402SlidingWindowHarness is Calls {
 
 /// @notice Pins the exact number of Permit2 tape positions the sliding mask admits inside one `windowDuration`.
 /// @dev The mask starts full at `windowStart` and its lower edge advances by `maxPayments` over one `windowDuration`,
-///      so a single window admits up to `2 * maxPayments - 1` distinct positions even though only `maxPayments` are
-///      live at any instant. Documented in docs/X402_SMART_SESSIONS.md sections 4 and 10.
+///      so the first window admits up to `2 * maxPayments - 1` distinct positions and a rolling span of the same
+///      length up to `2 * maxPayments`, even though only `maxPayments` are live at any instant. Documented in
+///      docs/X402_SMART_SESSIONS.md sections 4 and 10.
 contract X402SlidingWindowBoundsTest is Test {
 
   X402SessionSapientSigner internal signer;
@@ -121,6 +122,35 @@ contract X402SlidingWindowBoundsTest is Test {
     }
   }
 
+  /// @dev (e) a span of the same length that starts one second after `windowStart` admits `2 * maxPayments`.
+  function test_recoverSapientSignature_admitsTwiceMaxPaymentsPerRollingSpan() external {
+    X402SessionSapientSigner.Policy memory policy = _policy();
+    uint256 probe = 3 * uint256(MAX_PAYMENTS);
+    bool[] memory admitted = new bool[](probe);
+
+    vm.warp(uint256(WINDOW_START) + 1);
+    for (uint256 i = 0; i < probe; i++) {
+      admitted[i] = _accepts(policy, i);
+    }
+
+    vm.warp(uint256(WINDOW_START) + uint256(WINDOW_DURATION));
+    for (uint256 i = 0; i < probe; i++) {
+      admitted[i] = admitted[i] || _accepts(policy, i);
+    }
+
+    uint256 distinct;
+    for (uint256 i = 0; i < probe; i++) {
+      if (admitted[i]) {
+        distinct++;
+      }
+    }
+
+    assertEq(distinct, 2 * uint256(MAX_PAYMENTS), "a rolling span admits 2 * maxPayments distinct positions");
+    for (uint256 i = 0; i < distinct; i++) {
+      assertTrue(admitted[i], "the admitted positions are the contiguous prefix 0..2 * maxPayments - 1");
+    }
+  }
+
   // --- helpers ---------------------------------------------------------------------------------------------------
 
   function _policy() internal view returns (X402SessionSapientSigner.Policy memory policy) {
@@ -151,7 +181,8 @@ contract X402SlidingWindowBoundsTest is Test {
     bytes32 externalDigest = signer.hashPermit2Payment(policy, payment);
     payload = Payload.fromDigest(externalDigest);
 
-    bytes32 authDigest = signer.hashSessionAuthorization(address(wallet), policyRoot, externalDigest);
+    bytes32 payloadDigest = Payload.hashFor(payload, address(wallet));
+    bytes32 authDigest = signer.hashSessionAuthorization(address(wallet), policyRoot, payloadDigest);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(sessionKey.privateKey, authDigest);
 
     encoded = abi.encode(
