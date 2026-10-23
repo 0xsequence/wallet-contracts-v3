@@ -200,6 +200,11 @@ contract Recovery is ISapientCompact {
     Payload.Decoded calldata _payload,
     bytes calldata _signature
   ) internal view returns (bool) {
+    // ecrecover returns address(0) on invalid signatures
+    if (_signer == address(0)) {
+      return false;
+    }
+
     bytes32 rPayloadHash = recoveryPayloadHash(_wallet, _payload);
 
     if (_signature.length == 64) {

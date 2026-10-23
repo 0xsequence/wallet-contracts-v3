@@ -250,6 +250,7 @@ contract RecoveryTest is AdvTest {
     boundToLegalPayload(_payload);
     _signer = boundNoPrecompile(_signer);
     assumeNotPrecompile2(_signer);
+    vm.assume(_signer != address(0));
 
     _signerCode = abi.encodePacked(bytes1(0x00), _signerCode);
     vm.warp(_randomTime);
@@ -285,6 +286,7 @@ contract RecoveryTest is AdvTest {
     boundToLegalPayload(_payload);
     _signer = boundNoPrecompile(_signer);
     assumeNotPrecompile2(_signer);
+    vm.assume(_signer != address(0));
 
     _signerCode = abi.encodePacked(bytes1(0x00), _signerCode);
     vm.warp(_randomTime);
@@ -317,6 +319,7 @@ contract RecoveryTest is AdvTest {
     boundToLegalPayload(_payload);
     _signer = boundNoPrecompile(_signer);
     assumeNotPrecompile2(_signer);
+    vm.assume(_signer != address(0));
 
     _signerCode = abi.encodePacked(bytes1(0x00), _signerCode);
     vm.warp(_randomTime);
@@ -666,6 +669,104 @@ contract RecoveryTest is AdvTest {
     vm.prank(_wallet);
     vm.expectRevert(abi.encodeWithSelector(Recovery.InvalidSignatureFlag.selector, _invalidSignatureFlag));
     recovery.recoverSapientSignatureCompact(_payloadHash, abi.encodePacked(_invalidSignatureFlag, _suffix));
+  }
+
+  function test_queue_payload_zero_signer_fail(
+    address _wallet,
+    Payload.Decoded memory _payload,
+    bytes32 _r,
+    bytes32 _yParityAndS
+  ) external {
+    boundToLegalPayload(_payload);
+
+    bytes memory signature = abi.encodePacked(_r, _yParityAndS);
+    vm.expectRevert(
+      abi.encodeWithSelector(Recovery.InvalidSignature.selector, _wallet, address(0), _payload, signature)
+    );
+    recovery.queuePayload(_wallet, address(0), _payload, signature);
+
+    // An all zero signature makes ecrecover return address(0)
+    signature = new bytes(64);
+    vm.expectRevert(
+      abi.encodeWithSelector(Recovery.InvalidSignature.selector, _wallet, address(0), _payload, signature)
+    );
+    recovery.queuePayload(_wallet, address(0), _payload, signature);
+
+    assertEq(recovery.totalQueuedPayloads(_wallet, address(0)), 0);
+  }
+
+  function test_queue_payload_zero_signer_with_code_fail(
+    address _wallet,
+    Payload.Decoded memory _payload,
+    bytes calldata _signature
+  ) external {
+    boundToLegalPayload(_payload);
+
+    // Even if address(0) had code that accepts any signature
+    vm.etch(address(0), hex"7f1626ba7e0000000000000000000000000000000000000000000000000000000060005260206000f3");
+    vm.expectRevert(
+      abi.encodeWithSelector(Recovery.InvalidSignature.selector, _wallet, address(0), _payload, _signature)
+    );
+    recovery.queuePayload(_wallet, address(0), _payload, _signature);
+  }
+
+  function test_recover_blank_leaf_fail(
+    address _wallet,
+    Payload.Decoded memory _payload,
+    uint64 _passedTime
+  ) external {
+    boundToLegalPayload(_payload);
+
+    bytes32 payloadHash = Payload.hashFor(_payload, _wallet);
+    bytes memory signature = new bytes(64);
+    try recovery.queuePayload(_wallet, address(0), _payload, signature) {
+      fail();
+    } catch { }
+
+    vm.warp(block.timestamp + _passedTime);
+
+    bytes memory encoded = abi.encodePacked(uint8(1), address(0), uint24(0), uint64(0));
+    (bool verified,) = recovery.recoverBranch(_wallet, payloadHash, encoded);
+    assertEq(verified, false);
+
+    vm.prank(_wallet);
+    vm.expectRevert(abi.encodeWithSelector(Recovery.QueueNotReady.selector, _wallet, payloadHash));
+    recovery.recoverSapientSignatureCompact(payloadHash, encoded);
+  }
+
+  function test_recover_leaf_after_queue(
+    uint256 _signerPk,
+    address _wallet,
+    Payload.Decoded memory _payload,
+    uint24 _requiredDeltaTime,
+    uint64 _startTime
+  ) external {
+    boundToLegalPayload(_payload);
+    _startTime = uint64(bound(_startTime, 1, type(uint64).max / 2));
+    vm.warp(_startTime);
+
+    _signerPk = boundPk(_signerPk);
+    address signerAddr = vm.addr(_signerPk);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(_signerPk, recovery.recoveryPayloadHash(_wallet, _payload));
+    bytes memory signature = abi.encodePacked(r, bytes32((uint256(v - 27) << 255) | uint256(s)));
+    recovery.queuePayload(_wallet, signerAddr, _payload, signature);
+
+    bytes32 payloadHash = Payload.hashFor(_payload, _wallet);
+    bytes memory encoded = abi.encodePacked(uint8(1), signerAddr, _requiredDeltaTime, _startTime);
+    bytes32 expectedRoot = keccak256(
+      abi.encodePacked("Sequence recovery leaf:\n", signerAddr, uint256(_requiredDeltaTime), uint256(_startTime))
+    );
+
+    if (_requiredDeltaTime != 0) {
+      vm.warp(block.timestamp + _requiredDeltaTime - 1);
+      vm.prank(_wallet);
+      vm.expectRevert(abi.encodeWithSelector(Recovery.QueueNotReady.selector, _wallet, payloadHash));
+      recovery.recoverSapientSignatureCompact(payloadHash, encoded);
+      vm.warp(block.timestamp + 1);
+    }
+
+    vm.prank(_wallet);
+    assertEq(recovery.recoverSapientSignatureCompact(payloadHash, encoded), expectedRoot);
   }
 
 }
