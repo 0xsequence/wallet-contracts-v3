@@ -139,7 +139,7 @@ contract GuestTest is AdvTest {
 
     decoded.calls[callIndex].to = boundNoPrecompile(decoded.calls[callIndex].to);
     address failureAddress = decoded.calls[callIndex].to;
-    bytes32 failureDataHash = keccak256(decoded.calls[callIndex].data);
+    bytes memory failureData = decoded.calls[callIndex].data;
 
     for (uint256 i = 0; i < decoded.calls.length; i++) {
       decoded.calls[i].to = boundNoPrecompile(decoded.calls[i].to);
@@ -168,7 +168,8 @@ contract GuestTest is AdvTest {
 
       if (!errorFlag && decoded.calls[i].onlyFallback) {
         emit Calls.CallSkipped(opHash, i);
-      } else if (decoded.calls[i].to == failureAddress && keccak256(decoded.calls[i].data) == failureDataHash) {
+      } else if (decoded.calls[i].to == failureAddress && hasPrefix(decoded.calls[i].data, failureData)) {
+        // mockCallRevert matches on calldata prefix, so these calls revert too
         emit Calls.CallFailed(opHash, i, revertData);
         errorFlag = true;
       } else {
@@ -180,6 +181,21 @@ contract GuestTest is AdvTest {
 
     (bool ok,) = address(guest).call(packed);
     assertTrue(ok);
+  }
+
+  function hasPrefix(
+    bytes memory data,
+    bytes memory prefix
+  ) internal pure returns (bool) {
+    if (data.length < prefix.length) {
+      return false;
+    }
+    for (uint256 i = 0; i < prefix.length; i++) {
+      if (data[i] != prefix[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   function test_callFailsWithRevertBehavior(

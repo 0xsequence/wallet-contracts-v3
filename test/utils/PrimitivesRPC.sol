@@ -77,7 +77,7 @@ library PrimitivesRPC {
       '"}'
     );
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "devTools_randomConfig", params);
-    return string(rawResponse);
+    return abi.decode(rawResponse, (string));
   }
 
   function randomSessionTopology(
@@ -99,7 +99,7 @@ library PrimitivesRPC {
       '"}'
     );
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "devTools_randomSessionTopology", params);
-    return string(rawResponse);
+    return abi.decode(rawResponse, (string));
   }
 
   // ----------------------------------------------------------------
@@ -162,7 +162,7 @@ library PrimitivesRPC {
       '"}'
     );
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "config_new", params);
-    return string(rawResponse);
+    return abi.decode(rawResponse, (string));
   }
 
   function newConfigWithCheckpointer(
@@ -184,7 +184,7 @@ library PrimitivesRPC {
       '"}'
     );
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "config_new", params);
-    return string(rawResponse);
+    return abi.decode(rawResponse, (string));
   }
 
   function toEncodedConfig(Vm _vm, string memory configJson) internal returns (bytes memory) {
@@ -259,7 +259,7 @@ library PrimitivesRPC {
   function sessionEmpty(Vm _vm, address identitySigner) internal returns (string memory) {
     string memory params = string.concat('{"identitySigner":"', _vm.toString(identitySigner), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_empty", params);
-    return string(rawResponse);
+    return abi.decode(rawResponse, (string));
   }
 
   function sessionEncodeTopology(Vm _vm, string memory topologyInput) internal returns (bytes memory) {
@@ -310,7 +310,7 @@ library PrimitivesRPC {
   ) internal returns (string memory) {
     string memory params = string.concat('{"explicitSession":', sessionInput, ',"sessionTopology":', topologyInput, "}");
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_explicit_add", params);
-    return string(rawResponse);
+    return abi.decode(rawResponse, (string));
   }
 
   function sessionExplicitRemove(
@@ -322,7 +322,7 @@ library PrimitivesRPC {
       '{"explicitSessionAddress":"', _vm.toString(explicitSessionAddress), '","sessionTopology":', topologyInput, "}"
     );
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_explicit_remove", params);
-    return string(rawResponse);
+    return abi.decode(rawResponse, (string));
   }
 
   // ----------------------------------------------------------------
@@ -337,7 +337,7 @@ library PrimitivesRPC {
     string memory params =
       string.concat('{"sessionTopology":', topologyInput, ',"blacklistAddress":"', _vm.toString(addressToAdd), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_implicit_addBlacklistAddress", params);
-    return string(rawResponse);
+    return abi.decode(rawResponse, (string));
   }
 
   function sessionImplicitRemoveBlacklistAddress(
@@ -348,7 +348,7 @@ library PrimitivesRPC {
     string memory params =
       string.concat('{"sessionTopology":', topologyInput, ',"blacklistAddress":"', _vm.toString(addressToRemove), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "session_implicit_removeBlacklistAddress", params);
-    return string(rawResponse);
+    return abi.decode(rawResponse, (string));
   }
 
   // ----------------------------------------------------------------
@@ -534,7 +534,7 @@ library PrimitivesRPC {
   function passkeysDecodeSignature(Vm _vm, bytes memory _encodedSignature) internal returns (string memory) {
     string memory params = string.concat('{"encodedSignature":"', _vm.toString(_encodedSignature), '"}');
     bytes memory rawResponse = _vm.rpc(rpcURL(_vm), "passkeys_decodeSignature", params);
-    return string(rawResponse);
+    return abi.decode(rawResponse, (string));
   }
 
   function passkeysComputeRoot(Vm _vm, PasskeyPublicKey memory _pk) internal returns (bytes32) {

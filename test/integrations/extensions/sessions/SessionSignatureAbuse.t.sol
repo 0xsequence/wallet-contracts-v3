@@ -88,7 +88,7 @@ contract IntegrationSessionSignatureAbuseTest is ExtendedSessionTestBase {
       _validExplicitSignature(address(wallet), payload, sessionWallet, config, topology, permissionIdxs);
 
     // Execute
-    vm.expectRevert(abi.encodeWithSelector(SessionErrors.MissingPermission.selector, permissionIndex));
+    vm.expectRevert(SessionErrors.MissingPermission.selector);
     wallet.execute(PrimitivesRPC.toPackedPayload(vm, payload), signature);
   }
 

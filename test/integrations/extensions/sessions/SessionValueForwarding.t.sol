@@ -125,7 +125,7 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     uint256 valueSent,
     uint256 valueCap
   ) public {
-    vm.assume(recipient.code.length == 0);
+    assumeNotPrecompile2(recipient);
     chainId = bound(chainId, 0, 2 ** 26 - 1);
     if (chainId != 0) {
       vm.chainId(chainId);
@@ -219,7 +219,7 @@ contract IntegrationSessionValueForwardingTest is ExtendedSessionTestBase {
     uint256 valueSent,
     uint256 valueCap
   ) public {
-    vm.assume(recipient.code.length == 0);
+    assumeNotPrecompile2(recipient);
     chainId = bound(chainId, 0, 2 ** 26 - 1);
     if (chainId != 0) {
       vm.chainId(chainId);
